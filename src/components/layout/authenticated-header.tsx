@@ -120,9 +120,15 @@ export default function AuthenticatedHeader() {
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [showPastFreelancersModal, setShowPastFreelancersModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const { user, logout } = useAuth();
-  const { user: walletUser } = useWallet();
+  const { user, logout, isAuthenticated } = useAuth();
+  const { user: walletUser, isConnected, connectWallet } = useWallet();
+  const supabase = createClient();
   const router = useRouter();
+
+  // Defense in depth: Don't render if not authenticated
+  if (!isAuthenticated && typeof window !== 'undefined') {
+    return null;
+  }
   const profileDropdownRef = useRef<HTMLDivElement>(null);
   const browseDropdownRef = useRef<HTMLDivElement>(null);
   const manageDropdownRef = useRef<HTMLDivElement>(null);

@@ -41,6 +41,11 @@ export async function middleware(request: NextRequest) {
     if (request.nextUrl.pathname.startsWith('/dashboard') ||
         request.nextUrl.pathname.startsWith('/profile') ||
         request.nextUrl.pathname.startsWith('/wallet') ||
+        request.nextUrl.pathname.startsWith('/contracts') ||
+        request.nextUrl.pathname.startsWith('/inbox') ||
+        request.nextUrl.pathname.startsWith('/settings') ||
+        request.nextUrl.pathname.startsWith('/lists') ||
+        request.nextUrl.pathname.startsWith('/tasklists') ||
         request.nextUrl.pathname.startsWith('/post-project')) {
         if (!user) {
             return NextResponse.redirect(new URL('/login', request.url))

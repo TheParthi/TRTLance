@@ -60,6 +60,7 @@ export default function ConditionalLayout({
     "/discover",
     "/support",
     "/search",
+    "/settings",
     "/post-project"
   ].some(route => pathname.startsWith(route));
 
