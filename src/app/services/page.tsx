@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { 
+import {
   FileText,
   Edit,
   Pause,
@@ -15,15 +15,27 @@ import {
 
 const serviceCategories = [
   "Web Development",
-  "Mobile Development", 
+  "Mobile Development",
   "Graphic Design",
   "Writing & Translation",
   "Digital Marketing",
   "Video & Animation"
 ];
 
+interface Service {
+  id: number;
+  title: string;
+  category: string;
+  description: string;
+  price: number;
+  deliveryTime: string;
+  revisions: number;
+  status: string;
+  createdAt: string;
+}
+
 export default function ServicesPage() {
-  const [services, setServices] = useState([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [newService, setNewService] = useState({
     title: "",
@@ -63,7 +75,7 @@ export default function ServicesPage() {
     }
   };
 
-  const handleServiceAction = (serviceId, action) => {
+  const handleServiceAction = (serviceId: number, action: string) => {
     setServices(prev => prev.map(service => {
       if (service.id === serviceId) {
         switch (action) {
@@ -78,7 +90,7 @@ export default function ServicesPage() {
         }
       }
       return service;
-    }).filter(Boolean));
+    }).filter((s): s is Service => s !== null));
   };
 
   return (
@@ -90,7 +102,7 @@ export default function ServicesPage() {
             <h1 className="text-3xl font-bold text-gray-900">Services</h1>
             <p className="text-gray-600 mt-2">Manage your freelance services</p>
           </div>
-          <Button 
+          <Button
             className="bg-blue-600 hover:bg-blue-700"
             onClick={() => setShowServiceModal(true)}
           >
@@ -115,7 +127,7 @@ export default function ServicesPage() {
                   <p className="text-gray-600 mb-6 leading-relaxed">
                     You will be able to view and manage your services here.
                   </p>
-                  <Button 
+                  <Button
                     className="bg-blue-600 hover:bg-blue-700"
                     onClick={() => setShowServiceModal(true)}
                   >
@@ -136,14 +148,14 @@ export default function ServicesPage() {
                         <p className="text-sm text-gray-600 mb-2">{service.category}</p>
                         <p className="text-lg font-bold text-green-600">₹{service.price}</p>
                       </div>
-                      <Badge 
+                      <Badge
                         variant={service.status === "Active" ? "default" : service.status === "Draft" ? "secondary" : "outline"}
                         className={service.status === "Active" ? "bg-green-100 text-green-800" : ""}
                       >
                         {service.status}
                       </Badge>
                     </div>
-                    
+
                     <div className="text-sm text-gray-600 mb-4">
                       <p>Delivery: {service.deliveryTime}</p>
                       <p>Revisions: {service.revisions}</p>
@@ -153,17 +165,17 @@ export default function ServicesPage() {
                       <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700">
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         className={service.status === "Active" ? "text-orange-600 hover:text-orange-700" : "text-green-600 hover:text-green-700"}
                         onClick={() => handleServiceAction(service.id, service.status === "Active" ? "pause" : "activate")}
                       >
                         {service.status === "Active" ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                       </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         className="text-red-600 hover:text-red-700"
                         onClick={() => handleServiceAction(service.id, "delete")}
                       >
@@ -274,8 +286,8 @@ export default function ServicesPage() {
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-6">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setShowServiceModal(false)}
               >
                 Cancel

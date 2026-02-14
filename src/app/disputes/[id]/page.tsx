@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, use } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,17 +29,17 @@ import { useDisputeActions } from "@/hooks/use-dispute-actions";
 import { useRouter } from "next/navigation";
 
 interface DisputeDetailsPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default function DisputeDetailsPage({ params }: DisputeDetailsPageProps) {
-  const router = useRouter();
+  const { id } = use(params);
   const [showPayPalModal, setShowPayPalModal] = useState(false);
   const [paypalConnected, setPaypalConnected] = useState(false);
   const [decisionMade, setDecisionMade] = useState(false);
   const { getDisputeById, resolveDispute, releasePayPalPayout, refundPayPalClient } = useDisputeActions();
 
-  const dispute = getDisputeById(params.id);
+  const dispute = getDisputeById(id);
 
   if (!dispute) {
     return (
@@ -171,25 +171,13 @@ export default function DisputeDetailsPage({ params }: DisputeDetailsPageProps) 
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Deterministic Verdict Boxes */}
-                    <div className={`p-4 rounded-lg border-2 flex items-start gap-3 ${dispute.aiVerdict === 'FREELANCER' ? 'bg-green-50 border-green-200' :
-                        dispute.aiVerdict === 'CLIENT' ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'
-                      }`}>
-                      <div className={`p-2 rounded-full ${dispute.aiVerdict === 'FREELANCER' ? 'bg-green-100' :
-                          dispute.aiVerdict === 'CLIENT' ? 'bg-red-100' : 'bg-blue-100'
-                        }`}>
-                        {dispute.aiVerdict === 'FREELANCER' ? <ThumbsUp className="h-4 w-4 text-green-700" /> : <ThumbsDown className="h-4 w-4 text-red-700" />}
-                      </div>
-                      <div>
-                        <p className={`font-bold text-sm ${dispute.aiVerdict === 'FREELANCER' ? 'text-green-800' :
-                            dispute.aiVerdict === 'CLIENT' ? 'text-red-800' : 'text-blue-800'
-                          }`}>
-                          FREELANCER: {dispute.aiVerdict === 'FREELANCER' ? 'CORRECT' : 'WRONG'}
-                        </p>
-                        <p className="text-xs text-gray-600 mt-1">
-                          {dispute.aiVerdict === 'FREELANCER' ? 'Evidence supports full release of funds.' : 'Evidence suggests non-compliance with requirements.'}
-                        </p>
+                  {dispute.status === 'UNDER_REVIEW' && (
+                    <div className="flex items-start gap-4 p-4 border rounded-lg bg-blue-50">
+                      <MessageCircle className="h-5 w-5 text-blue-600 mt-1" />
+                      <div className="flex-1">
+                        <p className="font-medium">AI Analysis Complete</p>
+                        <p className="text-sm text-gray-600">Evidence reviewed, recommendation generated</p>
+                        <p className="text-xs text-gray-500 mt-1">2 hours ago</p>
                       </div>
                     </div>
 

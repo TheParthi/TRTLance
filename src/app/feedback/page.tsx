@@ -3,45 +3,38 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Star, Quote } from "lucide-react";
-import Header from "@/components/layout/header";
+import { Badge } from "@/components/ui/badge";
+import {
+  MessageSquare,
+  Star,
+  Calendar
+} from "lucide-react";
 
-interface SiteReview {
-  id: string;
-  rating: number;
-  feedback: string;
-  created_at: string;
-  user: {
-    name: string;
-    avatar_url: string;
-    role: string;
-  };
-  project?: {
-    title: string;
-  };
+interface Project {
+  id: number;
+  title: string;
+  clientName: string;
+  completionDate: string;
+  amount: number;
 }
 
-export default function FeedbackPage() {
-  const [reviews, setReviews] = useState<SiteReview[]>([]);
-  const [loading, setLoading] = useState(true);
+const initialProjects: Project[] = [
+  // Empty by default - will show empty state
+];
 
-  useEffect(() => {
-    async function fetchReviews() {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("site_reviews")
-        .select(`
-          id,
-          rating,
-          feedback,
-          created_at,
-          user:users(name, avatar_url, role),
-          project:projects(title)
-        `)
-        .eq("is_public", true)
-        .order("created_at", { ascending: false })
-        .limit(20);
+export default function FeedbackPage() {
+  const [projects, setProjects] = useState<Project[]>(initialProjects);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [feedback, setFeedback] = useState({
+    rating: 5,
+    comment: ""
+  });
+
+  const handleLeaveFeedback = (project: Project) => {
+    setSelectedProject(project);
+    setShowFeedbackModal(true);
+  };
 
       if (data) {
         setReviews(data as any);
@@ -110,6 +103,12 @@ export default function FeedbackPage() {
                         )}
                       </div>
                     </div>
+                    <Button
+                      className="bg-blue-600 hover:bg-blue-700"
+                      onClick={() => handleLeaveFeedback(project)}
+                    >
+                      Leave Feedback
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -117,9 +116,60 @@ export default function FeedbackPage() {
           </div>
         )}
 
-        {!loading && reviews.length === 0 && (
-          <div className="text-center py-20">
-            <p className="text-gray-500 text-lg">No reviews yet. Be the first to share your experience!</p>
+      {/* Feedback Modal */}
+      {showFeedbackModal && selectedProject && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold mb-4">Leave Feedback</h3>
+            <div className="space-y-4">
+              <div>
+                <h4 className="font-medium text-gray-900 mb-2">{selectedProject.title}</h4>
+                <p className="text-sm text-gray-600">Client: {selectedProject.clientName}</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Rating
+                </label>
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      onClick={() => setFeedback(prev => ({ ...prev, rating: star }))}
+                      className={`p-1 ${star <= feedback.rating ? "text-yellow-500" : "text-gray-300"
+                        }`}
+                    >
+                      <Star className="h-6 w-6 fill-current" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Comment
+                </label>
+                <textarea
+                  value={feedback.comment}
+                  onChange={(e) => setFeedback(prev => ({ ...prev, comment: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={4}
+                  placeholder="Share your experience working with this client..."
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setShowFeedbackModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleSubmitFeedback}>
+                Submit Feedback
+              </Button>
+            </div>
           </div>
         )}
       </main>

@@ -6,19 +6,36 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/auth-context";
-import { 
-  Plus, 
-  Edit, 
-  Users, 
-  Trash2, 
-  CheckSquare, 
-  Square, 
+import {
+  Plus,
+  Edit,
+  Users,
+  Trash2,
+  CheckSquare,
+  Square,
   Calendar,
   User,
   ClipboardList
 } from "lucide-react";
 
-const initialTasklists = [
+interface Task {
+  id: number;
+  title: string;
+  description: string;
+  completed: boolean;
+  assignee?: { id: number; name: string; avatar: string };
+  dueDate: string;
+  createdAt: string;
+}
+
+interface Tasklist {
+  id: number;
+  name: string;
+  owner: string;
+  tasks: Task[];
+}
+
+const initialTasklists: Tasklist[] = [
   {
     id: 1,
     name: "@johndoe's tasklist",
@@ -35,7 +52,7 @@ const dummyUsers = [
 
 export default function TasklistsPage() {
   const { user } = useAuth();
-  const [tasklists, setTasklists] = useState(initialTasklists);
+  const [tasklists, setTasklists] = useState<Tasklist[]>(initialTasklists);
   const [activeTasklistId, setActiveTasklistId] = useState(1);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showTasklistModal, setShowTasklistModal] = useState(false);
@@ -61,8 +78,8 @@ export default function TasklistsPage() {
         createdAt: new Date().toISOString()
       };
 
-      setTasklists(prev => prev.map(tl => 
-        tl.id === activeTasklistId 
+      setTasklists(prev => prev.map(tl =>
+        tl.id === activeTasklistId
           ? { ...tl, tasks: [...tl.tasks, task] }
           : tl
       ));
@@ -87,17 +104,17 @@ export default function TasklistsPage() {
     }
   };
 
-  const toggleTaskComplete = (taskId) => {
-    setTasklists(prev => prev.map(tl => 
-      tl.id === activeTasklistId 
+  const toggleTaskComplete = (taskId: number) => {
+    setTasklists(prev => prev.map(tl =>
+      tl.id === activeTasklistId
         ? {
-            ...tl, 
-            tasks: tl.tasks.map(task => 
-              task.id === taskId 
-                ? { ...task, completed: !task.completed }
-                : task
-            )
-          }
+          ...tl,
+          tasks: tl.tasks.map(task =>
+            task.id === taskId
+              ? { ...task, completed: !task.completed }
+              : task
+          )
+        }
         : tl
     ));
   };
@@ -110,8 +127,8 @@ export default function TasklistsPage() {
           <div className="p-6">
             <div className="flex items-center justify-between mb-6">
               <h1 className="text-2xl font-bold text-gray-900">Tasklists</h1>
-              <Button 
-                size="sm" 
+              <Button
+                size="sm"
                 variant="ghost"
                 onClick={() => setShowTasklistModal(true)}
                 className="text-gray-600 hover:text-gray-900"
@@ -125,11 +142,10 @@ export default function TasklistsPage() {
                 <button
                   key={tasklist.id}
                   onClick={() => setActiveTasklistId(tasklist.id)}
-                  className={`w-full flex items-center gap-3 px-3 py-3 rounded-md text-left transition-colors ${
-                    activeTasklistId === tasklist.id
-                      ? "bg-blue-50 text-blue-700 border-l-4 border-blue-600"
-                      : "text-gray-700 hover:bg-gray-50"
-                  }`}
+                  className={`w-full flex items-center gap-3 px-3 py-3 rounded-md text-left transition-colors ${activeTasklistId === tasklist.id
+                    ? "bg-blue-50 text-blue-700 border-l-4 border-blue-600"
+                    : "text-gray-700 hover:bg-gray-50"
+                    }`}
                 >
                   <ClipboardList className="h-4 w-4" />
                   <span className="font-medium">{tasklist.name}</span>
@@ -154,9 +170,9 @@ export default function TasklistsPage() {
                     <Button variant="ghost" size="sm" className="text-gray-600 hover:text-gray-900">
                       <Users className="h-4 w-4" />
                     </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       className="text-gray-600 hover:text-gray-900"
                       onClick={() => setShowTaskModal(true)}
                     >
@@ -180,7 +196,7 @@ export default function TasklistsPage() {
                   <p className="text-gray-600 text-center mb-8 max-w-md">
                     Create tasks and assign them to people to help keep your team on track.
                   </p>
-                  <Button 
+                  <Button
                     className="bg-blue-600 hover:bg-blue-700"
                     onClick={() => setShowTaskModal(true)}
                   >
@@ -204,7 +220,7 @@ export default function TasklistsPage() {
                               <Square className="h-5 w-5" />
                             )}
                           </button>
-                          
+
                           <div className="flex-1">
                             <h4 className={`font-medium ${task.completed ? 'line-through text-gray-500' : 'text-gray-900'}`}>
                               {task.title}
@@ -306,8 +322,8 @@ export default function TasklistsPage() {
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-6">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setShowTaskModal(false)}
               >
                 Cancel
@@ -340,8 +356,8 @@ export default function TasklistsPage() {
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-6">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setShowTasklistModal(false)}
               >
                 Cancel

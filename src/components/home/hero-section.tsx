@@ -1,92 +1,135 @@
-import { Button } from "@/components/ui/button";
-import { CheckCircle, Star } from "lucide-react";
-import Image from "next/image";
-import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+"use client";
 
-const bulletPoints = [
-  "World’s largest freelance marketplace",
-  "Any job you can possibly think of",
-  "Save up to 90% & get quotes for free",
-  "Pay only when you’re 100% happy",
-];
+import Link from "next/link";
+import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { Check, ArrowRight, PlayCircle } from "lucide-react";
+import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 export default function HeroSection() {
-  const heroIllustration = PlaceHolderImages.find(
-    (img) => img.id === "hero-illustration"
-  );
-  const freelancerAvatar = PlaceHolderImages.find(
-    (img) => img.id === "freelancer-1"
-  );
+  const heroImage = PlaceHolderImages.find(img => img.id === 'hero-mockup') || {
+    id: 'hero-mockup',
+    imageUrl: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=800&q=80',
+    description: 'Team working together',
+    imageHint: 'A group of diverse professionals working together on laptops in a modern office, representing collaboration and freelance talent.'
+  };
+
+  const benefits = [
+    "World's largest freelance marketplace",
+    "Any job you can possibly think of",
+    "Save up to 90% & get quotes for free",
+    "Pay only when you're 100% happy"
+  ];
 
   return (
-    <section className="w-full py-12 md:py-24 lg:py-32 xl:py-40">
-      <div className="container px-4 md:px-6">
-        <div className="grid gap-6 lg:grid-cols-2 lg:gap-16">
-          <div className="flex flex-col justify-center space-y-6">
-            <h1 className="text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl xl:text-7xl/none font-headline">
-              Hire the best freelancers for any job, online.
+    <section className="relative w-full overflow-hidden bg-white">
+      {/* Abstract Background Shapes */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+        <div className="absolute -top-[10%] -left-[10%] w-[50%] h-[50%] bg-[#4F46E5]/5 rounded-full blur-3xl" />
+        <div className="absolute top-[20%] -right-[10%] w-[40%] h-[60%] bg-[#9333ea]/5 rounded-full blur-3xl rotate-12" />
+        <div className="absolute -bottom-[20%] left-[20%] w-[60%] h-[40%] bg-blue-100/30 rounded-full blur-3xl" />
+      </div>
+
+      <div className="mx-auto max-w-[1440px] px-6 lg:px-[100px] py-16 lg:py-24 relative z-10">
+        <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+          {/* Left Column: Content */}
+          <div className="flex flex-col space-y-8 max-w-2xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 w-fit border border-blue-100">
+              <span className="flex h-2 w-2 rounded-full bg-[#4F46E5]"></span>
+              <span className="text-xs font-medium text-[#4F46E5] tracking-wide uppercase">Trusted by 60M+ Users</span>
+            </div>
+
+            <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight text-[#0F172A] leading-[1.1]">
+              Hire the best <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#4F46E5] to-[#9333ea]">freelancers</span> <br />
+              for any job.
             </h1>
-            <ul className="grid gap-2">
-              {bulletPoints.map((point) => (
-                <li key={point} className="flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-primary" />
-                  <span className="text-muted-foreground">{point}</span>
-                </li>
-              ))}
-            </ul>
-            <div className="flex flex-col gap-2 min-[400px]:flex-row">
-              <Button size="lg">Hire a Freelancer</Button>
-              <Button size="lg" variant="outline">
-                Earn Money Freelancing
+
+            <p className="text-xl text-gray-500 leading-relaxed max-w-lg">
+              Millions of people use TrustLance to turn their ideas into reality. Find professionals you can trust.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-4 pt-2">
+              <Button
+                asChild
+                size="lg"
+                className="bg-[#4F46E5] hover:bg-[#4338ca] text-white text-lg font-semibold px-8 py-7 h-auto rounded-xl shadow-lg shadow-blue-600/20 hover:shadow-blue-600/30 transition-all hover:-translate-y-1"
+              >
+                <Link href="/post-project" className="flex items-center gap-2">
+                  Hire a Freelancer
+                  <ArrowRight className="h-5 w-5" />
+                </Link>
+              </Button>
+              <Button
+                asChild
+                variant="outline"
+                size="lg"
+                className="border-2 border-gray-200 text-gray-700 hover:border-[#4F46E5] hover:text-[#4F46E5] hover:bg-blue-50 text-lg font-semibold px-8 py-7 h-auto rounded-xl transition-all"
+              >
+                <Link href="/find-jobs" className="flex items-center gap-2">
+                  <PlayCircle className="h-5 w-5" />
+                  Earn Money
+                </Link>
               </Button>
             </div>
+
+            <div className="pt-8 border-t border-gray-100 grid grid-cols-2 gap-6">
+              <div className="flex flex-col">
+                <span className="text-3xl font-bold text-gray-900">4.9/5</span>
+                <span className="text-sm text-gray-500">Clients rate professionals</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-3xl font-bold text-gray-900">Award</span>
+                <span className="text-sm text-gray-500">Winner of G2 2024</span>
+              </div>
+            </div>
           </div>
-          <div className="relative hidden lg:flex items-center justify-center">
-            {heroIllustration && (
+
+          {/* Right Column: Visual */}
+          <div className="relative hidden lg:block">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-gradient-to-br from-[#4F46E5]/10 to-[#9333ea]/10 rounded-full blur-3xl -z-10" />
+
+            <div className="relative w-full aspect-[4/3] rounded-3xl overflow-hidden shadow-2xl border-4 border-white transform hover:scale-[1.01] transition-transform duration-700">
               <Image
-                src={heroIllustration.imageUrl}
-                alt={heroIllustration.description}
-                width={600}
-                height={500}
-                className="rounded-lg shadow-2xl"
-                data-ai-hint={heroIllustration.imageHint}
+                src={heroImage.imageUrl}
+                alt={heroImage.description}
+                fill
+                className="object-cover"
+                priority
+                sizes="(max-width: 768px) 100vw, 50vw"
               />
-            )}
-            <Card className="absolute -bottom-8 -left-12 w-64 shadow-xl animate-fade-in-up">
-              <CardContent className="p-4 flex items-center gap-4">
-                {freelancerAvatar && (
-                  <Avatar>
-                    <AvatarImage
-                      src={freelancerAvatar.imageUrl}
-                      alt="Freelancer"
-                      data-ai-hint={freelancerAvatar.imageHint}
-                    />
-                    <AvatarFallback>AV</AvatarFallback>
-                  </Avatar>
-                )}
+
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+
+              {/* Floating Badge 1 (New Design) */}
+              <div className="absolute top-10 -left-6 bg-white p-4 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-100 flex items-center gap-4 animate-in fade-in slide-in-from-left-4 duration-1000">
+                <div className="h-12 w-12 bg-green-50 rounded-full flex items-center justify-center text-green-600 border border-green-100">
+                  <Check className="h-6 w-6 stroke-[3px]" />
+                </div>
                 <div>
-                  <p className="font-semibold">Top Developer</p>
-                  <div className="flex items-center gap-0.5">
-                    {[...Array(5)].map((_, i) => (
-                      <Star
-                        key={i}
-                        className="h-4 w-4 fill-primary text-primary"
-                      />
-                    ))}
+                  <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Success</p>
+                  <p className="text-base font-bold text-gray-900">Project Completed</p>
+                </div>
+              </div>
+
+              {/* Floating Badge 2 (New Design) */}
+              <div className="absolute bottom-10 -right-6 bg-white p-5 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-100 max-w-xs animate-in fade-in slide-in-from-right-4 duration-1000 delay-300">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-bold text-gray-900">Talent Quality</span>
+                  <div className="flex gap-0.5">
+                    {[1, 2, 3, 4, 5].map(i => <span key={i} className="text-yellow-400 text-xs">★</span>)}
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-            <Card className="absolute -top-12 -right-16 w-72 shadow-xl animate-fade-in-down">
-              <CardContent className="p-4 space-y-2">
-                <p className="font-semibold">"Excellent work!"</p>
-                <p className="text-sm text-muted-foreground">
-                  Amazed by the quality and speed. Will definitely hire again.
-                </p>
-              </CardContent>
-            </Card>
+                <div className="flex items-center gap-3">
+                  <div className="flex -space-x-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="h-9 w-9 rounded-full border-2 border-white bg-gray-200" />
+                    ))}
+                    <div className="h-9 w-9 rounded-full border-2 border-white bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600">+2k</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

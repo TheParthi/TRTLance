@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, use } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,16 +16,16 @@ import {
 import { useChat } from '@/contexts/chat-context';
 
 interface ProjectPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default function ProjectPage({ params }: ProjectPageProps) {
-  const { openChat } = useChat();
+  const { id } = use(params);
   const [projectCreated, setProjectCreated] = useState(false);
 
   // Mock project data
   const project = {
-    id: params.id,
+    id: id,
     title: "E-commerce Website Development",
     description: "Build a modern e-commerce platform with React and Node.js",
     budget: 2500,
@@ -47,7 +47,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     // Simulate project creation process
     setTimeout(() => {
       // Redirect to workspace
-      window.location.href = `/projects/${params.id}/workspace`;
+      window.location.href = `/projects/${id}/workspace`;
     }, 2000);
   };
 

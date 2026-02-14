@@ -54,8 +54,50 @@ export async function POST(
             .update({ locked_amount: newLockedAmount })
             .eq('id', contractId);
 
-        // TODO: Call smart contract to release funds
-        // await releaseEscrowFunds(contract.smart_contract_address, milestoneIndex);
+        // TRANSFER TOKENS TO FREELANCER
+        const freelancerId = contract.freelancer_id;
+
+        // 1. Get Freelancer Wallet
+        const { data: flWallet } = await supabase
+            .from('user_wallets')
+            .select('token_balance')
+            .eq('user_id', freelancerId)
+            .single();
+
+        // If no wallet (should exist), create or handle error. 
+        // We assume handle_new_user_wallet trigger created it, or we create now.
+        let currentFlBalance = 0;
+        if (flWallet) {
+            currentFlBalance = flWallet.token_balance;
+        } else {
+            await supabase.from('user_wallets').insert({ user_id: freelancerId, token_balance: 0 });
+        }
+
+        // 2. Credit Freelancer
+        await supabase
+            .from('user_wallets')
+            .update({ token_balance: currentFlBalance + releaseAmount })
+            .eq('user_id', freelancerId);
+
+        // 3. Record Transaction
+        await supabase.from('token_transactions').insert({
+            user_id: freelancerId,
+            type: 'RECEIVE',
+            tokens: releaseAmount,
+            amount_inr: releaseAmount * 10,
+            status: 'SUCCESS',
+            description: `Milestone Payment: ${contract.project?.title || 'Project'}`,
+            payment_ref: `MST_${contractId}_${milestoneIndex}`
+        });
+
+        // 4. Notify Freelancer
+        await supabase.from('notifications').insert({
+            user_id: freelancerId,
+            title: 'Payment Received',
+            message: `You received ${releaseAmount} tokens for milestone completion.`,
+            type: 'payment',
+            link: `/profile/wallet`
+        });
 
         // Create Transaction Record (Credit to Freelancer)
         const { error: txnError } = await supabase
@@ -91,7 +133,7 @@ export async function POST(
             success: true,
             released_amount: releaseAmount,
             remaining_locked: newLockedAmount,
-            message: `$${releaseAmount} released to freelancer`
+            message: `$${releaseAmount} released to freelancer wallet`
         });
     } catch (error: any) {
         console.error('Error releasing funds:', error);

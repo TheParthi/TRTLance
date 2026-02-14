@@ -49,6 +49,16 @@ const clientDisputeTypes = [
   { value: 'refund_not_processed', label: 'Refund not processed' }
 ];
 
+interface AiAnalysis {
+  riskScore: number;
+  likelyFault: string;
+  faultPercentage: number;
+  suggestedResolution: string;
+  confidence: string;
+  similarCases: number;
+  estimatedResolution: string;
+}
+
 export default function NewDisputePage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
@@ -60,14 +70,7 @@ export default function NewDisputePage() {
     description: '',
     attachments: []
   });
-  const [aiAnalysis, setAiAnalysis] = useState<{
-    riskScore: number;
-    likelyFault: string;
-    faultPercentage: number;
-    explanation: string;
-    verdict: 'freelancer' | 'client' | 'partial';
-    confidence: string;
-  } | null>(null);
+  const [aiAnalysis, setAiAnalysis] = useState<AiAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [userDecision, setUserDecision] = useState<'accept' | 'appeal' | null>(null);
 
@@ -322,74 +325,25 @@ export default function NewDisputePage() {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Freelancer Box */}
-                      <div className={`p-4 rounded-xl border-2 flex items-start gap-3 ${aiAnalysis.verdict === 'client' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
-                        }`}>
-                        <div className={`p-2 rounded-full ${aiAnalysis.verdict === 'client' ? 'bg-green-100' : 'bg-red-100'
-                          }`}>
-                          {aiAnalysis.verdict === 'client' ? <ThumbsUp className="h-4 w-4 text-green-700" /> : <ThumbsDown className="h-4 w-4 text-red-700" />}
-                        </div>
-                        <div>
-                          <p className={`font-bold text-sm ${aiAnalysis.verdict === 'client' ? 'text-green-800' : 'text-red-800'
-                            }`}>
-                            FREELANCER: {aiAnalysis.verdict === 'client' ? 'CORRECT' : 'WRONG'}
-                          </p>
-                          <p className="text-[11px] text-gray-600 mt-1 uppercase tracking-tight font-medium">
-                            {aiAnalysis.verdict === 'client' ? 'High evidence of compliance' : 'Low evidence of compliance'}
-                          </p>
-                        </div>
-                      </div>
+                      <Card>
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-gray-600">Risk Score</span>
+                            <Badge variant={aiAnalysis.riskScore > 70 ? 'destructive' : aiAnalysis.riskScore > 40 ? 'default' : 'secondary'}>
+                              {aiAnalysis.riskScore}/100
+                            </Badge>
+                          </div>
+                        </CardContent>
+                      </Card>
 
-                      {/* Client Box */}
-                      <div className={`p-4 rounded-xl border-2 flex items-start gap-3 ${aiAnalysis.verdict === 'freelancer' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
-                        }`}>
-                        <div className={`p-2 rounded-full ${aiAnalysis.verdict === 'freelancer' ? 'bg-green-100' : 'bg-red-100'
-                          }`}>
-                          {aiAnalysis.verdict === 'freelancer' ? <ThumbsUp className="h-4 w-4 text-green-700" /> : <ThumbsDown className="h-4 w-4 text-red-700" />}
-                        </div>
-                        <div>
-                          <p className={`font-bold text-sm ${aiAnalysis.verdict === 'freelancer' ? 'text-green-800' : 'text-red-800'
-                            }`}>
-                            CLIENT: {aiAnalysis.verdict === 'freelancer' ? 'CORRECT' : 'WRONG'}
-                          </p>
-                          <p className="text-[11px] text-gray-600 mt-1 uppercase tracking-tight font-medium">
-                            {aiAnalysis.verdict === 'freelancer' ? 'High evidence of compliance' : 'Low evidence of compliance'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 text-center">
-                      <h3 className="font-bold text-lg mb-2">Final Decision for Step 5</h3>
-                      <p className="text-sm text-gray-600 mb-6 font-medium">
-                        Are you accepting this solution by the AI or appealing for the higher level admins to analyze?
-                      </p>
-
-                      <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <Button
-                          variant={userDecision === 'accept' ? 'default' : 'outline'}
-                          className={`px-8 h-12 ${userDecision === 'accept' ? 'bg-green-600 hover:bg-green-700' : 'border-green-200 text-green-700 hover:bg-green-50'}`}
-                          onClick={() => setUserDecision('accept')}
-                        >
-                          {userDecision === 'accept' ? <Check className="h-4 w-4 mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
-                          Accept Solution
-                        </Button>
-                        <Button
-                          variant={userDecision === 'appeal' ? 'destructive' : 'outline'}
-                          className={`px-8 h-12 ${userDecision === 'appeal' ? '' : 'border-red-200 text-red-700 hover:bg-red-50'}`}
-                          onClick={() => setUserDecision('appeal')}
-                        >
-                          <Scale className="h-4 w-4 mr-2" />
-                          Appeal (Higher Level)
-                        </Button>
-                      </div>
-
-                      {userDecision === 'appeal' && (
-                        <p className="text-xs text-red-600 mt-4 flex items-center justify-center gap-1 font-medium italic">
-                          <AlertTriangle className="h-3 w-3" />
-                          Case will be sent to the Resolution Gigs Dashboard for manual review.
-                        </p>
-                      )}
+                      <Card>
+                        <CardContent className="p-4">
+                          <div className="text-sm font-medium text-gray-600 mb-2">Likely Fault</div>
+                          <div className="text-lg font-semibold text-gray-900 capitalize">
+                            {aiAnalysis.likelyFault} ({aiAnalysis.faultPercentage}%)
+                          </div>
+                        </CardContent>
+                      </Card>
                     </div>
                   </div>
                 )}

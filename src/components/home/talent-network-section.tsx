@@ -1,121 +1,100 @@
+"use client";
+
 import Image from "next/image";
-import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { Card, CardContent } from "@/components/ui/card";
-import {
-  FileText,
-  Users,
-  ShieldCheck,
-  LifeBuoy,
-  Star,
-} from "lucide-react";
+import { Star } from "lucide-react";
 
-const steps = [
-  {
-    icon: <FileText className="h-8 w-8 text-primary" />,
-    title: "Post your job",
-    description: "It's free and easy to post a job. Simply fill in a title, description.",
-  },
-  {
-    icon: <Users className="h-8 w-8 text-primary" />,
-    title: "Choose freelancers",
-    description: "No job is too big or too small. We've got freelancers for jobs of any size.",
-  },
-  {
-    icon: <ShieldCheck className="h-8 w-8 text-primary" />,
-    title: "Pay safely",
-    description: "Only pay when you are 100% happy with the work. Our payment system is secure.",
-  },
-  {
-    icon: <LifeBuoy className="h-8 w-8 text-primary" />,
-    title: "We’re here to help",
-    description: "Our support team is available 24/7 to help you with any issues.",
-  },
-];
+interface ProfileCardProps {
+  name: string;
+  profession: string;
+  rating: number;
+  image: string;
+  position: string;
+  delay: string;
+}
 
-const freelancers = [
-  { id: "freelancer-1", name: "Sarah K.", role: "UI/UX Designer", location: "USA" },
-  { id: "freelancer-2", name: "Miguel R.", role: "Full-Stack Dev", location: "Spain" },
-  { id: "freelancer-3", name: "Priya S.", role: "Illustrator", location: "India" },
-  { id: "freelancer-4", name: "Chen W.", role: "Data Scientist", location: "China" },
-];
+const ProfileCard = ({ name, profession, rating, image, position, delay }: ProfileCardProps) => (
+  <div
+    className={`absolute ${position} ${delay} bg-white/80 backdrop-blur-md p-4 rounded-xl shadow-lg border border-white/50 flex items-center gap-4 transition-transform hover:scale-105 hover:z-10`}
+  >
+    <div className="relative h-12 w-12 rounded-full overflow-hidden border-2 border-white shadow-sm">
+      <Image
+        src={image}
+        alt={name}
+        fill
+        className="object-cover"
+        sizes="48px"
+      />
+    </div>
+    <div>
+      <h4 className="font-semibold text-gray-900 text-sm">{name}</h4>
+      <p className="text-xs text-gray-600 mb-1">{profession}</p>
+      <div className="flex items-center gap-1">
+        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+        <span className="text-xs font-medium text-gray-700">{rating.toFixed(1)}</span>
+      </div>
+    </div>
+  </div>
+);
 
 export default function TalentNetworkSection() {
-  const mapImage = PlaceHolderImages.find((img) => img.id === "talent-map");
+  const talents = [
+    {
+      name: "Sarah Jenkins",
+      profession: "UX/UI Designer",
+      rating: 5.0,
+      image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=100&q=80",
+      position: "top-[10%] left-[10%] hidden lg:flex",
+      delay: "animate-float"
+    },
+    {
+      name: "Michael Chen",
+      profession: "Full Stack Dev",
+      rating: 4.9,
+      image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80",
+      position: "top-[20%] right-[15%] hidden lg:flex",
+      delay: "animate-float-delayed"
+    },
+    {
+      name: "Elena Rodriguez",
+      profession: "Content Writer",
+      rating: 4.8,
+      image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=100&q=80",
+      position: "bottom-[20%] left-[15%] hidden lg:flex",
+      delay: "animate-float"
+    },
+    {
+      name: "David Kim",
+      profession: "Mobile Developer",
+      rating: 5.0,
+      image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=100&q=80",
+      position: "bottom-[15%] right-[10%] hidden lg:flex",
+      delay: "animate-float-delayed"
+    }
+  ];
 
   return (
-    <section className="w-full py-12 md:py-24 lg:py-32">
-      <div className="container px-4 md:px-6">
-        <div className="flex flex-col items-center justify-center space-y-4 text-center mb-12">
-          <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl">
-            Tap into a global talent network
-          </h2>
-          <p className="max-w-[900px] text-muted-foreground md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-            Our platform connects you with skilled professionals from over 247
-            countries, regions, and territories.
-          </p>
-        </div>
+    <section className="relative py-24 bg-[#F0F5FF] overflow-hidden">
+      {/* Background Map/Pattern */}
+      <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "url('https://upload.wikimedia.org/wikipedia/commons/thumb/e/ec/World_map_blank_without_borders.svg/2000px-World_map_blank_without_borders.svg.png')", backgroundRepeat: "no-repeat", backgroundPosition: "center", backgroundSize: "contain" }}></div>
 
-        <div className="relative">
-          {mapImage && (
-            <Image
-              src={mapImage.imageUrl}
-              alt={mapImage.description}
-              width={1200}
-              height={600}
-              className="rounded-lg object-cover opacity-20 w-full h-auto"
-              data-ai-hint={mapImage.imageHint}
-            />
-          )}
-          <div className="absolute inset-0 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 p-8">
-            {steps.map((step) => (
-              <div key={step.title} className="flex flex-col items-center text-center">
-                <div className="mb-4 rounded-full bg-primary/10 p-4">
-                  {step.icon}
-                </div>
-                <h3 className="text-xl font-bold">{step.title}</h3>
-                <p className="text-muted-foreground">{step.description}</p>
-              </div>
-            ))}
+      <div className="relative mx-auto max-w-[1440px] px-6 lg:px-[100px] text-center z-10">
+        <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
+          Tap into a global talent network
+        </h2>
+        <p className="text-lg text-gray-600 max-w-2xl mx-auto mb-12">
+          Our platform connects you with skilled professionals from over 247 countries, ready to bring your ideas to life.
+        </p>
+
+        {/* This div acts as the visual container for the floating cards regarding height */}
+        <div className="h-[400px] w-full relative max-w-4xl mx-auto border border-dashed border-blue-200 rounded-3xl bg-white/30 backdrop-blur-sm flex items-center justify-center">
+          <div className="text-center p-8">
+            <span className="text-6xl font-black text-blue-100 block mb-2">60M+</span>
+            <span className="text-xl text-blue-900 font-medium">Professionals Worldwide</span>
           </div>
 
-          {/* Floating freelancer cards */}
-          {freelancers.map((freelancer, index) => {
-            const avatar = PlaceHolderImages.find((img) => img.id === freelancer.id);
-            const positions = [
-              "top-1/4 left-[15%]",
-              "top-1/2 left-[35%]",
-              "top-[10%] left-[60%]",
-              "top-2/3 left-[80%]",
-            ];
-            return (
-              <Card key={freelancer.id} className={`absolute w-52 shadow-lg hidden md:block ${positions[index]}`}>
-                <CardContent className="p-3">
-                  <div className="flex items-center gap-3">
-                    {avatar && (
-                      <Image
-                        src={avatar.imageUrl}
-                        alt={freelancer.name}
-                        width={48}
-                        height={48}
-                        className="rounded-full"
-                        data-ai-hint={avatar.imageHint}
-                      />
-                    )}
-                    <div>
-                      <p className="font-semibold">{freelancer.name}</p>
-                      <p className="text-xs text-muted-foreground">{freelancer.role}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-0.5 mt-2">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="h-3 w-3 fill-primary text-primary" />
-                    ))}
-                    <span className="text-xs text-muted-foreground ml-1">(4.9)</span>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+          {talents.map((talent, index) => (
+            <ProfileCard key={index} {...talent} />
+          ))}
         </div>
       </div>
     </section>

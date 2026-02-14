@@ -18,7 +18,7 @@ module.exports = {
       url: process.env.POLYGON_AMOY_RPC || "https://rpc-amoy.polygon.technology",
       accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
       chainId: 80002,
-      gasPrice: 35000000000 // 35 gwei
+      gasPrice: 25000000000 // 25 gwei
     },
     // Ethereum Sepolia Testnet
     sepolia: {

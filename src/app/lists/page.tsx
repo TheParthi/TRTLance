@@ -5,19 +5,37 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { 
-  Plus, 
-  Heart, 
-  Users, 
-  Eye, 
-  Bookmark, 
-  Lock, 
-  Globe, 
+import {
+  Plus,
+  Heart,
+  Users,
+  Eye,
+  Bookmark,
+  Lock,
+  Globe,
   Star,
   UserPlus
 } from "lucide-react";
 
-const initialLists = [
+interface ListItem {
+  id: number;
+  name: string;
+  avatar?: string;
+  rating?: number;
+  skills?: string;
+  icon?: React.ReactNode;
+}
+
+interface List {
+  id: number;
+  name: string;
+  type: string;
+  visibility: string;
+  items: ListItem[];
+  category: string;
+}
+
+const initialLists: List[] = [
   {
     id: 1,
     name: "Favorites",
@@ -29,7 +47,7 @@ const initialLists = [
   {
     id: 2,
     name: "My Hires",
-    type: "users", 
+    type: "users",
     visibility: "private",
     items: [],
     category: "users"
@@ -38,7 +56,7 @@ const initialLists = [
     id: 3,
     name: "Recently Viewed",
     type: "users",
-    visibility: "private", 
+    visibility: "private",
     items: [],
     category: "users"
   },
@@ -63,7 +81,7 @@ const sidebarCategories = [
     ]
   },
   {
-    title: "Group Posts", 
+    title: "Group Posts",
     icon: <Users className="h-4 w-4" />,
     items: [
       { id: 4, name: "Bookmarks", icon: <Bookmark className="h-4 w-4" /> }
@@ -72,7 +90,7 @@ const sidebarCategories = [
 ];
 
 export default function ListsPage() {
-  const [lists, setLists] = useState(initialLists);
+  const [lists, setLists] = useState<List[]>(initialLists);
   const [activeListId, setActiveListId] = useState(1);
   const [showNewListModal, setShowNewListModal] = useState(false);
   const [newListName, setNewListName] = useState("");
@@ -104,8 +122,8 @@ export default function ListsPage() {
           <div className="p-6">
             <div className="flex items-center justify-between mb-6">
               <h1 className="text-2xl font-bold text-gray-900">Lists</h1>
-              <Button 
-                size="sm" 
+              <Button
+                size="sm"
                 onClick={() => setShowNewListModal(true)}
                 className="bg-blue-600 hover:bg-blue-700"
               >
@@ -126,11 +144,10 @@ export default function ListsPage() {
                       <button
                         key={item.id}
                         onClick={() => setActiveListId(item.id)}
-                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left transition-colors ${
-                          activeListId === item.id
+                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left transition-colors ${activeListId === item.id
                             ? "bg-blue-50 text-blue-700 border-l-4 border-blue-600"
                             : "text-gray-600 hover:bg-gray-50"
-                        }`}
+                          }`}
                       >
                         {item.icon}
                         <span className="font-medium">{item.name}</span>
@@ -256,8 +273,8 @@ export default function ListsPage() {
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-6">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setShowNewListModal(false)}
               >
                 Cancel
