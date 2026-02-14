@@ -1,4 +1,4 @@
-# 🔑 How to Get Your MetaMask Private Key
+# 🔑 How to Get Your MetaMask Private Key TrustLance
 
 ## ⚠️ IMPORTANT SECURITY WARNING
 Your private key gives FULL ACCESS to your wallet. Never share it with anyone!
