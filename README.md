@@ -1,4 +1,4 @@
-# 🚀 TrustLance – Trust-First Freelance Marketplace
+# 🚀 TrustLance – Trust_First Freelance Marketplace
 
 TrustLance is a **trust-driven freelance marketplace** that focuses on **secure payments, verified identities, and transparent communication**.  
 Instead of ratings and platform-controlled mediation, TrustLance uses **milestones, escrow-style payments, wallet-based identity, and encrypted messaging** to build trust between clients and freelancers.
