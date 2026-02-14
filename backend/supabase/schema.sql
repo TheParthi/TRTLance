@@ -339,168 +339,73 @@ CREATE TRIGGER update_contracts_updated_at
   BEFORE UPDATE ON contracts
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
+
 -- ============================================
--- DEMO DATA
+-- 15. TOKEN WALLET SYSTEM (NEW)
 -- ============================================
 
--- Demo Users
-INSERT INTO users (email, name, username, role, bio, location, rating, total_reviews, jobs_completed, success_rate, balance) VALUES
-('john.client@demo.com', 'John Smith', 'johnsmith', 'client', 'Tech startup founder looking for talented developers', 'San Francisco, USA', 4.8, 25, 12, 95.5, 5000),
-('sarah.freelancer@demo.com', 'Sarah Chen', 'sarahchen', 'freelancer', 'Full-stack developer with 5 years experience', 'Mumbai, India', 4.9, 48, 45, 97.2, 2450),
-('mike.freelancer@demo.com', 'Mike Rodriguez', 'mikero', 'freelancer', 'UI/UX designer specializing in modern web apps', 'Barcelona, Spain', 4.7, 32, 28, 94.0, 1800),
-('priya.both@demo.com', 'Priya Sharma', 'priyasharma', 'both', 'Entrepreneur and developer', 'Bangalore, India', 4.6, 15, 10, 92.0, 3200);
+-- Create user_wallets table
+CREATE TABLE IF NOT EXISTS user_wallets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_balance INTEGER DEFAULT 0 CHECK (token_balance >= 0),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id)
+);
 
--- Demo Projects
-INSERT INTO projects (client_id, title, description, category, subcategory, budget_type, budget_range, budget_min, budget_max, duration, experience_level, skills, status, tags) VALUES
-((SELECT id FROM users WHERE email = 'john.client@demo.com'), 
- 'Build a responsive e-commerce website', 
- 'I need a modern e-commerce website built with responsive design. The site should include product catalog, shopping cart, payment integration, and admin panel.',
- 'development',
- 'Web Development',
- 'fixed',
- '1000-5000',
- 1000,
- 5000,
- '1-3 months',
- 'intermediate',
- ARRAY['React', 'Node.js', 'MongoDB', 'Stripe'],
- 'open',
- ARRAY['FEATURED', 'URGENT']),
+-- Create token_transactions table
+CREATE TABLE IF NOT EXISTS token_transactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type TEXT NOT NULL CHECK (type IN ('BUY', 'SPEND', 'RECEIVE', 'REDEEM')),
+  tokens INTEGER NOT NULL,
+  amount_inr DECIMAL(12, 2),
+  status TEXT DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'SUCCESS', 'FAILED')),
+  payment_ref TEXT,
+  description TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-((SELECT id FROM users WHERE email = 'john.client@demo.com'),
- 'Mobile app UI/UX design',
- 'Looking for an experienced designer to create modern, intuitive mobile app interfaces for iOS and Android.',
- 'design',
- 'UI/UX Design',
- 'fixed',
- '500-1000',
- 500,
- 1000,
- '1-4 weeks',
- 'expert',
- ARRAY['Figma', 'Adobe XD', 'Mobile Design'],
- 'open',
- ARRAY['SEALED', 'NDA']),
+-- Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_user_wallets_user_id ON user_wallets(user_id);
+CREATE INDEX IF NOT EXISTS idx_token_transactions_user_id ON token_transactions(user_id);
+CREATE INDEX IF NOT EXISTS idx_token_transactions_type ON token_transactions(type);
 
-((SELECT id FROM users WHERE email = 'priya.both@demo.com'),
- 'Content writing for tech blog',
- 'Need high-quality blog content for technology website. 10 articles, 1500+ words each.',
- 'content',
- 'Writing & Translation',
- 'fixed',
- 'under-500',
- 100,
- 500,
- 'less-1-week',
- 'intermediate',
- ARRAY['Content Writing', 'SEO', 'Tech Writing'],
- 'in_progress',
- ARRAY['URGENT']);
+-- RLS Policies
+ALTER TABLE user_wallets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE token_transactions ENABLE ROW LEVEL SECURITY;
 
--- Demo Proposals
-INSERT INTO proposals (project_id, freelancer_id, cover_letter, proposed_budget, estimated_duration, status) VALUES
-((SELECT id FROM projects WHERE title = 'Build a responsive e-commerce website'),
- (SELECT id FROM users WHERE email = 'sarah.freelancer@demo.com'),
- 'Hello! I have 5+ years of experience building e-commerce platforms. I can deliver a fully responsive website with all requested features. My portfolio includes similar projects.',
- 3500,
- '2 months',
- 'pending'),
+-- Policy for user_wallets: Users can view their own wallet
+CREATE POLICY "Users can view own wallet" ON user_wallets
+  FOR SELECT USING (auth.uid() = user_id);
 
-((SELECT id FROM projects WHERE title = 'Mobile app UI/UX design'),
- (SELECT id FROM users WHERE email = 'mike.freelancer@demo.com'),
- 'I specialize in mobile app design with modern UI/UX principles. I can create pixel-perfect designs for both iOS and Android.',
- 800,
- '3 weeks',
- 'accepted');
+-- Policy for token_transactions: Users can view their own transactions
+CREATE POLICY "Users can view own transactions" ON token_transactions
+  FOR SELECT USING (auth.uid() = user_id);
 
--- Demo Services
-INSERT INTO services (freelancer_id, title, category, description, price, delivery_time, revisions, status) VALUES
-((SELECT id FROM users WHERE email = 'sarah.freelancer@demo.com'),
- 'Full-Stack Web Development',
- 'Web Development',
- 'I will build a responsive web application using React and Node.js',
- 2500,
- '14 days',
- 3,
- 'active'),
+-- Trigger to update updated_at for user_wallets
+CREATE TRIGGER update_user_wallets_updated_at
+  BEFORE UPDATE ON user_wallets
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
-((SELECT id FROM users WHERE email = 'mike.freelancer@demo.com'),
- 'Modern UI/UX Design',
- 'Graphic Design',
- 'Professional UI/UX design for web and mobile applications',
- 1200,
- '7 days',
- 5,
- 'active');
+-- Function to handle new user wallet creation
+CREATE OR REPLACE FUNCTION public.handle_new_user_wallet()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.user_wallets (user_id, token_balance)
+  VALUES (NEW.id, 0);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Demo Transactions
-INSERT INTO transactions (user_id, amount, type, category, description, status, payment_method) VALUES
-((SELECT id FROM users WHERE email = 'sarah.freelancer@demo.com'),
- 15000,
- 'credit',
- 'project_payment',
- 'Project Payment - Website Development',
- 'completed',
- 'blockchain_escrow'),
+-- Trigger to create wallet for new users
+CREATE TRIGGER on_auth_user_created_wallet
+  AFTER INSERT ON users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user_wallet();
 
-((SELECT id FROM users WHERE email = 'sarah.freelancer@demo.com'),
- -5000,
- 'debit',
- 'withdrawal',
- 'Withdrawal to Bank Account',
- 'completed',
- 'bank_transfer'),
-
-((SELECT id FROM users WHERE email = 'mike.freelancer@demo.com'),
- 8500,
- 'credit',
- 'project_payment',
- 'Project Payment - Mobile App Design',
- 'pending',
- 'blockchain_escrow');
-
--- Demo Dispute
-INSERT INTO disputes (id, project_id, raised_by, project_name, role, amount, status, reason, payment_method) VALUES
-('DSP-001',
- (SELECT id FROM projects WHERE title = 'Content writing for tech blog'),
- (SELECT id FROM users WHERE email = 'priya.both@demo.com'),
- 'Content writing for tech blog',
- 'CLIENT',
- 300,
- 'UNDER_REVIEW',
- 'Work quality does not match requirements. Articles need significant revisions.',
- 'BLOCKCHAIN_ESCROW');
-
--- Demo Messages
-INSERT INTO messages (sender_id, recipient_id, project_id, content, read) VALUES
-((SELECT id FROM users WHERE email = 'john.client@demo.com'),
- (SELECT id FROM users WHERE email = 'sarah.freelancer@demo.com'),
- (SELECT id FROM projects WHERE title = 'Build a responsive e-commerce website'),
- 'Hi Sarah, I reviewed your proposal and it looks great! Can we schedule a call to discuss the project timeline?',
- true),
-
-((SELECT id FROM users WHERE email = 'sarah.freelancer@demo.com'),
- (SELECT id FROM users WHERE email = 'john.client@demo.com'),
- (SELECT id FROM projects WHERE title = 'Build a responsive e-commerce website'),
- 'Sure! I''m available tomorrow at 3 PM EST. Does that work for you?',
- false);
-
--- Demo Notifications
-INSERT INTO notifications (user_id, title, message, type, read) VALUES
-((SELECT id FROM users WHERE email = 'john.client@demo.com'),
- 'New Proposal Received',
- 'Sarah Chen submitted a proposal for your project "Build a responsive e-commerce website"',
- 'proposal',
- false),
-
-((SELECT id FROM users WHERE email = 'sarah.freelancer@demo.com'),
- 'Project Payment Released',
- 'Payment of ₹15,000 has been released for completed project',
- 'payment',
- true);
-
--- Success message
-SELECT 'Database schema created successfully with demo data!' AS status;
-SELECT 'Total users: ' || COUNT(*)::TEXT FROM users;
-SELECT 'Total projects: ' || COUNT(*)::TEXT FROM projects;
-SELECT 'Total proposals: ' || COUNT(*)::TEXT FROM proposals;
+-- Backfill function for existing users (run manually if needed)
+INSERT INTO user_wallets (user_id, token_balance)
+SELECT id, 0 FROM users
+WHERE id NOT IN (SELECT user_id FROM user_wallets)
+ON CONFLICT (user_id) DO NOTHING;

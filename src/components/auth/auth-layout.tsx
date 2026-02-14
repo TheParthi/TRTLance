@@ -9,13 +9,9 @@ type AuthLayoutProps = {
 };
 
 export default function AuthLayout({ children }: AuthLayoutProps) {
-  const authIllustration = PlaceHolderImages.find(
-    (img) => img.id === "auth-illustration"
-  );
-
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
-      <div className="flex items-center justify-center p-8 relative">
+      <div className="flex items-center justify-center p-8 relative bg-white">
         <Button asChild variant="ghost" size="sm" className="absolute top-4 left-4 text-gray-600 hover:text-blue-600">
           <Link href="/">
             <ArrowLeft className="h-4 w-4 mr-2" />
@@ -26,20 +22,16 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
           {children}
         </div>
       </div>
-      <div className="hidden lg:flex bg-gradient-to-br from-blue-600 to-purple-700">
-        <div className="flex items-center justify-center w-full p-8">
-          {authIllustration && (
-            <Image
-              src={authIllustration.imageUrl}
-              alt={authIllustration.description}
-              width={600}
-              height={700}
-              className="object-contain"
-              priority
-              data-ai-hint={authIllustration.imageHint}
-            />
-          )}
-        </div>
+      <div className="hidden lg:block relative bg-black overflow-hidden">
+        <Image
+          src="/auth-tiger.png"
+          alt="TrustLance Tiger"
+          fill
+          className="object-cover object-center"
+          priority
+          sizes="(max-width: 1024px) 0vw, 50vw"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
       </div>
     </div>
   );

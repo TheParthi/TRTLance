@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, use } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { 
-  Scale, 
+import {
+  Scale,
   ArrowLeft,
   Clock,
   AlertTriangle,
@@ -22,15 +22,16 @@ import {
 import { useDisputeActions } from "@/hooks/use-dispute-actions";
 
 interface DisputeDetailsPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default function DisputeDetailsPage({ params }: DisputeDetailsPageProps) {
+  const { id } = use(params);
   const [showPayPalModal, setShowPayPalModal] = useState(false);
   const [paypalConnected, setPaypalConnected] = useState(false);
   const { getDisputeById, resolveDispute, releasePayPalPayout, refundPayPalClient } = useDisputeActions();
-  
-  const dispute = getDisputeById(params.id);
+
+  const dispute = getDisputeById(id);
 
   if (!dispute) {
     return (
@@ -69,15 +70,15 @@ export default function DisputeDetailsPage({ params }: DisputeDetailsPageProps) 
       <div className="container mx-auto px-4 max-w-6xl">
         {/* Header */}
         <div className="mb-8">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             className="mb-4"
             onClick={() => window.location.href = '/disputes'}
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Disputes
           </Button>
-          
+
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
@@ -88,8 +89,8 @@ export default function DisputeDetailsPage({ params }: DisputeDetailsPageProps) 
             </div>
             <Badge className={
               dispute.status === 'RESOLVED' ? 'bg-green-100 text-green-800' :
-              dispute.status === 'UNDER_REVIEW' ? 'bg-orange-100 text-orange-800' :
-              'bg-yellow-100 text-yellow-800'
+                dispute.status === 'UNDER_REVIEW' ? 'bg-orange-100 text-orange-800' :
+                  'bg-yellow-100 text-yellow-800'
             }>
               {dispute.status.replace('_', ' ')}
             </Badge>
@@ -145,7 +146,7 @@ export default function DisputeDetailsPage({ params }: DisputeDetailsPageProps) 
                       <p className="text-xs text-gray-500 mt-1">{dispute.createdAt}</p>
                     </div>
                   </div>
-                  
+
                   {dispute.status === 'UNDER_REVIEW' && (
                     <div className="flex items-start gap-4 p-4 border rounded-lg bg-blue-50">
                       <MessageCircle className="h-5 w-5 text-blue-600 mt-1" />
@@ -177,14 +178,14 @@ export default function DisputeDetailsPage({ params }: DisputeDetailsPageProps) 
                     <span className="text-sm text-gray-600">Locked Amount</span>
                     <span className="font-semibold text-green-600">${dispute.amount.toLocaleString()}</span>
                   </div>
-                  
+
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">Payment Method</span>
                     <Badge variant="outline">
                       {dispute.paymentMethod.replace('_', ' ')}
                     </Badge>
                   </div>
-                  
+
                   <div className="bg-blue-50 p-3 rounded-lg">
                     <p className="text-sm text-blue-800 font-medium">Current Holder</p>
                     <p className="text-sm text-blue-700">PLATFORM ESCROW</p>
@@ -202,7 +203,7 @@ export default function DisputeDetailsPage({ params }: DisputeDetailsPageProps) 
                 <CardContent>
                   <div className="space-y-3">
                     {dispute.outcome === 'FREELANCER' && (
-                      <Button 
+                      <Button
                         className="w-full bg-green-600 hover:bg-green-700"
                         onClick={() => handlePaymentAction('release')}
                       >
@@ -210,9 +211,9 @@ export default function DisputeDetailsPage({ params }: DisputeDetailsPageProps) 
                         Release Payment to Freelancer
                       </Button>
                     )}
-                    
+
                     {dispute.outcome === 'CLIENT' && (
-                      <Button 
+                      <Button
                         className="w-full bg-blue-600 hover:bg-blue-700"
                         onClick={() => handlePaymentAction('refund')}
                       >
@@ -220,16 +221,16 @@ export default function DisputeDetailsPage({ params }: DisputeDetailsPageProps) 
                         Refund Client
                       </Button>
                     )}
-                    
+
                     {dispute.outcome === 'PARTIAL' && (
                       <div className="space-y-2">
-                        <Button 
+                        <Button
                           className="w-full bg-green-600 hover:bg-green-700"
                           onClick={() => handlePaymentAction('release')}
                         >
                           Release 60% to Freelancer
                         </Button>
-                        <Button 
+                        <Button
                           className="w-full bg-blue-600 hover:blue-700"
                           onClick={() => handlePaymentAction('refund')}
                         >
@@ -272,7 +273,7 @@ export default function DisputeDetailsPage({ params }: DisputeDetailsPageProps) 
               <p className="text-gray-600">
                 You need to connect PayPal to receive dispute payouts. This ensures secure payment processing.
               </p>
-              
+
               <div className="bg-blue-50 p-4 rounded-lg">
                 <p className="text-blue-800 font-medium text-sm mb-2">What happens next:</p>
                 <ul className="text-blue-700 text-sm space-y-1">
@@ -281,17 +282,17 @@ export default function DisputeDetailsPage({ params }: DisputeDetailsPageProps) 
                   <li>• Complete payment action</li>
                 </ul>
               </div>
-              
+
               <div className="flex gap-3">
-                <Button 
+                <Button
                   className="flex-1 bg-blue-600 hover:bg-blue-700"
                   onClick={connectPayPal}
                 >
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Connect PayPal Now
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => setShowPayPalModal(false)}
                 >
                   Cancel

@@ -20,6 +20,7 @@ import {
     Plus,
     Minus,
 } from "lucide-react";
+import { RiskAnalysisModal } from "@/components/RiskAnalysisModal";
 import { useAuth } from "@/contexts/auth-context";
 import { getUserRoleInJob, canApplyToJob } from "@/lib/roles";
 
@@ -83,6 +84,15 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
         { title: "", amount: "", description: "", duration: "" }
     ]);
     const [submitting, setSubmitting] = useState(false);
+
+    // Risk Analysis State
+
+    const [isRiskModalOpen, setIsRiskModalOpen] = useState(false);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
+    const [autoDownloadRisk, setAutoDownloadRisk] = useState(true);
+
+    const [riskReport, setRiskReport] = useState(null);
+    const [riskError, setRiskError] = useState<string | null>(null);
 
     useEffect(() => {
         fetchJobDetails();
@@ -230,6 +240,40 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
             console.error('Error accepting bid:', error);
             alert('Failed to accept bid');
         }
+    };
+
+    const handleApplyClick = async () => {
+        setIsRiskModalOpen(true);
+        setIsAnalyzing(true);
+        setAutoDownloadRisk(true);
+        setRiskReport(null);
+
+        try {
+            const response = await fetch('/api/ai/project-risk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ projectId: jobId }),
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setRiskReport(data);
+            } else {
+                const errorData = await response.json().catch(() => ({}));
+                console.error('Failed to fetch risk report', errorData);
+                setRiskError(errorData.error || 'Failed to generate risk report. Please try again.');
+            }
+        } catch (error) {
+            console.error('Error fetching risk report:', error);
+            setRiskError('Network error. Check your connection or server logs.');
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
+
+    const handleProceedApplication = () => {
+        setIsRiskModalOpen(false);
+        setShowBidForm(true);
     };
 
     if (loading || !job) {
@@ -417,13 +461,32 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                                 </div>
                             ) : !showBidForm ? (
                                 <div className="text-center py-8">
-                                    <Button onClick={() => setShowBidForm(true)} size="lg">
+                                    <Button onClick={handleApplyClick} size="lg">
                                         <Send className="h-4 w-4 mr-2" />
                                         Apply to this Job
                                     </Button>
                                 </div>
                             ) : (
                                 <form onSubmit={handleSubmitBid} className="space-y-6">
+                                    {/* Risk Report Access */}
+                                    {riskReport && (
+                                        <div className="flex justify-end p-2 bg-blue-50 rounded-lg border border-blue-100">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => {
+                                                    setAutoDownloadRisk(false);
+                                                    setIsRiskModalOpen(true);
+                                                }}
+                                                className="gap-2 text-blue-700 hover:text-blue-800 hover:bg-blue-100"
+                                            >
+                                                <AlertCircle className="h-4 w-4" />
+                                                View Risk Analysis Report
+                                            </Button>
+                                        </div>
+                                    )}
+
                                     {/* Budget Reference */}
                                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                                         <p className="text-sm text-blue-900">
@@ -633,6 +696,16 @@ export default function JobDetailPage({ params }: { params: Promise<{ jobId: str
                     </Card>
                 )}
             </div>
+
+            <RiskAnalysisModal
+                isOpen={isRiskModalOpen}
+                onClose={() => setIsRiskModalOpen(false)}
+                onProceed={handleProceedApplication}
+                isLoading={isAnalyzing}
+                autoDownload={autoDownloadRisk}
+                report={riskReport}
+                error={riskError}
+            />
         </div>
     );
 }

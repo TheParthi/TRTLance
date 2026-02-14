@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, use } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
+import {
   Briefcase,
   User,
   DollarSign,
@@ -14,15 +14,16 @@ import {
 } from "lucide-react";
 
 interface ProjectPageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default function ProjectPage({ params }: ProjectPageProps) {
+  const { id } = use(params);
   const [projectCreated, setProjectCreated] = useState(false);
 
   // Mock project data
   const project = {
-    id: params.id,
+    id: id,
     title: "E-commerce Website Development",
     description: "Build a modern e-commerce platform with React and Node.js",
     budget: 2500,
@@ -44,7 +45,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
     // Simulate project creation process
     setTimeout(() => {
       // Redirect to workspace
-      window.location.href = `/projects/${params.id}/workspace`;
+      window.location.href = `/projects/${id}/workspace`;
     }, 2000);
   };
 
@@ -101,7 +102,7 @@ export default function ProjectPage({ params }: ProjectPageProps) {
                         <p className="font-semibold">${project.budget}</p>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center gap-3">
                       <Calendar className="h-5 w-5 text-blue-600" />
                       <div>
@@ -173,15 +174,15 @@ export default function ProjectPage({ params }: ProjectPageProps) {
                   <p className="text-sm text-gray-600">
                     Ready to create the project workspace and begin the escrow process?
                   </p>
-                  
-                  <Button 
+
+                  <Button
                     onClick={handleCreateProject}
                     className="w-full bg-blue-600 hover:bg-blue-700"
                   >
                     <ArrowRight className="h-4 w-4 mr-2" />
                     Create Project & Setup Workspace
                   </Button>
-                  
+
                   <p className="text-xs text-gray-500">
                     This will create the project workspace where escrow funding and milestone management will take place.
                   </p>

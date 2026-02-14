@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { 
+import {
   Bell,
   MessageCircle,
   CheckCircle,
@@ -13,14 +13,29 @@ import {
   Briefcase
 } from "lucide-react";
 
-const initialData = {
+interface Update {
+  id: number;
+  projectName: string;
+  clientName: string;
+  lastUpdateDate: string;
+  summary: string;
+  status: string;
+  progress: number;
+}
+
+interface ProjectUpdatesData {
+  inProgress: Update[];
+  completed: Update[];
+}
+
+const initialData: ProjectUpdatesData = {
   inProgress: [],
   completed: []
 };
 
 export default function ProjectUpdatesPage() {
   const [activeTab, setActiveTab] = useState("in-progress");
-  const [projectUpdates, setProjectUpdates] = useState(initialData);
+  const [projectUpdates, setProjectUpdates] = useState<ProjectUpdatesData>(initialData);
 
   const getCurrentTabData = () => {
     return activeTab === "in-progress" ? projectUpdates.inProgress : projectUpdates.completed;
@@ -34,27 +49,25 @@ export default function ProjectUpdatesPage() {
         {/* Page Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-6">Project Updates</h1>
-          
+
           {/* Tabs */}
           <div className="border-b border-gray-200">
             <nav className="flex space-x-8">
               <button
                 onClick={() => setActiveTab("in-progress")}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  activeTab === "in-progress"
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === "in-progress"
                     ? "border-blue-500 text-blue-600 font-bold"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
+                  }`}
               >
                 In Progress
               </button>
               <button
                 onClick={() => setActiveTab("completed")}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  activeTab === "completed"
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === "completed"
                     ? "border-blue-500 text-blue-600 font-bold"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
+                  }`}
               >
                 Completed
               </button>
@@ -72,7 +85,7 @@ export default function ProjectUpdatesPage() {
                   <h2 className="text-2xl font-bold text-gray-900 mb-8">
                     Keep clients engaged with project updates!
                   </h2>
-                  
+
                   {/* Three Illustration Sections */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
                     {/* Set your reminder */}
@@ -111,7 +124,7 @@ export default function ProjectUpdatesPage() {
 
                   {/* Helper Text */}
                   <p className="text-gray-600 mb-8 max-w-2xl mx-auto leading-relaxed">
-                    Post updates once you have been awarded a project and linked it to a workspace. 
+                    Post updates once you have been awarded a project and linked it to a workspace.
                     Start by browsing and bidding on projects.
                   </p>
 
@@ -146,7 +159,7 @@ export default function ProjectUpdatesPage() {
                       </div>
                       <p className="text-gray-700 mb-3">{update.summary}</p>
                       <div className="flex items-center gap-2">
-                        <Badge 
+                        <Badge
                           variant={update.status === "In Progress" ? "default" : "secondary"}
                           className={update.status === "In Progress" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"}
                         >

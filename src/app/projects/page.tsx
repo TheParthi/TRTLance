@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { 
+import {
   Award,
   Medal,
   Target,
@@ -29,7 +29,39 @@ const tabs = [
   { id: "services", label: "Services" }
 ];
 
-const initialData = {
+interface Service {
+  id: number;
+  title: string;
+  category: string;
+  description: string;
+  price: number;
+  deliveryTime: string;
+  revisions: number;
+  status: string;
+  createdAt: string;
+}
+
+interface ProjectItem {
+  id: number;
+  title: string;
+  description: string;
+  status: string;
+  date: string;
+}
+
+interface ProjectData {
+  role: string;
+  bids: ProjectItem[];
+  currentWork: ProjectItem[];
+  pastWork: ProjectItem[];
+  contestEntries: ProjectItem[];
+  pendingPrizes: ProjectItem[];
+  prizesReleased: ProjectItem[];
+  quotes: ProjectItem[];
+  services: Service[];
+}
+
+const initialData: ProjectData = {
   role: "freelancer",
   bids: [],
   currentWork: [],
@@ -43,7 +75,7 @@ const initialData = {
 
 const serviceCategories = [
   "Web Development",
-  "Mobile Development", 
+  "Mobile Development",
   "Graphic Design",
   "Writing & Translation",
   "Digital Marketing",
@@ -53,7 +85,7 @@ const serviceCategories = [
 export default function MyProjectsPage() {
   const [activeTab, setActiveTab] = useState("bids");
   const [viewRole, setViewRole] = useState("freelancer");
-  const [projectData, setProjectData] = useState(initialData);
+  const [projectData, setProjectData] = useState<ProjectData>(initialData);
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [newService, setNewService] = useState({
     title: "",
@@ -65,14 +97,14 @@ export default function MyProjectsPage() {
     published: true
   });
 
-  const handleRoleSwitch = (role) => {
+  const handleRoleSwitch = (role: string) => {
     setViewRole(role);
     setProjectData(prev => ({ ...prev, role }));
   };
 
   const handleCreateService = () => {
     if (newService.title.trim()) {
-      const service = {
+      const service: Service = {
         id: Date.now(),
         title: newService.title,
         category: newService.category,
@@ -102,7 +134,7 @@ export default function MyProjectsPage() {
     }
   };
 
-  const handleServiceAction = (serviceId, action) => {
+  const handleServiceAction = (serviceId: number, action: string) => {
     setProjectData(prev => ({
       ...prev,
       services: prev.services.map(service => {
@@ -119,7 +151,7 @@ export default function MyProjectsPage() {
           }
         }
         return service;
-      }).filter(Boolean)
+      }).filter((s): s is Service => s !== null)
     }));
   };
 
@@ -196,28 +228,26 @@ export default function MyProjectsPage() {
         {/* Page Header */}
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Projects, Contests and Quotes</h1>
-          
+
           {/* View As Toggle */}
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-gray-700">View as:</span>
             <div className="flex bg-gray-100 rounded-lg p-1">
               <button
                 onClick={() => handleRoleSwitch("client")}
-                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                  viewRole === "client"
-                    ? "bg-white text-gray-900 shadow-sm"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${viewRole === "client"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
+                  }`}
               >
                 Client
               </button>
               <button
                 onClick={() => handleRoleSwitch("freelancer")}
-                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                  viewRole === "freelancer"
-                    ? "bg-white text-gray-900 shadow-sm"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${viewRole === "freelancer"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-600 hover:text-gray-900"
+                  }`}
               >
                 Freelancer
               </button>
@@ -233,11 +263,10 @@ export default function MyProjectsPage() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${
-                    activeTab === tab.id
-                      ? "border-blue-500 text-blue-600 font-bold"
-                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                  }`}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === tab.id
+                    ? "border-blue-500 text-blue-600 font-bold"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    }`}
                 >
                   {tab.label}
                 </button>
@@ -279,9 +308,9 @@ export default function MyProjectsPage() {
                   <p className="text-gray-600 mb-6 leading-relaxed">
                     {emptyState.subtitle}
                   </p>
-                  <Button 
+                  <Button
                     className="bg-blue-600 hover:bg-blue-700"
-                    onClick={emptyState.action || (() => {})}
+                    onClick={emptyState.action || (() => { })}
                   >
                     {emptyState.buttonText}
                   </Button>
@@ -291,7 +320,7 @@ export default function MyProjectsPage() {
           ) : activeTab === "services" ? (
             // Services List
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {currentData.map((service) => (
+              {(currentData as Service[]).map((service) => (
                 <Card key={service.id} className="hover:shadow-md transition-shadow">
                   <CardContent className="p-6">
                     <div className="flex items-start justify-between mb-4">
@@ -300,14 +329,14 @@ export default function MyProjectsPage() {
                         <p className="text-sm text-gray-600 mb-2">{service.category}</p>
                         <p className="text-lg font-bold text-green-600">₹{service.price}</p>
                       </div>
-                      <Badge 
+                      <Badge
                         variant={service.status === "Active" ? "default" : service.status === "Draft" ? "secondary" : "outline"}
                         className={service.status === "Active" ? "bg-green-100 text-green-800" : ""}
                       >
                         {service.status}
                       </Badge>
                     </div>
-                    
+
                     <div className="text-sm text-gray-600 mb-4">
                       <p>Delivery: {service.deliveryTime}</p>
                       <p>Revisions: {service.revisions}</p>
@@ -317,17 +346,17 @@ export default function MyProjectsPage() {
                       <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700">
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         className={service.status === "Active" ? "text-orange-600 hover:text-orange-700" : "text-green-600 hover:text-green-700"}
                         onClick={() => handleServiceAction(service.id, service.status === "Active" ? "pause" : "activate")}
                       >
                         {service.status === "Active" ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                       </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         className="text-red-600 hover:text-red-700"
                         onClick={() => handleServiceAction(service.id, "delete")}
                       >
@@ -341,7 +370,7 @@ export default function MyProjectsPage() {
           ) : (
             // Other Tabs Data Content
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {currentData.map((item) => (
+              {(currentData as ProjectItem[]).map((item) => (
                 <Card key={item.id} className="hover:shadow-md transition-shadow">
                   <CardContent className="p-6">
                     <h4 className="font-semibold text-gray-900 mb-2">{item.title}</h4>
@@ -471,8 +500,8 @@ export default function MyProjectsPage() {
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-6">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setShowServiceModal(false)}
               >
                 Cancel

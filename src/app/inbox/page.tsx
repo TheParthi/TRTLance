@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { 
+import {
   Search,
   Filter,
   Smile,
@@ -19,7 +19,26 @@ import {
   Circle
 } from "lucide-react";
 
-const initialChats = [
+interface Message {
+  id: number;
+  sender: string;
+  content: string;
+  timestamp: string;
+  isMe: boolean;
+}
+
+interface Chat {
+  id: number;
+  username: string;
+  avatar: string;
+  lastMessage: string;
+  timestamp: string;
+  unread: number;
+  online: boolean;
+  messages: Message[];
+}
+
+const initialChats: Chat[] = [
   {
     id: 1,
     username: "Sarah Johnson",
@@ -52,8 +71,8 @@ const initialChats = [
 
 export default function InboxPage() {
   const [activeTab, setActiveTab] = useState("chats");
-  const [selectedChat, setSelectedChat] = useState(null);
-  const [chats, setChats] = useState(initialChats);
+  const [selectedChat, setSelectedChat] = useState<Chat | null>(null);
+  const [chats, setChats] = useState<Chat[]>(initialChats);
   const [newMessage, setNewMessage] = useState("");
 
   const handleSendMessage = () => {
@@ -66,25 +85,28 @@ export default function InboxPage() {
         isMe: true
       };
 
-      setChats(prev => prev.map(chat => 
-        chat.id === selectedChat.id 
+      setChats(prev => prev.map(chat =>
+        chat.id === selectedChat.id
           ? { ...chat, messages: [...chat.messages, message], lastMessage: newMessage }
           : chat
       ));
 
-      setSelectedChat(prev => ({
-        ...prev,
-        messages: [...prev.messages, message]
-      }));
+      setSelectedChat(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          messages: [...prev.messages, message]
+        };
+      });
 
       setNewMessage("");
     }
   };
 
-  const handleChatSelect = (chat) => {
+  const handleChatSelect = (chat: Chat) => {
     setSelectedChat(chat);
     // Mark as read
-    setChats(prev => prev.map(c => 
+    setChats(prev => prev.map(c =>
       c.id === chat.id ? { ...c, unread: 0 } : c
     ));
   };
@@ -101,11 +123,10 @@ export default function InboxPage() {
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`flex-1 py-4 px-4 text-sm font-medium capitalize ${
-                    activeTab === tab
-                      ? "border-b-2 border-blue-500 text-blue-600"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
+                  className={`flex-1 py-4 px-4 text-sm font-medium capitalize ${activeTab === tab
+                    ? "border-b-2 border-blue-500 text-blue-600"
+                    : "text-gray-500 hover:text-gray-700"
+                    }`}
                 >
                   {tab}
                 </button>
@@ -140,9 +161,8 @@ export default function InboxPage() {
                   <button
                     key={chat.id}
                     onClick={() => handleChatSelect(chat)}
-                    className={`w-full p-3 rounded-lg text-left hover:bg-gray-50 transition-colors ${
-                      selectedChat?.id === chat.id ? "bg-blue-50 border-l-4 border-blue-500" : ""
-                    }`}
+                    className={`w-full p-3 rounded-lg text-left hover:bg-gray-50 transition-colors ${selectedChat?.id === chat.id ? "bg-blue-50 border-l-4 border-blue-500" : ""
+                      }`}
                   >
                     <div className="flex items-center gap-3">
                       <div className="relative">
@@ -208,11 +228,10 @@ export default function InboxPage() {
                       )}
                       <div>
                         <div
-                          className={`px-4 py-2 rounded-lg ${
-                            message.isMe
-                              ? "bg-blue-500 text-white"
-                              : "bg-gray-100 text-gray-900"
-                          }`}
+                          className={`px-4 py-2 rounded-lg ${message.isMe
+                            ? "bg-blue-500 text-white"
+                            : "bg-gray-100 text-gray-900"
+                            }`}
                         >
                           <p className="text-sm">{message.content}</p>
                         </div>
@@ -245,8 +264,8 @@ export default function InboxPage() {
                   <Button variant="ghost" size="sm">
                     <ThumbsUp className="h-5 w-5" />
                   </Button>
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     className="bg-blue-500 hover:bg-blue-600 rounded-full"
                     onClick={handleSendMessage}
                   >

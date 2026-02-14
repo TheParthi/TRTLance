@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
-import { 
+import {
   ArrowLeft,
   Shield,
   Clock,
@@ -21,29 +21,30 @@ import {
 import { useProjectWorkspace, ProjectData, ProjectState } from "@/hooks/use-project-workspace";
 
 interface ProjectWorkspacePageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default function ProjectWorkspacePage({ params }: ProjectWorkspacePageProps) {
+  const { id } = use(params);
   const [project, setProject] = useState<ProjectData | null>(null);
   const [userRole, setUserRole] = useState<'CLIENT' | 'FREELANCER' | null>(null);
   const [deliverables, setDeliverables] = useState("");
   const [feedback, setFeedback] = useState("");
-  
-  const { 
-    loading, 
-    getProject, 
-    fundEscrow, 
-    submitMilestone, 
-    approveMilestone, 
-    requestChanges, 
-    raiseDispute 
-  } = useProjectWorkspace(params.id);
+
+  const {
+    loading,
+    getProject,
+    fundEscrow,
+    submitMilestone,
+    approveMilestone,
+    requestChanges,
+    raiseDispute
+  } = useProjectWorkspace(id);
 
   useEffect(() => {
     const projectData = getProject();
     setProject(projectData);
-    
+
     // Mock user role determination - in real app, check auth
     const currentUserId = "client_123"; // Mock current user
     if (currentUserId === projectData.clientId) {
@@ -58,7 +59,7 @@ export default function ProjectWorkspacePage({ params }: ProjectWorkspacePagePro
 
   const handleFundEscrow = async () => {
     if (!project) return;
-    
+
     const success = await fundEscrow(project.totalAmount);
     if (success) {
       setProject(prev => prev ? { ...prev, state: 'ESCROW_FUNDED' } : null);
@@ -67,15 +68,15 @@ export default function ProjectWorkspacePage({ params }: ProjectWorkspacePagePro
 
   const handleSubmitMilestone = async () => {
     if (!project || !deliverables.trim()) return;
-    
+
     const currentMilestone = project.milestones[project.currentMilestone];
     const success = await submitMilestone(currentMilestone.id, deliverables);
-    
+
     if (success) {
-      setProject(prev => prev ? { 
-        ...prev, 
+      setProject(prev => prev ? {
+        ...prev,
         state: 'MILESTONE_SUBMITTED',
-        milestones: prev.milestones.map((m, i) => 
+        milestones: prev.milestones.map((m, i) =>
           i === prev.currentMilestone ? { ...m, state: 'SUBMITTED', submittedAt: new Date().toISOString() } : m
         )
       } : null);
@@ -85,18 +86,18 @@ export default function ProjectWorkspacePage({ params }: ProjectWorkspacePagePro
 
   const handleApproveMilestone = async () => {
     if (!project) return;
-    
+
     const currentMilestone = project.milestones[project.currentMilestone];
     const success = await approveMilestone(currentMilestone.id);
-    
+
     if (success) {
       const isLastMilestone = project.currentMilestone === project.milestones.length - 1;
-      
+
       setProject(prev => prev ? {
         ...prev,
         state: isLastMilestone ? 'COMPLETED' : 'PAYMENT_RELEASED',
         currentMilestone: isLastMilestone ? prev.currentMilestone : prev.currentMilestone + 1,
-        milestones: prev.milestones.map((m, i) => 
+        milestones: prev.milestones.map((m, i) =>
           i === prev.currentMilestone ? { ...m, state: 'PAID', approvedAt: new Date().toISOString() } : m
         )
       } : null);
@@ -105,15 +106,15 @@ export default function ProjectWorkspacePage({ params }: ProjectWorkspacePagePro
 
   const handleRequestChanges = async () => {
     if (!project || !feedback.trim()) return;
-    
+
     const currentMilestone = project.milestones[project.currentMilestone];
     const success = await requestChanges(currentMilestone.id, feedback);
-    
+
     if (success) {
       setProject(prev => prev ? {
         ...prev,
         state: 'IN_PROGRESS',
-        milestones: prev.milestones.map((m, i) => 
+        milestones: prev.milestones.map((m, i) =>
           i === prev.currentMilestone ? { ...m, state: 'PENDING' } : m
         )
       } : null);
@@ -123,7 +124,7 @@ export default function ProjectWorkspacePage({ params }: ProjectWorkspacePagePro
 
   const handleRaiseDispute = async () => {
     if (!project) return;
-    
+
     const success = await raiseDispute("Milestone delivery issues");
     if (success) {
       setProject(prev => prev ? { ...prev, state: 'DISPUTED' } : null);
@@ -143,15 +144,15 @@ export default function ProjectWorkspacePage({ params }: ProjectWorkspacePagePro
       <div className="container mx-auto px-4 max-w-6xl">
         {/* Header */}
         <div className="mb-8">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             className="mb-4"
             onClick={() => window.location.href = '/dashboard'}
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dashboard
           </Button>
-          
+
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">{project.title}</h1>
@@ -161,8 +162,8 @@ export default function ProjectWorkspacePage({ params }: ProjectWorkspacePagePro
               <Badge variant="outline">{userRole}</Badge>
               <Badge className={
                 project.state === 'COMPLETED' ? 'bg-green-100 text-green-800' :
-                project.state === 'DISPUTED' ? 'bg-red-100 text-red-800' :
-                'bg-blue-100 text-blue-800'
+                  project.state === 'DISPUTED' ? 'bg-red-100 text-red-800' :
+                    'bg-blue-100 text-blue-800'
               }>
                 {project.state.replace('_', ' ')}
               </Badge>
@@ -173,7 +174,7 @@ export default function ProjectWorkspacePage({ params }: ProjectWorkspacePagePro
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
-            
+
             {/* ESCROW_PENDING State */}
             {project.state === 'ESCROW_PENDING' && (
               <Card>
@@ -187,14 +188,14 @@ export default function ProjectWorkspacePage({ params }: ProjectWorkspacePagePro
                   {userRole === 'CLIENT' ? (
                     <div className="space-y-4">
                       <p className="text-gray-700">
-                        Fund the project escrow to begin work. Funds will be locked in a smart contract 
+                        Fund the project escrow to begin work. Funds will be locked in a smart contract
                         and released upon milestone completion.
                       </p>
                       <div className="bg-blue-50 p-4 rounded-lg">
                         <p className="text-blue-800 font-medium">Total Amount: ${project.totalAmount}</p>
                         <p className="text-blue-700 text-sm">Payment Method: {project.paymentMethod.replace('_', ' ')}</p>
                       </div>
-                      <Button 
+                      <Button
                         onClick={handleFundEscrow}
                         disabled={loading}
                         className="w-full bg-blue-600 hover:bg-blue-700"
@@ -230,7 +231,7 @@ export default function ProjectWorkspacePage({ params }: ProjectWorkspacePagePro
                       <p className="text-green-700 text-sm">✓ Work can now begin</p>
                     </div>
                     {userRole === 'FREELANCER' && (
-                      <Button 
+                      <Button
                         onClick={() => setProject(prev => prev ? { ...prev, state: 'IN_PROGRESS' } : null)}
                         className="w-full"
                       >
@@ -258,7 +259,7 @@ export default function ProjectWorkspacePage({ params }: ProjectWorkspacePagePro
                       <p className="text-sm text-gray-600">Amount: ${currentMilestone.amount}</p>
                       <p className="text-sm text-gray-600">Due: {currentMilestone.dueDate}</p>
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Deliverables & Work Summary
@@ -270,8 +271,8 @@ export default function ProjectWorkspacePage({ params }: ProjectWorkspacePagePro
                         rows={4}
                       />
                     </div>
-                    
-                    <Button 
+
+                    <Button
                       onClick={handleSubmitMilestone}
                       disabled={loading || !deliverables.trim()}
                       className="w-full"
@@ -300,9 +301,9 @@ export default function ProjectWorkspacePage({ params }: ProjectWorkspacePagePro
                         <p className="text-orange-800 font-medium">Milestone submitted for review</p>
                         <p className="text-orange-700 text-sm">Review the work and choose an action below</p>
                       </div>
-                      
+
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <Button 
+                        <Button
                           onClick={handleApproveMilestone}
                           disabled={loading}
                           className="bg-green-600 hover:bg-green-700"
@@ -310,8 +311,8 @@ export default function ProjectWorkspacePage({ params }: ProjectWorkspacePagePro
                           <CheckCircle className="h-4 w-4 mr-2" />
                           Approve & Release Payment
                         </Button>
-                        
-                        <Button 
+
+                        <Button
                           variant="outline"
                           onClick={() => {
                             // Show feedback form
@@ -320,8 +321,8 @@ export default function ProjectWorkspacePage({ params }: ProjectWorkspacePagePro
                           <MessageCircle className="h-4 w-4 mr-2" />
                           Request Changes
                         </Button>
-                        
-                        <Button 
+
+                        <Button
                           variant="outline"
                           onClick={handleRaiseDispute}
                           className="border-red-200 text-red-600 hover:bg-red-50"
@@ -330,7 +331,7 @@ export default function ProjectWorkspacePage({ params }: ProjectWorkspacePagePro
                           Raise Dispute
                         </Button>
                       </div>
-                      
+
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Feedback (optional)
@@ -342,7 +343,7 @@ export default function ProjectWorkspacePage({ params }: ProjectWorkspacePagePro
                           rows={3}
                         />
                         {feedback.trim() && (
-                          <Button 
+                          <Button
                             onClick={handleRequestChanges}
                             disabled={loading}
                             variant="outline"
@@ -378,20 +379,20 @@ export default function ProjectWorkspacePage({ params }: ProjectWorkspacePagePro
                       <div>
                         <span className="text-gray-600">Payment Method:</span>
                         <p className="font-medium">
-                          {project.paymentMethod === 'SMART_CONTRACT' ? 'Smart Contract' : 'PayPal (Platform Escrow)'}
+                          {project.paymentMethod === 'BLOCKCHAIN_ESCROW' ? 'Smart Contract' : 'PayPal (Platform Escrow)'}
                         </p>
                       </div>
                       <div>
                         <span className="text-gray-600">Escrow Status:</span>
                         <p className="font-medium text-green-600 flex items-center gap-1">
                           <CheckCircle className="h-4 w-4" />
-                          {project.paymentMethod === 'SMART_CONTRACT' ? 'Funds Released' : 'Released'}
+                          {project.paymentMethod === 'BLOCKCHAIN_ESCROW' ? 'Funds Released' : 'Released'}
                         </p>
                       </div>
                       <div>
                         <span className="text-gray-600">Milestone Amount:</span>
                         <p className="font-medium">
-                          {project.paymentMethod === 'SMART_CONTRACT' ? `${currentMilestone.amount} ETH` : `$${currentMilestone.amount}`}
+                          {project.paymentMethod === 'BLOCKCHAIN_ESCROW' ? `${currentMilestone.amount} ETH` : `$${currentMilestone.amount}`}
                         </p>
                       </div>
                       <div>
@@ -400,7 +401,7 @@ export default function ProjectWorkspacePage({ params }: ProjectWorkspacePagePro
                       </div>
                     </div>
 
-                    {project.paymentMethod === 'SMART_CONTRACT' ? (
+                    {project.paymentMethod === 'BLOCKCHAIN_ESCROW' ? (
                       <div className="space-y-3 pt-4 border-t">
                         <div>
                           <span className="text-gray-600 text-sm">Contract Address:</span>
@@ -408,8 +409,8 @@ export default function ProjectWorkspacePage({ params }: ProjectWorkspacePagePro
                             <code className="bg-gray-100 px-2 py-1 rounded text-sm font-mono">
                               {project.contractAddress || '0xABCD...1234'}
                             </code>
-                            <Button 
-                              variant="outline" 
+                            <Button
+                              variant="outline"
                               size="sm"
                               onClick={() => window.open(`https://etherscan.io/address/${project.contractAddress}`, '_blank')}
                             >
@@ -417,15 +418,15 @@ export default function ProjectWorkspacePage({ params }: ProjectWorkspacePagePro
                             </Button>
                           </div>
                         </div>
-                        
+
                         <div>
                           <span className="text-gray-600 text-sm">Transaction Hash:</span>
                           <div className="flex items-center gap-2 mt-1">
                             <code className="bg-gray-100 px-2 py-1 rounded text-sm font-mono">
                               {currentMilestone.transactionHash || '0x5678...EF90'}
                             </code>
-                            <Button 
-                              variant="outline" 
+                            <Button
+                              variant="outline"
                               size="sm"
                               onClick={() => window.open(`https://etherscan.io/tx/${currentMilestone.transactionHash}`, '_blank')}
                             >
@@ -464,9 +465,9 @@ export default function ProjectWorkspacePage({ params }: ProjectWorkspacePagePro
                     <p className="text-green-700 text-sm">✓ ${currentMilestone.amount} transferred to freelancer</p>
                     <p className="text-green-700 text-sm">✓ Ready for next milestone</p>
                   </div>
-                  
+
                   {project.currentMilestone < project.milestones.length && (
-                    <Button 
+                    <Button
                       onClick={() => setProject(prev => prev ? { ...prev, state: 'IN_PROGRESS' } : null)}
                       className="w-full mt-4"
                     >
@@ -491,8 +492,8 @@ export default function ProjectWorkspacePage({ params }: ProjectWorkspacePagePro
                     <p className="text-red-800 font-medium">Project is under dispute resolution</p>
                     <p className="text-red-700 text-sm">All payments are frozen until resolution</p>
                   </div>
-                  
-                  <Button 
+
+                  <Button
                     onClick={() => window.location.href = `/disputes/DSP-${project.id}`}
                     variant="outline"
                     className="w-full"
@@ -540,7 +541,7 @@ export default function ProjectWorkspacePage({ params }: ProjectWorkspacePagePro
                     </div>
                     <Progress value={progressPercentage} className="h-2" />
                   </div>
-                  
+
                   <div className="text-sm text-gray-600">
                     <p>{completedMilestones} of {project.milestones.length} milestones completed</p>
                   </div>
@@ -556,18 +557,17 @@ export default function ProjectWorkspacePage({ params }: ProjectWorkspacePagePro
               <CardContent>
                 <div className="space-y-3">
                   {project.milestones.map((milestone, index) => (
-                    <div 
-                      key={milestone.id} 
-                      className={`p-3 border rounded-lg ${
-                        index === project.currentMilestone ? 'border-blue-200 bg-blue-50' : 'border-gray-200'
-                      }`}
+                    <div
+                      key={milestone.id}
+                      className={`p-3 border rounded-lg ${index === project.currentMilestone ? 'border-blue-200 bg-blue-50' : 'border-gray-200'
+                        }`}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <h4 className="font-medium text-sm">{milestone.title}</h4>
                         <Badge variant={
                           milestone.state === 'PAID' ? 'default' :
-                          milestone.state === 'SUBMITTED' ? 'secondary' :
-                          'outline'
+                            milestone.state === 'SUBMITTED' ? 'secondary' :
+                              'outline'
                         }>
                           {milestone.state}
                         </Badge>

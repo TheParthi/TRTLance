@@ -11,15 +11,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { 
-  ArrowLeft, 
-  ArrowRight, 
-  Upload, 
-  FileText, 
-  DollarSign, 
-  Calendar, 
-  User, 
-  Building, 
+import {
+  ArrowLeft,
+  ArrowRight,
+  Upload,
+  FileText,
+  DollarSign,
+  Calendar,
+  User,
+  Building,
   AlertTriangle,
   CheckCircle,
   Bot,
@@ -44,6 +44,16 @@ const clientDisputeTypes = [
   { value: 'refund_not_processed', label: 'Refund not processed' }
 ];
 
+interface AiAnalysis {
+  riskScore: number;
+  likelyFault: string;
+  faultPercentage: number;
+  suggestedResolution: string;
+  confidence: string;
+  similarCases: number;
+  estimatedResolution: string;
+}
+
 export default function NewDisputePage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
@@ -55,7 +65,7 @@ export default function NewDisputePage() {
     description: '',
     attachments: []
   });
-  const [aiAnalysis, setAiAnalysis] = useState(null);
+  const [aiAnalysis, setAiAnalysis] = useState<AiAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const totalSteps = 6;
@@ -121,9 +131,9 @@ export default function NewDisputePage() {
                   <h2 className="text-2xl font-semibold text-gray-900 mb-2">Who is raising this dispute?</h2>
                   <p className="text-gray-600">Select your role in this dispute</p>
                 </div>
-                
-                <RadioGroup 
-                  value={form.role} 
+
+                <RadioGroup
+                  value={form.role}
                   onValueChange={(value) => setForm(prev => ({ ...prev, role: value }))}
                 >
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -137,7 +147,7 @@ export default function NewDisputePage() {
                         </div>
                       </Label>
                     </div>
-                    
+
                     <div className="flex items-center space-x-2 p-4 border rounded-lg hover:bg-gray-50">
                       <RadioGroupItem value="client" id="client" />
                       <Label htmlFor="client" className="flex items-center gap-3 cursor-pointer">
@@ -159,20 +169,18 @@ export default function NewDisputePage() {
                   <h2 className="text-2xl font-semibold text-gray-900 mb-2">Select Dispute Type</h2>
                   <p className="text-gray-600">Choose the category that best describes your issue</p>
                 </div>
-                
+
                 <div className="space-y-3">
                   {(form.role === 'freelancer' ? freelancerDisputeTypes : clientDisputeTypes).map((type) => (
-                    <div 
+                    <div
                       key={type.value}
-                      className={`p-4 border rounded-lg cursor-pointer hover:bg-gray-50 ${
-                        form.disputeType === type.value ? 'border-blue-500 bg-blue-50' : ''
-                      }`}
+                      className={`p-4 border rounded-lg cursor-pointer hover:bg-gray-50 ${form.disputeType === type.value ? 'border-blue-500 bg-blue-50' : ''
+                        }`}
                       onClick={() => setForm(prev => ({ ...prev, disputeType: type.value }))}
                     >
                       <div className="flex items-center gap-3">
-                        <div className={`w-4 h-4 rounded-full border-2 ${
-                          form.disputeType === type.value ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
-                        }`}>
+                        <div className={`w-4 h-4 rounded-full border-2 ${form.disputeType === type.value ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
+                          }`}>
                           {form.disputeType === type.value && (
                             <CheckCircle className="h-4 w-4 text-white" />
                           )}
@@ -193,7 +201,7 @@ export default function NewDisputePage() {
                   <h2 className="text-2xl font-semibold text-gray-900 mb-2">Select Project & Milestone</h2>
                   <p className="text-gray-600">Choose the project and specific milestone related to this dispute</p>
                 </div>
-                
+
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="project">Project</Label>
@@ -208,7 +216,7 @@ export default function NewDisputePage() {
                       </SelectContent>
                     </Select>
                   </div>
-                  
+
                   {form.projectId && (
                     <div>
                       <Label htmlFor="milestone">Milestone</Label>
@@ -234,7 +242,7 @@ export default function NewDisputePage() {
                   <h2 className="text-2xl font-semibold text-gray-900 mb-2">Explain the Issue</h2>
                   <p className="text-gray-600">Provide detailed description and supporting evidence</p>
                 </div>
-                
+
                 <div className="space-y-4">
                   <div>
                     <Label htmlFor="description">Detailed Description *</Label>
@@ -246,7 +254,7 @@ export default function NewDisputePage() {
                       className="min-h-32"
                     />
                   </div>
-                  
+
                   <div>
                     <Label>Attachments</Label>
                     <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
@@ -269,7 +277,7 @@ export default function NewDisputePage() {
                   <h2 className="text-2xl font-semibold text-gray-900 mb-2">AI Pre-Analysis</h2>
                   <p className="text-gray-600">Our AI will analyze your case before human expert review</p>
                 </div>
-                
+
                 {!aiAnalysis && !isAnalyzing && (
                   <div className="text-center py-8">
                     <Bot className="h-16 w-16 text-blue-600 mx-auto mb-4" />
@@ -283,7 +291,7 @@ export default function NewDisputePage() {
                     </Button>
                   </div>
                 )}
-                
+
                 {isAnalyzing && (
                   <div className="text-center py-8">
                     <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
@@ -293,7 +301,7 @@ export default function NewDisputePage() {
                     </p>
                   </div>
                 )}
-                
+
                 {aiAnalysis && (
                   <div className="space-y-4">
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4">
@@ -305,7 +313,7 @@ export default function NewDisputePage() {
                         AI has successfully analyzed your case with {aiAnalysis.confidence.toLowerCase()} confidence
                       </p>
                     </div>
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <Card>
                         <CardContent className="p-4">
@@ -317,7 +325,7 @@ export default function NewDisputePage() {
                           </div>
                         </CardContent>
                       </Card>
-                      
+
                       <Card>
                         <CardContent className="p-4">
                           <div className="text-sm font-medium text-gray-600 mb-2">Likely Fault</div>
@@ -338,7 +346,7 @@ export default function NewDisputePage() {
                   <h2 className="text-2xl font-semibold text-gray-900 mb-2">Submit Dispute</h2>
                   <p className="text-gray-600">Review your dispute details and submit for expert review</p>
                 </div>
-                
+
                 <Card className="bg-gray-50">
                   <CardContent className="p-4">
                     <h4 className="font-medium text-gray-900 mb-3">Dispute Summary</h4>
@@ -354,14 +362,14 @@ export default function NewDisputePage() {
                     </div>
                   </CardContent>
                 </Card>
-                
+
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                   <div className="flex items-start gap-3">
                     <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5" />
                     <div>
                       <h4 className="font-medium text-yellow-900 mb-1">Legal Disclaimer</h4>
                       <p className="text-sm text-yellow-700">
-                        By submitting this dispute, you agree to our dispute resolution process and acknowledge that 
+                        By submitting this dispute, you agree to our dispute resolution process and acknowledge that
                         all information provided is accurate. False claims may result in account penalties.
                       </p>
                     </div>
@@ -371,18 +379,18 @@ export default function NewDisputePage() {
             )}
 
             <div className="flex items-center justify-between mt-8 pt-6 border-t">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={handlePrevious}
                 disabled={currentStep === 1}
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Previous
               </Button>
-              
+
               <div className="flex items-center gap-2">
                 {currentStep < totalSteps ? (
-                  <Button 
+                  <Button
                     onClick={handleNext}
                     disabled={
                       (currentStep === 1 && !form.role) ||

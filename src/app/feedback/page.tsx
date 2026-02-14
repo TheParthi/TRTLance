@@ -4,26 +4,34 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { 
+import {
   MessageSquare,
   Star,
   Calendar
 } from "lucide-react";
 
-const initialProjects = [
+interface Project {
+  id: number;
+  title: string;
+  clientName: string;
+  completionDate: string;
+  amount: number;
+}
+
+const initialProjects: Project[] = [
   // Empty by default - will show empty state
 ];
 
 export default function FeedbackPage() {
-  const [projects, setProjects] = useState(initialProjects);
+  const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-  const [selectedProject, setSelectedProject] = useState(null);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [feedback, setFeedback] = useState({
     rating: 5,
     comment: ""
   });
 
-  const handleLeaveFeedback = (project) => {
+  const handleLeaveFeedback = (project: Project) => {
     setSelectedProject(project);
     setShowFeedbackModal(true);
   };
@@ -89,7 +97,7 @@ export default function FeedbackPage() {
                         </Badge>
                       </div>
                     </div>
-                    <Button 
+                    <Button
                       className="bg-blue-600 hover:bg-blue-700"
                       onClick={() => handleLeaveFeedback(project)}
                     >
@@ -113,7 +121,7 @@ export default function FeedbackPage() {
                 <h4 className="font-medium text-gray-900 mb-2">{selectedProject.title}</h4>
                 <p className="text-sm text-gray-600">Client: {selectedProject.clientName}</p>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Rating
@@ -123,9 +131,8 @@ export default function FeedbackPage() {
                     <button
                       key={star}
                       onClick={() => setFeedback(prev => ({ ...prev, rating: star }))}
-                      className={`p-1 ${
-                        star <= feedback.rating ? "text-yellow-500" : "text-gray-300"
-                      }`}
+                      className={`p-1 ${star <= feedback.rating ? "text-yellow-500" : "text-gray-300"
+                        }`}
                     >
                       <Star className="h-6 w-6 fill-current" />
                     </button>
@@ -146,10 +153,10 @@ export default function FeedbackPage() {
                 />
               </div>
             </div>
-            
+
             <div className="flex justify-end gap-3 mt-6">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setShowFeedbackModal(false)}
               >
                 Cancel

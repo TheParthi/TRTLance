@@ -104,7 +104,7 @@ export async function POST(
                 id: disputeId,
                 project_id: contract.project_id,
                 raised_by: user.id,
-                project_name: contract.project?.title || 'Contract Dispute',
+                project_name: (contract as any).project?.title || 'Contract Dispute',
                 role: role,
                 amount: amount || contract.total_amount, // Default to total if specific amount not set
                 status: 'pd', // Pending/Open

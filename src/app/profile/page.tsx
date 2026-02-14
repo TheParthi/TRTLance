@@ -4,14 +4,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { 
-  User, 
-  MapPin, 
-  Calendar, 
+import {
+  User,
+  MapPin,
+  Calendar,
   Star,
   Edit,
   CreditCard,
   Scale,
+  Settings,
+  Wallet
 } from "lucide-react";
 
 export default function ProfileOverviewPage() {
@@ -38,7 +40,7 @@ export default function ProfileOverviewPage() {
                 <h2 className="text-xl font-bold text-gray-900">John Doe</h2>
                 <p className="text-gray-600">@johndoe</p>
                 <Badge className="mt-2 bg-blue-100 text-blue-800">Freelancer</Badge>
-                
+
                 <div className="space-y-3 mt-6 text-sm">
                   <div className="flex items-center gap-2">
                     <Star className="h-4 w-4 text-yellow-500 fill-current" />
@@ -66,26 +68,26 @@ export default function ProfileOverviewPage() {
           {/* Quick Actions */}
           <div className="lg:col-span-2">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card className="cursor-pointer hover:shadow-md transition-shadow" 
-                    onClick={() => window.location.href = '/profile/payments'}>
+              <Card className="cursor-pointer hover:shadow-md transition-shadow"
+                onClick={() => window.location.href = '/profile/wallet'}>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-3">
-                    <CreditCard className="h-6 w-6 text-green-600" />
-                    Payments & Payouts
+                    <Wallet className="h-6 w-6 text-green-600" />
+                    Wallet & Tokens
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-gray-600 text-sm mb-4">
-                    Manage your payment methods for receiving freelancer payouts
+                    Manage your platform tokens, buy credits, and track transaction history
                   </p>
                   <Button variant="outline" className="w-full">
-                    Manage Payments
+                    Open Wallet
                   </Button>
                 </CardContent>
               </Card>
 
               <Card className="cursor-pointer hover:shadow-md transition-shadow"
-                    onClick={() => window.location.href = '/disputes'}>
+                onClick={() => window.location.href = '/disputes'}>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-3">
                     <Scale className="h-6 w-6 text-purple-600" />

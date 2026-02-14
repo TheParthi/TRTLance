@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 
+import { WalletWidget } from "@/components/dashboard/wallet-widget";
+
 interface Job {
   id: string;
   title: string;
@@ -98,9 +100,13 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        {/* Wallet & Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="md:col-span-1">
+            <WalletWidget />
+          </div>
           <Card>
+
             <CardContent className="p-4 flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Available Projects</p>

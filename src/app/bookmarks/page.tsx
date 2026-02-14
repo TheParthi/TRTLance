@@ -3,19 +3,30 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
+import {
   Bookmark,
   BookmarkCheck
 } from "lucide-react";
 
-const initialBookmarks = [
+interface Bookmark {
+  id: number;
+  title: string;
+  type: "project" | "contest";
+  featured: boolean;
+  bidsOrEntries: number;
+  startDate: string;
+  endDate: string;
+  price: number;
+}
+
+const initialBookmarks: Bookmark[] = [
   // Empty by default to show empty state
 ];
 
 export default function BookmarksPage() {
-  const [bookmarks, setBookmarks] = useState(initialBookmarks);
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>(initialBookmarks);
 
-  const handleToggleBookmark = (id) => {
+  const handleToggleBookmark = (id: number) => {
     setBookmarks(prev => prev.filter(bookmark => bookmark.id !== id));
   };
 
