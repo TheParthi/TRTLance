@@ -51,9 +51,11 @@ npm run dev                     # http://localhost:9002
 Apply the database:
 
 ```bash
-supabase link --project-ref <ref>
-supabase db push                # applies supabase/migrations in order
+npx supabase db push --db-url "postgresql://postgres:<url-encoded password>@db.<ref>.supabase.co:5432/postgres"
+npx supabase migration list --db-url "…"   # local and remote history should match
 ```
+
+The hosted project for v2 is `trustlance-v2` (ref `ynhrhztquocljondkdws`). It is separate from the v1 prototype's database.
 
 Then in Supabase: enable Google sign-in (redirect `…/auth/callback`), set the email templates' confirm/recovery links to `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=…`, and add admins with `insert into platform_admins (user_id) values ('<uuid>');`.
 
