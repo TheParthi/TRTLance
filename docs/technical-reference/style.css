@@ -1,0 +1,104 @@
+/* Print stylesheet for the TrustLance technical reference (A4). */
+:root {
+  --ink: #141a2e;
+  --body: #2b3248;
+  --mute: #6b7389;
+  --line: #dfe3ec;
+  --soft: #f5f7fb;
+  --accent: #4f46e5;
+  --accent-2: #0e9f9a;
+  --ok: #15803d;
+  --warn: #b45309;
+  --risk: #b91c1c;
+}
+@page { size: A4; }
+* { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 9.6pt;
+  line-height: 1.55;
+  color: var(--body);
+}
+
+/* ---------- Cover ---------- */
+.cover { height: 257mm; position: relative; padding-top: 58mm; break-after: page; }
+.cover-band { position: absolute; top: 0; left: 0; right: 0; height: 9mm; background: linear-gradient(90deg, var(--accent), var(--accent-2)); border-radius: 2mm; }
+.cover-kicker { font-size: 9pt; letter-spacing: .22em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+.cover-title { font-size: 44pt; font-weight: 700; color: var(--ink); letter-spacing: -.02em; margin-top: 4mm; line-height: 1.05; }
+.cover-sub { font-size: 16pt; color: var(--mute); margin-top: 3mm; }
+.cover-meta { margin-top: 22mm; border-collapse: collapse; font-size: 9.5pt; }
+.cover-meta th { background: none; text-align: left; color: var(--mute); font-weight: 500; padding: 1.6mm 8mm 1.6mm 0; vertical-align: top; white-space: nowrap; }
+.cover-meta td { color: var(--ink); padding: 1.6mm 0; border: 0; background: none !important; }
+.cover-note { position: absolute; bottom: 0; left: 0; right: 0; font-size: 8.5pt; color: var(--mute); border-top: 1px solid var(--line); padding-top: 4mm; }
+
+/* ---------- Contents ---------- */
+.toc { break-after: page; }
+.toc-title { font-size: 22pt; color: var(--ink); margin: 0 0 6mm; }
+.toc a { display: flex; align-items: baseline; color: inherit; text-decoration: none; }
+.toc-1 { margin-top: 3.2mm; font-weight: 600; color: var(--ink); font-size: 10.5pt; }
+.toc-2 { margin-left: 9mm; font-size: 9pt; color: var(--body); margin-top: .6mm; }
+.toc-num { min-width: 9mm; color: var(--accent); font-variant-numeric: tabular-nums; }
+.toc-2 .toc-num { min-width: 11mm; color: var(--mute); }
+.toc-dots { flex: 1; border-bottom: 1px dotted #c3c8d4; margin: 0 2mm; transform: translateY(-1mm); }
+.toc-page { font-variant-numeric: tabular-nums; min-width: 6mm; text-align: right; }
+
+/* ---------- Headings ---------- */
+.chapter { break-before: page; }
+h1 { font-size: 21pt; color: var(--ink); letter-spacing: -.015em; margin: 0 0 5mm; padding-bottom: 3mm; border-bottom: 2px solid var(--ink); line-height: 1.15; }
+h1 .num { color: var(--accent); margin-right: 4mm; }
+h2 { font-size: 13.5pt; color: var(--ink); margin: 7mm 0 2.5mm; break-after: avoid; line-height: 1.25; }
+h2 .num { color: var(--accent); margin-right: 3mm; font-weight: 600; }
+h3 { font-size: 10.8pt; color: var(--ink); margin: 5mm 0 1.5mm; break-after: avoid; }
+h4 { font-size: 9.8pt; color: var(--accent); margin: 4mm 0 1mm; break-after: avoid; text-transform: uppercase; letter-spacing: .06em; }
+p { margin: 0 0 2.4mm; }
+ul, ol { margin: 0 0 2.6mm; padding-left: 5.5mm; }
+li { margin: .6mm 0; }
+li > ul, li > ol { margin-top: .6mm; margin-bottom: .6mm; }
+strong { color: var(--ink); }
+a { color: var(--accent); text-decoration: none; }
+hr { border: 0; border-top: 1px solid var(--line); margin: 5mm 0; }
+
+/* ---------- Code ---------- */
+code { font-family: 'JetBrains Mono', Menlo, monospace; font-size: 8.2pt; background: var(--soft); border: 1px solid var(--line); border-radius: 3px; padding: 0 1.2mm; color: #3a2fb8; word-break: break-word; }
+pre { background: #0f1424; color: #e3e7f2; border-radius: 2mm; padding: 3.5mm 4mm; font-size: 7.9pt; line-height: 1.5; overflow: hidden; white-space: pre-wrap; break-inside: avoid; margin: 0 0 3mm; }
+pre code { background: none; border: 0; color: inherit; padding: 0; font-size: inherit; }
+
+/* ---------- Tables ---------- */
+table { width: 100%; border-collapse: collapse; margin: 1mm 0 4mm; font-size: 8.4pt; line-height: 1.4; }
+thead { display: table-header-group; }
+tr { break-inside: avoid; }
+th { background: var(--ink); color: #fff; text-align: left; font-weight: 600; padding: 1.6mm 2mm; }
+td { border-bottom: 1px solid var(--line); padding: 1.5mm 2mm; vertical-align: top; }
+tbody tr:nth-child(even) td { background: #fafbfd; }
+td code, th code { font-size: 7.6pt; }
+
+/* ---------- Callouts and badges ---------- */
+.callout { border-left: 3px solid var(--accent); background: #f3f2ff; padding: 2.6mm 3.6mm; border-radius: 0 2mm 2mm 0; margin: 2mm 0 4mm; break-inside: avoid; }
+.callout.ok { border-color: var(--ok); background: #effaf3; }
+.callout.warn { border-color: var(--warn); background: #fff7ec; }
+.callout.risk { border-color: var(--risk); background: #fdf1f1; }
+.callout > :last-child { margin-bottom: 0; }
+.callout-title { font-weight: 700; color: var(--ink); display: block; margin-bottom: 1mm; }
+.b { display: inline-block; font-size: 7.2pt; font-weight: 700; padding: .3mm 1.8mm; border-radius: 99px; letter-spacing: .02em; white-space: nowrap; }
+.b-done { background: #dcfce7; color: #166534; }
+.b-partial { background: #fef3c7; color: #92400e; }
+.b-mock { background: #e5e7eb; color: #374151; }
+.b-missing { background: #fee2e2; color: #991b1b; }
+.b-high { background: #fee2e2; color: #991b1b; }
+.b-med { background: #fef3c7; color: #92400e; }
+.b-low { background: #e0f2fe; color: #075985; }
+
+/* ---------- Diagrams ---------- */
+figure { margin: 3mm 0 5mm; break-inside: avoid; text-align: center; }
+figure svg { max-width: 100%; height: auto; }
+figcaption { font-size: 8pt; color: var(--mute); margin-top: 1.5mm; }
+
+/* ---------- Key facts grid ---------- */
+.facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2.5mm; margin: 2mm 0 5mm; }
+.fact { border: 1px solid var(--line); border-radius: 2mm; padding: 2.5mm 3mm; break-inside: avoid; }
+.fact b { display: block; font-size: 15pt; color: var(--ink); line-height: 1.1; }
+.fact span { font-size: 7.8pt; color: var(--mute); }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; }
+.small { font-size: 8.4pt; color: var(--mute); }

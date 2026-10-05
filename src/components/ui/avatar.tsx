@@ -1,50 +1,22 @@
-"use client"
+/* eslint-disable @next/next/no-img-element */
+import { cn, initials } from '@/lib/utils';
+import { avatarUrl } from '@/lib/storage';
 
-import * as React from "react"
-import * as AvatarPrimitive from "@radix-ui/react-avatar"
+const sizes = { xs: 'size-6 text-2xs', sm: 'size-8 text-xs', md: 'size-10 text-sm', lg: 'size-14 text-base', xl: 'size-20 text-xl' };
 
-import { cn } from "@/lib/utils"
-
-const Avatar = React.forwardRef<
-  React.ElementRef<typeof AvatarPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Root>
->(({ className, ...props }, ref) => (
-  <AvatarPrimitive.Root
-    ref={ref}
-    className={cn(
-      "relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full",
-      className
-    )}
-    {...props}
-  />
-))
-Avatar.displayName = AvatarPrimitive.Root.displayName
-
-const AvatarImage = React.forwardRef<
-  React.ElementRef<typeof AvatarPrimitive.Image>,
-  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Image>
->(({ className, ...props }, ref) => (
-  <AvatarPrimitive.Image
-    ref={ref}
-    className={cn("aspect-square h-full w-full", className)}
-    {...props}
-  />
-))
-AvatarImage.displayName = AvatarPrimitive.Image.displayName
-
-const AvatarFallback = React.forwardRef<
-  React.ElementRef<typeof AvatarPrimitive.Fallback>,
-  React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Fallback>
->(({ className, ...props }, ref) => (
-  <AvatarPrimitive.Fallback
-    ref={ref}
-    className={cn(
-      "flex h-full w-full items-center justify-center rounded-full bg-muted",
-      className
-    )}
-    {...props}
-  />
-))
-AvatarFallback.displayName = AvatarPrimitive.Fallback.displayName
-
-export { Avatar, AvatarImage, AvatarFallback }
+export function Avatar({ name, path, size = 'md', className }: {
+  name: string;
+  path?: string | null;
+  size?: keyof typeof sizes;
+  className?: string;
+}) {
+  const src = avatarUrl(path);
+  return (
+    <span
+      className={cn('relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-soft font-semibold text-brand-strong ring-1 ring-line', sizes[size], className)}
+      aria-hidden={src ? undefined : true}
+    >
+      {src ? <img src={src} alt="" className="size-full object-cover" /> : initials(name)}
+    </span>
+  );
+}

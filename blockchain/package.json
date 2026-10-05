@@ -1,0 +1,21 @@
+{
+  "name": "trustlance-contracts",
+  "version": "2.0.0",
+  "private": true,
+  "description": "TrustLance escrow smart contract (Hardhat)",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "node": "hardhat node",
+    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
+    "deploy:shardeum-testnet": "hardhat run scripts/deploy.js --network shardeumTestnet",
+    "deploy:shardeum": "hardhat run scripts/deploy.js --network shardeum",
+    "export-abi": "node scripts/export-abi.js"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@openzeppelin/contracts": "^5.4.0",
+    "dotenv": "^16.4.5",
+    "hardhat": "^2.19.5"
+  }
+}

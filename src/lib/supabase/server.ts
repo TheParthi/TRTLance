@@ -1,29 +1,21 @@
-import { createServerClient } from '@supabase/ssr';
+import 'server-only';
 import { cookies } from 'next/headers';
+import { createServerClient } from '@supabase/ssr';
+import { publicEnv } from '@/lib/env';
 
+/** Supabase client acting as the signed-in user (row-level security applies). */
 export async function createClient() {
-    const cookieStore = await cookies();
-
-    return createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-            cookies: {
-                getAll() {
-                    return cookieStore.getAll();
-                },
-                setAll(cookiesToSet) {
-                    try {
-                        cookiesToSet.forEach(({ name, value, options }) =>
-                            cookieStore.set(name, value, options)
-                        );
-                    } catch {
-                        // The `setAll` method was called from a Server Component.
-                        // This can be ignored if you have middleware refreshing
-                        // user sessions.
-                    }
-                },
-            },
+  const store = await cookies();
+  return createServerClient(publicEnv.supabaseUrl, publicEnv.supabaseAnonKey, {
+    cookies: {
+      getAll: () => store.getAll(),
+      setAll: (list) => {
+        try {
+          list.forEach(({ name, value, options }) => store.set(name, value, options));
+        } catch {
+          // Called from a Server Component: the middleware refreshes the session instead.
         }
-    );
+      },
+    },
+  });
 }

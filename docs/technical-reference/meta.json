@@ -1,0 +1,16 @@
+{
+  "kicker": "Technical Reference",
+  "title": "TrustLance",
+  "subtitle": "System Documentation — Product, Architecture & Code",
+  "version": "v1.0 · October 2026",
+  "footer": "TrustLance · github.com/TheParthi/TRTLance",
+  "rows": [
+    ["Product", "TrustLance — trust-first freelance marketplace"],
+    ["Repository", "github.com/TheParthi/TRTLance (branch main)"],
+    ["Codebase snapshot", "commit 5d9c2268 · 5 October 2026"],
+    ["Team", "Parthiban Gunasekaran (TheParthi) · Ponmadhan (PonmadhanD)"],
+    ["Document version", "1.0 — baseline for further development"],
+    ["Status of this document", "Describes the code as it exists, including what is unfinished"]
+  ],
+  "note": "Every statement in this document was checked against the source code at the snapshot above. Where the README or design notes describe something the code does not do, the document says so. Source files for this PDF live in docs/technical-reference/ and can be edited and rebuilt with build.mjs."
+}

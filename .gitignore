@@ -44,9 +44,14 @@ next-env.d.ts
 firebase-debug.log
 firestore-debug.log
 
-# hardhat build output (regenerate with `npm run compile` in backend/)
-backend/artifacts/
-backend/cache/
+# hardhat build output (regenerate with `npm run compile` in blockchain/)
+blockchain/artifacts/
+blockchain/cache/
+blockchain/typechain-types/
+
+# playwright
+/test-results/
+/playwright-report/
 
 # editor / Firebase Studio state
 .modified

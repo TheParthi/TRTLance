@@ -1,88 +1,108 @@
-import type { Config } from "tailwindcss";
-//tailwind
+import type { Config } from 'tailwindcss';
+import animate from 'tailwindcss-animate';
+
+// Every colour, radius, shadow and type size used by the app comes from these tokens.
+// Values live as CSS variables in src/app/globals.css (light and dark).
+const tone = (name: string) => ({
+  DEFAULT: `hsl(var(--${name}) / <alpha-value>)`,
+  soft: `hsl(var(--${name}-soft) / <alpha-value>)`,
+  strong: `hsl(var(--${name}-strong) / <alpha-value>)`,
+});
+
 export default {
-  darkMode: ["class"],
-  content: [
-    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
-  ],
+  darkMode: ['class'],
+  content: ['./src/**/*.{ts,tsx}'],
   theme: {
+    screens: {
+      sm: '640px',
+      md: '768px',
+      lg: '1024px',
+      xl: '1280px',
+    },
     container: {
       center: true,
-      padding: "2rem",
-      screens: {
-        "2xl": "1400px",
-      },
+      padding: { DEFAULT: '1rem', md: '1.5rem', lg: '2rem' },
+      screens: { xl: '1200px' },
+    },
+    fontFamily: {
+      display: ['var(--font-display)', 'Georgia', 'serif'],
+      sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
+      mono: ['var(--font-mono)', 'ui-monospace', 'monospace'],
+    },
+    fontSize: {
+      // [size, { lineHeight, letterSpacing }]
+      '2xs': ['0.6875rem', { lineHeight: '1rem', letterSpacing: '0.01em' }],
+      xs: ['0.75rem', { lineHeight: '1.125rem' }],
+      sm: ['0.875rem', { lineHeight: '1.375rem' }],
+      base: ['1rem', { lineHeight: '1.625rem' }],
+      lg: ['1.125rem', { lineHeight: '1.75rem' }],
+      xl: ['1.25rem', { lineHeight: '1.875rem', letterSpacing: '-0.01em' }],
+      '2xl': ['1.5rem', { lineHeight: '2rem', letterSpacing: '-0.015em' }],
+      '3xl': ['1.875rem', { lineHeight: '2.375rem', letterSpacing: '-0.02em' }],
+      '4xl': ['2.5rem', { lineHeight: '3rem', letterSpacing: '-0.025em' }],
+      '5xl': ['3.25rem', { lineHeight: '3.625rem', letterSpacing: '-0.03em' }],
+      '6xl': ['4.25rem', { lineHeight: '4.5rem', letterSpacing: '-0.035em' }],
     },
     extend: {
-      fontFamily: {
-        body: ["var(--font-inter)", "sans-serif"],
-        headline: ["var(--font-inter)", "sans-serif"],
-        code: ["var(--font-source-code-pro)", "monospace"],
-      },
       colors: {
-        border: "hsl(var(--border))",
-        input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
-        primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
+        canvas: 'hsl(var(--canvas) / <alpha-value>)',
+        surface: {
+          DEFAULT: 'hsl(var(--surface) / <alpha-value>)',
+          subtle: 'hsl(var(--surface-subtle) / <alpha-value>)',
+          sunken: 'hsl(var(--surface-sunken) / <alpha-value>)',
+          inverse: 'hsl(var(--surface-inverse) / <alpha-value>)',
         },
-        secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
+        line: {
+          DEFAULT: 'hsl(var(--line) / <alpha-value>)',
+          strong: 'hsl(var(--line-strong) / <alpha-value>)',
         },
-        destructive: {
-          DEFAULT: "hsl(var(--destructive))",
-          foreground: "hsl(var(--destructive-foreground))",
+        ink: {
+          DEFAULT: 'hsl(var(--ink) / <alpha-value>)',
+          secondary: 'hsl(var(--ink-secondary) / <alpha-value>)',
+          muted: 'hsl(var(--ink-muted) / <alpha-value>)',
+          inverse: 'hsl(var(--ink-inverse) / <alpha-value>)',
         },
-        muted: {
-          DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))",
-        },
-        accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
-        },
-        popover: {
-          DEFAULT: "hsl(var(--popover))",
-          foreground: "hsl(var(--popover-foreground))",
-        },
-        card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
-        },
-        chart: {
-          "1": "hsl(var(--chart-1))",
-          "2": "hsl(var(--chart-2))",
-          "3": "hsl(var(--chart-3))",
-          "4": "hsl(var(--chart-4))",
-          "5": "hsl(var(--chart-5))",
-        },
+        brand: { ...tone('brand'), foreground: 'hsl(var(--brand-foreground) / <alpha-value>)' },
+        brass: tone('brass'),
+        success: tone('success'),
+        warning: tone('warning'),
+        danger: tone('danger'),
+        info: tone('info'),
+        refund: tone('refund'),
+        focus: 'hsl(var(--focus) / <alpha-value>)',
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        sm: 'var(--radius-sm)',
+        DEFAULT: 'var(--radius)',
+        md: 'var(--radius)',
+        lg: 'var(--radius-lg)',
+        full: '9999px',
+      },
+      boxShadow: {
+        xs: 'var(--shadow-xs)',
+        sm: 'var(--shadow-sm)',
+        md: 'var(--shadow-md)',
+        lg: 'var(--shadow-lg)',
+        none: 'none',
+      },
+      maxWidth: {
+        reading: '42rem',
+        content: '75rem',
+      },
+      spacing: {
+        sidebar: '15rem',
+        topbar: '3.75rem',
+        bottombar: '4rem',
       },
       keyframes: {
-        "accordion-down": {
-          from: { height: "0" },
-          to: { height: "var(--radix-accordion-content-height)" },
-        },
-        "accordion-up": {
-          from: { height: "var(--radix-accordion-content-height)" },
-          to: { height: "0" },
-        },
+        'fade-in': { from: { opacity: '0' }, to: { opacity: '1' } },
+        shimmer: { '100%': { transform: 'translateX(100%)' } },
       },
       animation: {
-        "accordion-down": "accordion-down 0.2s ease-out",
-        "accordion-up": "accordion-up 0.2s ease-out",
+        'fade-in': 'fade-in 150ms ease-out',
+        shimmer: 'shimmer 1.6s infinite',
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [animate],
 } satisfies Config;
