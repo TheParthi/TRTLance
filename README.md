@@ -164,8 +164,45 @@ Scope is intentionally limited to ensure **quality and completeness**.
 
 ---
 
+## 🗂️ Repository Structure
+
+```
+TRTLance/
+├── src/                  Next.js app (App Router): pages, API routes, components
+│   ├── app/              routes and /api handlers
+│   ├── components/       UI, dashboard, disputes, wallet, payments
+│   ├── ai/               Genkit flows (risk analysis, recommendations)
+│   └── lib/              Supabase clients, contracts, payments, config
+├── backend/              smart contracts and AI agent (own package.json)
+│   ├── contracts/        Solidity: Escrow, ProjectEscrow, TrustToken
+│   ├── scripts/          Hardhat deploy scripts (Amoy, Shardeum, local)
+│   ├── deployments/      deployed contract addresses
+│   ├── ai/               dispute-resolution agent
+│   └── supabase/         schema, RLS policies, migrations, seed SQL
+├── blockchain/contracts/ earlier contract versions
+├── docs/                 product blueprint
+└── public/               static assets
+```
+
+`node_modules/` and Hardhat build output (`backend/artifacts/`, `backend/cache/`) are not committed —
+they are recreated by `npm install` and `npm run compile`.
+
+---
+
 ## 📌 How to Run Locally
 
 ```bash
+# 1. Web app (http://localhost:9002)
 npm install
+cp .env.example .env.local   # then fill in the keys — see SETUP_STEPS.md
 npm run dev
+
+# 2. Smart contracts (optional)
+cd backend
+npm install
+npm run compile
+npm run deploy:amoy          # reads DEPLOYER_PRIVATE_KEY from the root .env.local
+```
+
+See `SETUP_STEPS.md` for Supabase and wallet setup, and `DISPUTE_RESOLUTION_SYSTEM.md` for the
+dispute flow.

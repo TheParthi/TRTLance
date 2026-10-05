@@ -3,13 +3,13 @@
     "version": "1.0.0",
     "description": "TrustLance Backend - Smart Contracts and AI Agent",
     "scripts": {
-        "compile": "cd backend && npx hardhat compile",
-        "deploy:amoy": "cd backend && npx hardhat run scripts/deploy.js --network amoy",
-        "deploy:polygon": "cd backend && npx hardhat run scripts/deploy.js --network polygon",
-        "deploy:local": "cd backend && npx hardhat run scripts/deploy.js --network hardhat",
-        "node": "cd backend && npx hardhat node",
-        "test": "cd backend && npx hardhat test",
-        "verify": "cd backend && npx hardhat verify --network amoy"
+        "compile": "npx hardhat compile",
+        "deploy:amoy": "npx hardhat run scripts/deploy.js --network amoy",
+        "deploy:polygon": "npx hardhat run scripts/deploy.js --network polygon",
+        "deploy:local": "npx hardhat run scripts/deploy.js --network hardhat",
+        "node": "npx hardhat node",
+        "test": "npx hardhat test",
+        "verify": "npx hardhat verify --network amoy"
     },
     "dependencies": {
         "@langchain/community": "^0.0.41",
