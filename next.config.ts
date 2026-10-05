@@ -42,6 +42,8 @@ const legacyRedirects: [string, string][] = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Genkit pulls optional OpenTelemetry exporters; load it from node_modules at runtime instead of bundling.
+  serverExternalPackages: ['genkit', '@genkit-ai/core', '@genkit-ai/google-genai'],
   reactStrictMode: true,
   async headers() {
     return [

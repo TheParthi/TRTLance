@@ -8,7 +8,7 @@ test.describe('public site', () => {
     for (const banned of ['Freelancer.com', 'largest freelance marketplace', 'Save up to 90%', '60,000,000']) {
       expect(text).not.toContain(banned);
     }
-    await expect(page.getByRole('link', { name: /Create a free account/ })).toBeVisible();
+    await expect(page.getByRole('link', { name: /Create a free account/ }).first()).toBeVisible();
   });
 
   test('navigation works on every viewport', async ({ page, isMobile }) => {
