@@ -1,11 +1,10 @@
 'use client';
 
-import { GraduationCap, PenLine, Plus } from 'lucide-react';
+import { PenLine, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { Section } from '@/components/common/page-header';
-import { EmptyState } from '@/components/common/states';
+import { SettingsSection } from '@/components/settings/settings-section';
 import { deleteEducation, saveEducation } from '@/lib/actions/profile-sections';
 import type { Education } from '@/lib/types';
 import { DeleteItemButton } from './delete-item-button';
@@ -19,13 +18,17 @@ export function EducationManager({ items }: { items: Education[] }) {
   const add = <Button type="button" variant="secondary" size="sm" onClick={() => ed.start(null, EMPTY)}><Plus /> Add education</Button>;
 
   return (
-    <Section id="education" title="Education" action={items.length ? add : undefined}>
+    <SettingsSection id="education" title="Education" description="Optional. Degrees or courses that matter for your work." action={items.length ? add : undefined}>
       {items.length === 0 ? (
-        <EmptyState compact icon={GraduationCap} title="No education added" description="Optional. Add degrees or courses that matter for your work." action={add} />
+        <div className="space-y-1">
+          <p className="font-medium">No education added</p>
+          <p className="text-sm text-ink-secondary">Add a degree or course if it helps clients understand your background.</p>
+          <div className="pt-3">{add}</div>
+        </div>
       ) : (
-        <ul className="panel divide-y">
+        <ul className="ledger">
           {items.map((item) => (
-            <li key={item.id} className="flex items-start gap-3 p-4">
+            <li key={item.id} className="flex items-start gap-3 py-4">
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">{item.school}</p>
                 {(item.degree || item.field) && <p className="text-sm text-ink-secondary">{[item.degree, item.field].filter(Boolean).join(', ')}</p>}
@@ -66,6 +69,6 @@ export function EducationManager({ items }: { items: Education[] }) {
           </Field>
         </div>
       </EditorDialog>
-    </Section>
+    </SettingsSection>
   );
 }

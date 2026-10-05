@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { requireViewer } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
+import { SettingsSections } from '@/components/settings/settings-section';
 import type { Certification, Education, PortfolioItem } from '@/lib/types';
 import { CertificationManager } from './certification-manager';
 import { EducationManager } from './education-manager';
@@ -20,10 +21,10 @@ export default async function PortfolioSettingsPage() {
   for (const r of [portfolio, education, certifications]) if (r.error) throw r.error;
 
   return (
-    <div className="space-y-8">
+    <SettingsSections>
       <PortfolioManager items={(portfolio.data ?? []) as PortfolioItem[]} />
       <EducationManager items={(education.data ?? []) as Education[]} />
       <CertificationManager items={(certifications.data ?? []) as Certification[]} />
-    </div>
+    </SettingsSections>
   );
 }

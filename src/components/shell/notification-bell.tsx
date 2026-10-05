@@ -36,10 +36,10 @@ export function NotificationBell({ userId, initialCount }: { userId: string; ini
 
   const label = count ? `Notifications, ${count} unread` : 'Notifications';
   return (
-    <Link href="/notifications" aria-label={label} className="relative inline-flex size-10 items-center justify-center rounded text-ink-secondary hover:bg-surface-subtle hover:text-ink">
-      <Bell className="size-5" aria-hidden />
+    <Link href="/notifications" aria-label={label} className="relative inline-flex size-9 items-center justify-center rounded-full text-ink-secondary transition-colors hover:bg-ink/5 hover:text-ink">
+      <Bell className="size-[18px]" aria-hidden />
       {count > 0 && (
-        <span className={cn('absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-2xs font-semibold leading-none text-white ring-2 ring-surface')} aria-hidden>
+        <span className={cn('absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-signal px-1 text-2xs font-semibold leading-none text-signal-ink ring-2 ring-canvas')} aria-hidden>
           {count > 99 ? '99+' : count}
         </span>
       )}

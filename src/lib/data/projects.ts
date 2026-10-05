@@ -2,7 +2,7 @@ import 'server-only';
 import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import type {
-  Category, Profile, ProfileStats, Project, ProjectAttachment, ProjectSearchRow, Proposal, ProposalMilestone, RiskReport,
+  Category, MilestonePlanItem, Profile, ProfileStats, Project, ProjectAttachment, ProjectSearchRow, Proposal, ProposalMilestone, RiskReport,
 } from '@/lib/types';
 
 export const getCategories = cache(async (): Promise<Category[]> => {
@@ -101,4 +101,12 @@ export async function getMyProposal(projectId: string, userId: string): Promise<
     .maybeSingle();
   if (!data) return null;
   return { ...data, milestones: [...(data.milestones ?? [])].sort((a: ProposalMilestone, b: ProposalMilestone) => a.position - b.position) } as ProposalWithMilestones;
+}
+
+/** Suggested milestone plans for a set of projects, keyed by id — for drawing their rails in lists. */
+export async function getMilestonePlans(ids: string[]): Promise<Map<string, MilestonePlanItem[]>> {
+  if (!ids.length) return new Map();
+  const supabase = await createClient();
+  const { data } = await supabase.from('projects').select('id, milestone_plan').in('id', ids).returns<{ id: string; milestone_plan: MilestonePlanItem[] | null }[]>();
+  return new Map((data ?? []).map((r) => [r.id, r.milestone_plan ?? []]));
 }

@@ -1,5 +1,5 @@
 import { getViewer } from '@/lib/auth';
-import { AppShell } from '@/components/shell/app-shell';
+import { AppShell, escrowTotal } from '@/components/shell/app-shell';
 import { PublicHeader } from '@/components/shell/public-header';
 import { SiteFooter } from '@/components/shell/site-footer';
 
@@ -10,7 +10,7 @@ import { SiteFooter } from '@/components/shell/site-footer';
  */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const viewer = await getViewer();
-  if (viewer) return <AppShell viewer={viewer}>{children}</AppShell>;
+  if (viewer) return <AppShell viewer={viewer} inEscrow={await escrowTotal(viewer.id)}>{children}</AppShell>;
   return (
     <div className="flex min-h-dvh flex-col">
       <PublicHeader signedIn={false} />

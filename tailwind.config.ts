@@ -70,6 +70,7 @@ export default {
         info: tone('info'),
         refund: tone('refund'),
         focus: 'hsl(var(--focus) / <alpha-value>)',
+        signal: { DEFAULT: 'hsl(var(--signal) / <alpha-value>)', ink: 'hsl(var(--signal-ink) / <alpha-value>)' },
       },
       borderRadius: {
         sm: 'var(--radius-sm)',
@@ -92,15 +93,32 @@ export default {
       spacing: {
         sidebar: '15rem',
         topbar: '3.75rem',
-        bottombar: '4rem',
+        bottombar: '5.25rem',
+      },
+      // Motion: fast, precise, quiet. One easing curve for the whole product.
+      transitionTimingFunction: {
+        ledger: 'var(--ease-ledger)',
+      },
+      transitionDuration: {
+        fast: 'var(--dur-fast)',
+        base: 'var(--dur-base)',
+        slow: 'var(--dur-slow)',
       },
       keyframes: {
         'fade-in': { from: { opacity: '0' }, to: { opacity: '1' } },
         shimmer: { '100%': { transform: 'translateX(100%)' } },
+        rise: { from: { opacity: '0', transform: 'translateY(6px)' }, to: { opacity: '1', transform: 'none' } },
+        'rail-in': { from: { transform: 'scaleX(0)' }, to: { transform: 'scaleX(1)' } },
+        'word-up': { from: { transform: 'translateY(110%)' }, to: { transform: 'translateY(0)' } },
+        'scroll-cue': { '0%': { transform: 'scaleY(0)', transformOrigin: 'top' }, '45%': { transform: 'scaleY(1)', transformOrigin: 'top' }, '55%': { transform: 'scaleY(1)', transformOrigin: 'bottom' }, '100%': { transform: 'scaleY(0)', transformOrigin: 'bottom' } },
       },
       animation: {
-        'fade-in': 'fade-in 150ms ease-out',
+        'fade-in': 'fade-in var(--dur-fast) ease-out',
         shimmer: 'shimmer 1.6s infinite',
+        rise: 'rise var(--dur-slow) var(--ease-ledger) backwards',
+        'rail-in': 'rail-in 700ms var(--ease-ledger) both',
+        'word-up': 'word-up 1100ms var(--ease-ledger) both',
+        'scroll-cue': 'scroll-cue 2.2s var(--ease-ledger) infinite',
       },
     },
   },

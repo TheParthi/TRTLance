@@ -12,16 +12,46 @@ import { shortAddress } from '@/lib/format';
 import { toWei } from '@/lib/money';
 import type { Contract, Milestone } from '@/lib/types';
 
+const OPEN_EVENT = 'trustlance:fund-escrow';
+
+/**
+ * Opens the deposit dialog from anywhere on the page (the next-step band, the phone action bar).
+ * The dialog itself lives in `FundEscrowButton trigger={false}`, mounted once at a stable place, so it
+ * stays open through the refresh that follows a confirmed deposit.
+ */
+export function FundEscrowTrigger({ pending, variant = 'primary', size }: { pending: boolean; variant?: 'primary' | 'signal'; size?: 'sm' | 'md' | 'lg' }) {
+  if (!isEscrowConfigured()) return <p className="t-meta">On-chain escrow is not configured on this deployment.</p>;
+  return (
+    <Button variant={variant} size={size} onClick={() => window.dispatchEvent(new Event(OPEN_EVENT))} disabled={pending}>
+      <Lock /> {pending ? 'Deposit confirming…' : 'Fund escrow'}
+    </Button>
+  );
+}
+
 /** The client's deposit of the full contract amount into escrow. */
-export function FundEscrowButton({ contract, milestones, pending }: { contract: Contract; milestones: Milestone[]; pending: boolean }) {
+export function FundEscrowButton({ contract, milestones, pending, variant = 'primary', size, trigger = true }: {
+  contract: Contract;
+  milestones: Milestone[];
+  pending: boolean;
+  variant?: 'primary' | 'signal';
+  size?: 'sm' | 'md' | 'lg';
+  /** false: render only the dialog, opened by a `FundEscrowTrigger`. */
+  trigger?: boolean;
+}) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
+  React.useEffect(() => {
+    if (trigger) return;
+    const onOpen = () => setOpen(true);
+    window.addEventListener(OPEN_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_EVENT, onOpen);
+  }, [trigger]);
   const ordered = [...milestones].sort((a, b) => a.position - b.position);
-  if (!isEscrowConfigured()) return <p className="t-meta">On-chain escrow is not configured on this deployment.</p>;
+  if (!isEscrowConfigured()) return trigger ? <p className="t-meta">On-chain escrow is not configured on this deployment.</p> : null;
   if (!contract.freelancer_wallet) return null;
   return (
     <>
-      <Button onClick={() => setOpen(true)} disabled={pending}><Lock /> {pending ? 'Deposit confirming…' : 'Fund escrow'}</Button>
+      {trigger && <Button variant={variant} size={size} onClick={() => setOpen(true)} disabled={pending}><Lock /> {pending ? 'Deposit confirming…' : 'Fund escrow'}</Button>}
       <EscrowTxDialog
         open={open}
         onOpenChange={setOpen}

@@ -2,22 +2,22 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Bell, FolderOpen, ShieldCheck, UserRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const ITEMS = [
-  { href: '/settings', label: 'Profile', icon: UserRound },
-  { href: '/settings/portfolio', label: 'Portfolio & credentials', icon: FolderOpen },
-  { href: '/settings/account', label: 'Account & security', icon: ShieldCheck },
-  { href: '/settings/notifications', label: 'Notifications', icon: Bell },
+  { href: '/settings', label: 'Profile' },
+  { href: '/settings/portfolio', label: 'Portfolio & credentials' },
+  { href: '/settings/account', label: 'Account & security' },
+  { href: '/settings/notifications', label: 'Notifications' },
 ];
 
+/** Tabs that scroll inside their own strip on phones; a quiet list with a rule on the current page from md up. */
 export function SettingsNav() {
   const pathname = usePathname();
   return (
-    <nav aria-label="Settings sections" className="-mx-4 min-w-0 md:mx-0">
-      <ul className="scrollbar-none flex gap-1 overflow-x-auto border-b px-4 md:flex-col md:border-b-0 md:px-0">
-        {ITEMS.map(({ href, label, icon: Icon }) => {
+    <nav aria-label="Settings sections" className="scrollbar-none relative -mx-4 min-w-0 overflow-x-auto px-4 md:mx-0 md:overflow-visible md:px-0">
+      <ul className="flex w-max min-w-full gap-6 border-b md:sticky md:top-24 md:w-auto md:flex-col md:gap-0 md:border-b-0 md:border-l">
+        {ITEMS.map(({ href, label }) => {
           const active = pathname === href;
           return (
             <li key={href} className="shrink-0">
@@ -25,13 +25,10 @@ export function SettingsNav() {
                 href={href}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'flex h-10 items-center gap-2 whitespace-nowrap border-b-2 px-3 text-sm font-medium transition-colors md:rounded md:border-b-0',
-                  active
-                    ? 'border-brand text-ink md:bg-surface-subtle'
-                    : 'border-transparent text-ink-muted hover:text-ink md:hover:bg-surface-subtle',
+                  '-mb-px flex h-10 items-center whitespace-nowrap border-b-2 text-sm font-medium transition-colors duration-base ease-ledger md:-ml-px md:mb-0 md:border-b-0 md:border-l-2 md:pl-4',
+                  active ? 'border-ink text-ink' : 'border-transparent text-ink-muted hover:text-ink',
                 )}
               >
-                <Icon className="size-4" aria-hidden />
                 {label}
               </Link>
             </li>

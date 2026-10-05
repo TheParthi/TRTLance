@@ -37,9 +37,9 @@ export function DecisionPanel({ disputeId, status, amount, isAssigned, isAdmin }
 
   if (status === 'resolved') {
     return (
-      <section className="panel space-y-2 p-5" aria-labelledby="decision-panel-title">
-        <h2 id="decision-panel-title" className="flex items-center gap-2 text-sm font-semibold"><Gavel className="size-4 text-brand" aria-hidden /> Decision recorded</h2>
-        <p className="text-sm text-ink-secondary">This case is closed. The outcome and settlement status are shown in the Decision section.</p>
+      <section className="space-y-1 border-y py-4" aria-labelledby="decision-panel-title">
+        <h2 id="decision-panel-title" className="flex items-center gap-2 font-semibold"><Gavel className="size-4 text-success" aria-hidden /> Decision recorded</h2>
+        <p className="text-sm text-ink-secondary">This case is closed. The outcome and settlement status are shown in the decision section and the money summary.</p>
       </section>
     );
   }
@@ -54,14 +54,18 @@ export function DecisionPanel({ disputeId, status, amount, isAssigned, isAdmin }
   };
 
   return (
-    <section className="panel space-y-5 p-5" aria-labelledby="decision-panel-title">
-      <h2 id="decision-panel-title" className="flex items-center gap-2 text-sm font-semibold"><Gavel className="size-4 text-brand" aria-hidden /> Case actions</h2>
-      {isAdmin && !isAssigned && (
-        <Callout tone="info">You are acting as a platform admin. {status === 'open' || status === 'escalated' ? 'You can decide this case directly or assign an arbitrator from the admin queue.' : 'An arbitrator is assigned; decide only if the platform must step in.'}</Callout>
-      )}
+    <section className="statement space-y-5" aria-labelledby="decision-panel-title">
+      <div className="space-y-1">
+        <h2 id="decision-panel-title" className="flex items-center gap-2 font-semibold"><Gavel className="size-4 text-brand" aria-hidden /> Case actions</h2>
+        <p className="text-sm text-ink-secondary">
+          {isAdmin && !isAssigned
+            ? `You are acting as a platform admin. ${status === 'open' || status === 'escalated' ? 'You can decide this case directly or assign an arbitrator from the admin queue.' : 'An arbitrator is assigned; decide only if the platform must step in.'}`
+            : 'You choose the split and explain it. You see exactly who gets what before you confirm.'}
+        </p>
+      </div>
       <div className="flex flex-col gap-2">
         {canManage && status === 'awaiting_evidence' && (
-          <Button variant="secondary" onClick={start} loading={starting}><Play /> Close evidence window and start review</Button>
+          <Button variant="secondary" className="h-auto min-h-10 whitespace-normal py-2" onClick={start} loading={starting}><Play /> Close evidence window and start review</Button>
         )}
         {canManage && <Button variant="secondary" onClick={() => setEvidenceOpen(true)}><CalendarPlus /> Request more evidence</Button>}
         {canDecide
@@ -69,7 +73,7 @@ export function DecisionPanel({ disputeId, status, amount, isAssigned, isAdmin }
           : <p className="t-meta">{status === 'escalated' ? 'This case was escalated. The platform team decides it.' : 'You cannot decide this case in its current state.'}</p>}
       </div>
       {isAssigned && status !== 'escalated' && (
-        <div className="border-t pt-4">
+        <div className="border-t pt-5">
           <EscalateButton disputeId={disputeId} allowed explanation="Escalate if you cannot decide fairly, suspect fraud, or the case needs the platform team." size="sm" />
         </div>
       )}
@@ -169,9 +173,10 @@ function DecideDialog({ disputeId, amount, open, onOpenChange }: { disputeId: st
           </Field>
         )}
         {decision && (
-          <div className="space-y-2">
+          <div className="space-y-2 border-y py-4">
+            <p className="t-label-caps">Who gets what</p>
             <p className="text-sm font-medium">{decisionLabel(decision, effectivePct)}</p>
-            <SplitRows amount={amount} pct={effectivePct} />
+            <SplitRows amount={amount} pct={effectivePct} showTotal />
           </div>
         )}
         <Field label="Reasoning" error={errors.reason} hint="Refer to the contract terms and evidence. At least 50 characters.">

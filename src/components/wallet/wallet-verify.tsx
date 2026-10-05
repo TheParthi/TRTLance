@@ -63,16 +63,19 @@ export function WalletVerify() {
   if (wallet.status === 'checking') return <p className="t-meta flex items-center gap-2"><Loader2 className="size-4 animate-spin" aria-hidden /> Looking for a wallet…</p>;
   if (wallet.status === 'unavailable') {
     return (
-      <Callout tone="info" title="No browser wallet found">
-        Install a wallet such as MetaMask (desktop extension or mobile app browser), then reload this page. You’ll only need it to verify ownership, fund contracts and release payments.
-      </Callout>
+      <div className="space-y-1">
+        <p className="text-sm font-medium">No browser wallet found</p>
+        <p className="text-sm text-ink-secondary">
+          Install a wallet such as MetaMask (desktop extension or mobile app browser), then reload this page. You’ll only need it to verify ownership, fund contracts and release payments.
+        </p>
+      </div>
     );
   }
   return (
     <div className="space-y-4">
       <ol className="space-y-3 text-sm">
         <li className="flex items-start gap-3">
-          <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand-strong">1</span>
+          <span className="flex size-6 shrink-0 items-center justify-center rounded-full border font-mono text-xs text-ink-secondary">1</span>
           <div className="flex-1 space-y-2">
             <p className="font-medium">Connect the wallet you want to use</p>
             {wallet.status === 'connected' ? (
@@ -83,7 +86,7 @@ export function WalletVerify() {
           </div>
         </li>
         <li className="flex items-start gap-3">
-          <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold text-brand-strong">2</span>
+          <span className="flex size-6 shrink-0 items-center justify-center rounded-full border font-mono text-xs text-ink-secondary">2</span>
           <div className="flex-1 space-y-2">
             <p className="font-medium">Sign a free verification message</p>
             <p className="text-ink-secondary">Your wallet shows a readable message. Signing it costs nothing and cannot move funds.</p>

@@ -94,7 +94,7 @@ export function OnboardingWizard({ userId, email, emailVerified, walletAddress, 
   return (
     <div className="space-y-8">
       <StepProgress steps={[...STEPS]} current={step} />
-      <section className="panel space-y-6 p-6 md:p-8" aria-labelledby="step-title">
+      <section className="space-y-6 rounded-2xl border border-ink/10 bg-canvas/85 p-6 shadow-[0_24px_60px_-30px_rgb(0_0_0/0.35)] backdrop-blur-md md:p-10" aria-labelledby="step-title">
         {title === 'Welcome' && (
           <div className="space-y-4">
             <h1 id="step-title" ref={heading} tabIndex={-1} className="t-page-title outline-none">Welcome to TrustLance, {form.display_name.split(' ')[0]}</h1>
@@ -197,8 +197,8 @@ export function OnboardingWizard({ userId, email, emailVerified, walletAddress, 
           <div className="space-y-5">
             <h1 id="step-title" ref={heading} tabIndex={-1} className="t-page-title outline-none">How trust works on TrustLance</h1>
             <p className="text-sm text-ink-secondary">Other members see only verified facts about you — never claims we cannot check.</p>
-            <ul className="space-y-3">
-              <li className="flex items-start gap-3 rounded-lg border p-4">
+            <ul className="ledger">
+              <li className="flex items-start gap-3 py-4">
                 <Mail className="mt-0.5 size-5 text-brand" aria-hidden />
                 <div className="flex-1 text-sm">
                   <p className="font-semibold">Email</p>
@@ -206,7 +206,7 @@ export function OnboardingWizard({ userId, email, emailVerified, walletAddress, 
                 </div>
                 {emailVerified && <CheckCircle2 className="size-5 text-success" aria-label="Verified" />}
               </li>
-              <li className="flex items-start gap-3 rounded-lg border p-4">
+              <li className="flex items-start gap-3 py-4">
                 <Wallet className="mt-0.5 size-5 text-brand" aria-hidden />
                 <div className="flex-1 space-y-2 text-sm">
                   <p className="font-semibold">Wallet</p>

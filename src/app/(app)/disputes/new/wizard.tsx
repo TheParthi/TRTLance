@@ -2,15 +2,14 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, ArrowLeft, ArrowRight, Lock } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowRight, Flag, Gavel, Lock, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Callout } from '@/components/ui/callout';
 import { Checkbox, RadioCard, RadioGroup } from '@/components/ui/choice';
 import { Field, FieldGroup } from '@/components/ui/field';
 import { Input, Select, Textarea } from '@/components/ui/input';
 import { toast } from '@/components/ui/toaster';
 import { Money } from '@/components/common/money';
-import { StatusBadge } from '@/components/common/status-badge';
+import { StatusMark } from '@/components/common/status-mark';
 import { StepList, StepProgress } from '@/components/forms/step-progress';
 import { openDispute } from '@/lib/actions/disputes';
 import type { DisputableContract } from '@/lib/data/disputes';
@@ -130,16 +129,25 @@ export function DisputeWizard({ contracts, initialContractId, initialMilestoneId
   const busy = phase !== 'idle';
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[14rem_1fr]">
+    <div className="grid grid-cols-1 gap-8 lg:grid-cols-[14rem_minmax(0,1fr)]">
       <aside className="hidden lg:block">
-        <div className="sticky top-20"><StepList steps={STEPS} current={step} onSelect={busy ? undefined : go} /></div>
+        <div className="sticky top-20 space-y-4">
+          <StepList steps={STEPS} current={step} onSelect={busy ? undefined : go} />
+          {milestone && (
+            <div className="space-y-1 border-t pt-4">
+              <p className="t-label-caps">In dispute</p>
+              <p className="text-sm font-medium">{milestone.position}. {milestone.title}</p>
+              <Money amount={milestone.amount} size="sm" />
+            </div>
+          )}
+        </div>
       </aside>
       <div className="min-w-0 space-y-6">
         <div className="lg:hidden"><StepProgress steps={STEPS} current={step} /></div>
-        <section className="panel space-y-6 p-5 md:p-8" aria-labelledby="dispute-step-title">
+        <section className="statement space-y-6" aria-labelledby="dispute-step-title">
           <div className="space-y-1">
-            <p className="t-eyebrow">Step {step + 1} of {STEPS.length}</p>
-            <h2 id="dispute-step-title" ref={heading} tabIndex={-1} className="t-page-title outline-none">{HEADINGS[step]}</h2>
+            <p className="t-label-caps">Step {step + 1} of {STEPS.length}</p>
+            <h2 id="dispute-step-title" ref={heading} tabIndex={-1} className="text-xl font-semibold tracking-tight outline-none">{HEADINGS[step]}</h2>
           </div>
 
           {step === 0 && (
@@ -156,7 +164,7 @@ export function DisputeWizard({ contracts, initialContractId, initialMilestoneId
                     {contract.milestones.map((m) => (
                       <RadioCard key={m.id} value={m.id}
                         title={`${m.position}. ${m.title}`}
-                        description={<span className="mt-1 flex flex-wrap items-center gap-2"><Money amount={m.amount} size="sm" /><StatusBadge meta={milestoneStatus[m.status]} describe={false} />{m.due_date && <span className="t-meta">Due {formatDate(m.due_date)}</span>}</span>} />
+                        description={<span className="mt-1 flex flex-wrap items-center gap-2"><Money amount={m.amount} size="sm" /><StatusMark meta={milestoneStatus[m.status]} describe={false} />{m.due_date && <span className="t-meta">Due {formatDate(m.due_date)}</span>}</span>} />
                     ))}
                   </RadioGroup>
                 </FieldGroup>
@@ -197,8 +205,13 @@ export function DisputeWizard({ contracts, initialContractId, initialMilestoneId
                   </div>
                 </Field>
               )}
-              {outcome && <SplitRows amount={milestone.amount} pct={requestedPct} />}
-              <p className="t-meta">This is your request. The arbitrator decides the final split after reviewing both sides.</p>
+              {outcome && (
+                <div className="space-y-2 border-t pt-5">
+                  <p className="t-label-caps">Your requested split</p>
+                  <SplitRows amount={milestone.amount} pct={requestedPct} showTotal />
+                </div>
+              )}
+              <p className="text-sm text-ink-secondary">This is your request. The arbitrator decides the final split after reviewing both sides.</p>
             </div>
           )}
 
@@ -211,7 +224,7 @@ export function DisputeWizard({ contracts, initialContractId, initialMilestoneId
 
           {step === 4 && contract && milestone && reason && outcome && (
             <div className="space-y-6">
-              <dl className="divide-y rounded-lg border text-sm">
+              <dl className="divide-y border-y text-sm">
                 {([
                   ['Contract', contract.title, 0],
                   ['Milestone', <span key="m">{milestone.position}. {milestone.title} · <Money amount={milestone.amount} size="sm" /></span>, 0],
@@ -220,27 +233,38 @@ export function DisputeWizard({ contracts, initialContractId, initialMilestoneId
                   ['Requested outcome', requestedOutcomeLabel(outcome, requestedPct), 2],
                   ['Evidence', drafts.length ? `${drafts.length} item${drafts.length === 1 ? '' : 's'}` : 'None yet', 3],
                 ] as [string, React.ReactNode, number][]).map(([label, value, target]) => (
-                  <div key={label} className="grid grid-cols-[7rem_1fr_auto] items-start gap-3 p-3 sm:grid-cols-[10rem_1fr_auto]">
+                  <div key={label} className="grid grid-cols-[6.5rem_minmax(0,1fr)_auto] items-start gap-3 py-3 sm:grid-cols-[10rem_minmax(0,1fr)_auto]">
                     <dt className="text-ink-muted">{label}</dt>
                     <dd className="min-w-0 break-words">{value}</dd>
                     <button type="button" className="link text-xs" disabled={busy} onClick={() => go(target)}>Edit<span className="sr-only"> {label}</span></button>
                   </div>
                 ))}
               </dl>
-              <Callout tone="warning" title="What opening a dispute does">
-                <ul className="list-disc space-y-1 pl-5">
-                  <li>The milestone is frozen. Release is blocked until the dispute is decided.</li>
-                  <li>An independent arbitrator with no history with either of you is assigned. Both sides get 3 days to add evidence.</li>
-                  <li>You will need to flag the milestone on-chain from your verified wallet so the arbiter can settle the decision.</li>
-                  <li>The decision is final on TrustLance and the losing party’s record shows a lost dispute.</li>
+              <div className="space-y-2">
+                <p className="t-label-caps">Your requested split</p>
+                <SplitRows amount={milestone.amount} pct={requestedPct} />
+              </div>
+              <section aria-labelledby="consequences-title" className="space-y-2">
+                <h3 id="consequences-title" className="t-label-caps">What opening a dispute does</h3>
+                <ul className="divide-y border-y text-sm">
+                  {([
+                    [Lock, 'The milestone is frozen.', 'Release is blocked until the dispute is decided. No money moves when you open it.'],
+                    [UserCheck, 'An independent arbitrator is assigned.', 'Someone with no history with either of you. Both sides get 3 days to add evidence.'],
+                    [Flag, 'You flag the milestone on-chain.', 'From your verified wallet, so the arbiter can settle the decision. This sends no money.'],
+                    [Gavel, 'The decision is final on TrustLance.', 'The losing party’s record shows a lost dispute.'],
+                  ] as const).map(([Icon, title, body]) => (
+                    <li key={title} className="flex items-start gap-3 py-3">
+                      <Icon className="mt-0.5 size-4 shrink-0 text-ink-muted" aria-hidden />
+                      <span><span className="font-medium text-ink">{title}</span> <span className="text-ink-secondary">{body}</span></span>
+                    </li>
+                  ))}
                 </ul>
-              </Callout>
+              </section>
               <label className="flex items-start gap-3 text-sm">
                 <Checkbox checked={confirmed} onCheckedChange={(v) => { setConfirmed(v === true); setErrors({}); }} aria-describedby={errors.confirm ? 'confirm-error' : undefined} />
                 <span>I understand that the milestone is frozen, release is blocked until the dispute is decided, and that I need to flag it on-chain.</span>
               </label>
               {errors.confirm && <p id="confirm-error" role="alert" className="text-xs font-medium text-danger-strong">{errors.confirm}</p>}
-              <p className="flex items-center gap-2 text-xs text-ink-muted"><Lock className="size-3.5" aria-hidden /> No money moves when you open a dispute.</p>
               <div className="flex flex-col-reverse gap-2 border-t pt-5 sm:flex-row sm:justify-between">
                 <Button variant="ghost" disabled={busy} onClick={() => go(3)}><ArrowLeft /> Back</Button>
                 <Button size="lg" variant="danger" onClick={submit} loading={busy}>

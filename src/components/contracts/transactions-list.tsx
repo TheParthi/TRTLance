@@ -1,59 +1,95 @@
-import { ExternalLink, ReceiptText } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 import { Money } from '@/components/common/money';
-import { TxStatusBadge } from '@/components/common/status-badge';
 import { EmptyState } from '@/components/common/states';
-import { explorerTxUrl, formatDateTime, shortAddress, shortHash } from '@/lib/format';
-import { txKindLabel } from '@/lib/status';
-import type { EscrowTransaction, Milestone } from '@/lib/types';
+import { StatusMark } from '@/components/common/status-mark';
+import { explorerTxUrl, formatDate, formatDateTime, shortAddress, shortHash } from '@/lib/format';
+import { txKindLabel, txStatus } from '@/lib/status';
+import type { EscrowTransaction, EscrowTxStatus, Milestone } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
-/** Every on-chain transaction for a contract: kind, amount, status, hash. Cards on phones, table on desktop. */
+/** "Verified" says what a confirmed transaction means here: TrustLance checked it on-chain. */
+const TxState = ({ status }: { status: EscrowTxStatus }) => (
+  <StatusMark meta={status === 'confirmed' ? { ...txStatus.confirmed, label: 'Verified' } : txStatus[status]} />
+);
+
+function Hash({ hash, className }: { hash: string; className?: string }) {
+  const url = explorerTxUrl(hash);
+  return url
+    ? <a href={url} target="_blank" rel="noreferrer" className={cn('inline-flex items-center gap-1 font-mono text-xs text-ink-secondary underline-offset-4 hover:text-brand hover:underline', className)}>{shortHash(hash)} <ExternalLink className="size-3" aria-hidden /><span className="sr-only"> (opens the block explorer)</span></a>
+    : <span className={cn('font-mono text-xs text-ink-secondary', className)}>{shortHash(hash)}</span>;
+}
+
+/**
+ * Every on-chain transaction for a contract, as a financial ledger.
+ * Aligned columns from md up; two-line rows on phones.
+ */
 export function TransactionsList({ transactions, milestones }: { transactions: EscrowTransaction[]; milestones: Milestone[] }) {
   if (!transactions.length) {
-    return <EmptyState compact icon={ReceiptText} title="No transactions yet" description="Deposits, releases and refunds appear here with their network status." />;
+    return <EmptyState compact title="No transactions yet" description="Deposits, releases and refunds appear here with their network status." />;
   }
-  const label = (t: EscrowTransaction) => {
+  const milestoneOf = (t: EscrowTransaction) => {
     const m = milestones.find((x) => x.id === t.milestone_id);
-    return `${txKindLabel[t.kind]}${m ? ` · milestone ${m.position}` : ''}`;
+    return m ? `${m.position}. ${m.title}` : 'Whole contract';
   };
-  const hash = (t: EscrowTransaction) => {
-    const url = explorerTxUrl(t.tx_hash);
-    return url
-      ? <a href={url} target="_blank" rel="noreferrer" className="link inline-flex items-center gap-1 font-mono text-xs">{shortHash(t.tx_hash)} <ExternalLink className="size-3" aria-hidden /></a>
-      : <span className="font-mono text-xs">{shortHash(t.tx_hash)}</span>;
-  };
+  const amount = (t: EscrowTransaction, size: 'sm' | 'md' = 'sm') => (t.amount ? <Money amount={t.amount} size={size} /> : <span className="t-meta">No funds moved</span>);
+
   return (
     <>
-      <ul className="space-y-3 md:hidden">
+      <ul className="ledger md:hidden">
         {transactions.map((t) => (
-          <li key={t.id} className="panel space-y-2 p-4 text-sm">
-            <div className="flex items-center justify-between gap-2"><span className="font-medium">{label(t)}</span><TxStatusBadge status={t.status} /></div>
-            <div className="flex items-center justify-between gap-2">{t.amount ? <Money amount={t.amount} size="sm" /> : <span className="t-meta">—</span>}{hash(t)}</div>
-            <p className="t-meta">{formatDateTime(t.created_at)}{t.from_address && ` · from ${shortAddress(t.from_address)}`}</p>
+          <li key={t.id} className="space-y-1 py-3">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="min-w-0 truncate text-sm font-medium">{txKindLabel[t.kind]}</span>
+              <span className="shrink-0">{amount(t)}</span>
+            </div>
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-muted">
+              <time dateTime={t.created_at}>{formatDate(t.created_at, 'd MMM, HH:mm')}</time>
+              <span aria-hidden>·</span>
+              <span className="min-w-0 truncate">{milestoneOf(t)}</span>
+              <span aria-hidden>·</span>
+              <TxState status={t.status} />
+              <span aria-hidden>·</span>
+              <Hash hash={t.tx_hash} />
+            </p>
             {t.failure_reason && <p className="text-xs text-danger-strong">{t.failure_reason}</p>}
           </li>
         ))}
       </ul>
-      <div className="panel hidden overflow-x-auto md:block">
-        <table className="w-full text-sm">
-          <caption className="sr-only">Escrow transactions</caption>
-          <thead><tr className="border-b bg-surface-subtle text-left text-ink-muted">
-            <th scope="col" className="p-3 font-medium">Type</th><th scope="col" className="p-3 font-medium">Amount</th>
-            <th scope="col" className="p-3 font-medium">Status</th><th scope="col" className="p-3 font-medium">Transaction</th>
-            <th scope="col" className="p-3 font-medium">Date</th>
-          </tr></thead>
-          <tbody className="divide-y">
-            {transactions.map((t) => (
-              <tr key={t.id} className="align-top">
-                <td className="p-3">{label(t)}{t.failure_reason && <p className="mt-1 max-w-xs text-xs text-danger-strong">{t.failure_reason}</p>}</td>
-                <td className="p-3">{t.amount ? <Money amount={t.amount} size="sm" /> : '—'}</td>
-                <td className="p-3"><TxStatusBadge status={t.status} /></td>
-                <td className="p-3">{hash(t)}{t.block_number && <p className="t-meta">Block {t.block_number}</p>}</td>
-                <td className="p-3 text-ink-secondary">{formatDateTime(t.created_at)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+
+      <table className="hidden w-full border-y text-sm md:table">
+        <caption className="sr-only">Escrow transactions</caption>
+        <thead>
+          <tr className="border-b text-left">
+            <th scope="col" className="t-label-caps py-2.5 pr-4 font-semibold">Date</th>
+            <th scope="col" className="t-label-caps py-2.5 pr-4 font-semibold">Description</th>
+            <th scope="col" className="t-label-caps py-2.5 pr-4 font-semibold">Milestone</th>
+            <th scope="col" className="t-label-caps py-2.5 pr-4 text-right font-semibold">Amount</th>
+            <th scope="col" className="t-label-caps py-2.5 pr-4 font-semibold">State</th>
+            <th scope="col" className="t-label-caps py-2.5 font-semibold">Transaction</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y">
+          {transactions.map((t) => (
+            <tr key={t.id} className="align-top">
+              <td className="whitespace-nowrap py-3 pr-4 text-ink-secondary">
+                <time dateTime={t.created_at} title={formatDateTime(t.created_at)}>{formatDate(t.created_at)}<span className="block font-mono text-xs text-ink-muted">{formatDate(t.created_at, 'HH:mm')}</span></time>
+              </td>
+              <td className="py-3 pr-4">
+                <span className="font-medium">{txKindLabel[t.kind]}</span>
+                {t.from_address && <span className="t-meta block">From {shortAddress(t.from_address)}</span>}
+                {t.failure_reason && <span className="mt-1 block max-w-xs text-xs text-danger-strong">{t.failure_reason}</span>}
+              </td>
+              <td className="max-w-48 py-3 pr-4 text-ink-secondary lg:max-w-64"><span className="line-clamp-2">{milestoneOf(t)}</span></td>
+              <td className="whitespace-nowrap py-3 pr-4 text-right">{amount(t)}</td>
+              <td className="whitespace-nowrap py-3 pr-4"><TxState status={t.status} /></td>
+              <td className="whitespace-nowrap py-3">
+                <Hash hash={t.tx_hash} />
+                {t.block_number && <span className="t-meta block">Block {t.block_number}</span>}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </>
   );
 }

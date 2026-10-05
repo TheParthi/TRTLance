@@ -20,7 +20,7 @@ export function Money({ amount, size = 'md', className, muted }: {
   return (
     <span className={cn('t-money inline-flex items-baseline gap-1', sizes[size], muted && 'text-ink-secondary', className)}>
       <span>{formatAmount(amount, { symbol: false })}</span>
-      <span className={cn('font-semibold text-ink-muted', size === 'xl' || size === '2xl' ? 'text-base' : 'text-[0.75em]')}>{CURRENCY}</span>
+      <span className={cn('font-medium uppercase tracking-[0.08em] text-ink-muted', size === 'xl' || size === '2xl' ? 'text-sm' : 'text-[0.7em]')}>{CURRENCY}</span>
     </span>
   );
 }

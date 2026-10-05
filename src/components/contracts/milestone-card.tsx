@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/input';
 import { toast } from '@/components/ui/toaster';
 import { ConfirmDialog } from '@/components/common/confirm-dialog';
 import { Money } from '@/components/common/money';
-import { MilestoneStatusBadge } from '@/components/common/status-badge';
+import { MilestoneStatusMark } from '@/components/common/status-mark';
 import { StatusIcon } from '@/components/common/status-icon';
 import { EscrowTxDialog } from '@/components/escrow/escrow-tx-dialog';
 import { approveMilestone, requestRevision } from '@/lib/actions/contracts';
@@ -67,32 +67,47 @@ export function MilestoneCard({ contract, milestone: m, submissions, role, hasPe
   const open = ['funded', 'submitted', 'revision_requested', 'approved'].includes(m.status);
   const index = m.position - 1;
 
-  const primary: React.ReactNode[] = [];
+  // The steps this party can take on this milestone. Only the milestone the next action points at
+  // shows them as buttons; on the others they wait in the "More" menu so one action leads the page.
+  const steps: { key: 'submit' | 'revise' | 'approve' | 'release'; label: string; icon: React.ReactNode; quiet?: boolean; disabled?: boolean }[] = [];
   if (live && role === 'freelancer' && (m.status === 'funded' || m.status === 'revision_requested')) {
-    primary.push(<Button key="submit" onClick={() => setDialog('submit')}><Upload /> {m.status === 'revision_requested' ? 'Submit update' : 'Submit work'}</Button>);
+    steps.push({ key: 'submit', label: m.status === 'revision_requested' ? 'Submit update' : 'Submit work', icon: <Upload /> });
   }
   if (live && role === 'client' && m.status === 'submitted') {
-    primary.push(<Button key="revise" variant="secondary" onClick={() => setDialog('revise')}><MessageSquareWarning /> Request changes</Button>);
-    primary.push(<Button key="approve" onClick={() => setDialog('approve')}><Check /> Approve &amp; release</Button>);
+    steps.push({ key: 'approve', label: 'Approve & release', icon: <Check /> });
+    steps.push({ key: 'revise', label: 'Request changes', icon: <MessageSquareWarning />, quiet: true });
   }
   if (live && role === 'client' && m.status === 'approved') {
-    primary.push(<Button key="release" onClick={() => setDialog('release')} disabled={hasPendingTx || !isEscrowConfigured()}>{hasPendingTx ? 'Release confirming…' : 'Release payment'}</Button>);
+    steps.push({ key: 'release', label: hasPendingTx ? 'Release confirming…' : 'Release payment', icon: null, disabled: hasPendingTx || !isEscrowConfigured() });
   }
+  const shown = highlighted ? steps : [];
+  const tucked = highlighted ? [] : steps.filter((st) => !st.disabled);
   const canRefund = live && role === 'freelancer' && m.status === 'funded' && isEscrowConfigured() && !hasPendingTx;
   const canDispute = live && open;
+  const hasMenu = tucked.length > 0 || canRefund || canDispute;
 
   return (
-    <article id={`milestone-${m.position}`} className="relative scroll-mt-24 pb-8 pl-12" aria-labelledby={`ms-${m.id}-title`}>
-      {!last && <span className="absolute bottom-0 left-4 top-9 w-px bg-line-strong" aria-hidden />}
-      <span className={cn('absolute left-0 top-0 flex size-8 items-center justify-center rounded-full border-2 text-xs font-semibold', nodeTone[meta.tone], m.status === 'pending' && 'border-dashed')} aria-hidden>
-        {m.status === 'pending' || m.status === 'funded' ? m.position : <StatusIcon name={meta.icon} className="size-4" />}
+    <article id={`milestone-${m.position}`} className="relative scroll-mt-24 pb-10 pl-12 last:pb-2" aria-labelledby={`ms-${m.id}-title`}>
+      {!last && <span className={cn('absolute bottom-0 left-4 top-9 w-px', closed ? 'bg-success/50' : 'bg-line-strong')} aria-hidden />}
+      <span
+        className={cn(
+          'absolute left-0 top-0 flex size-8 items-center justify-center rounded-full border-2 text-xs font-semibold tabular-nums transition-shadow duration-slow ease-ledger',
+          nodeTone[meta.tone],
+          m.status === 'pending' && 'border-dashed',
+          highlighted && 'ring-4 ring-brand/15',
+        )}
+        aria-hidden
+      >
+        {m.status === 'pending' || m.status === 'funded' ? String(m.position).padStart(2, '0') : <StatusIcon name={meta.icon} className="size-4" />}
       </span>
 
-      <div className={cn('space-y-3', highlighted && '-ml-3 -mt-2 rounded-lg bg-surface pb-3 pl-3 pr-3 pt-2 shadow-sm ring-1 ring-brand/25')}>
+      <div className="space-y-3">
         <header className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
           <div className="min-w-0 space-y-1">
-            <p className="t-label-caps">Milestone {m.position}</p>
-            <h3 id={`ms-${m.id}-title`} className="text-lg font-semibold leading-snug">{m.title}</h3>
+            <p className={cn('t-label-caps', highlighted && 'text-brand-strong')}>
+              Milestone {String(m.position).padStart(2, '0')}{highlighted && <span> · current step</span>}
+            </p>
+            <h3 id={`ms-${m.id}-title`} className={cn('font-semibold leading-snug', highlighted ? 'text-xl' : 'text-lg')}>{m.title}</h3>
             <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-secondary">
               <span className="inline-flex items-center gap-1.5">
                 <CalendarClock className="size-3.5 text-ink-muted" aria-hidden />
@@ -104,7 +119,7 @@ export function MilestoneCard({ contract, milestone: m, submissions, role, hasPe
           </div>
           <div className="flex shrink-0 items-center gap-3 sm:flex-col sm:items-end sm:gap-1.5">
             <Money amount={m.amount} size="lg" />
-            <MilestoneStatusBadge status={m.status} />
+            <MilestoneStatusMark status={m.status} />
           </div>
         </header>
 
@@ -173,17 +188,22 @@ export function MilestoneCard({ contract, milestone: m, submissions, role, hasPe
           </div>
         )}
 
-        {(primary.length > 0 || canRefund || canDispute) && (
+        {(shown.length > 0 || hasMenu) && (
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            {primary}
-            {(canRefund || canDispute) && (
+            {shown.map((st) => (
+              <Button key={st.key} variant={st.quiet ? 'ghost' : 'primary'} onClick={() => setDialog(st.key)} disabled={st.disabled}>
+                {st.icon} {st.label}
+              </Button>
+            ))}
+            {hasMenu && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size={primary.length ? 'icon' : 'sm'} aria-label="More actions for this milestone">
-                    <MoreHorizontal />{!primary.length && 'More actions'}
+                  <Button variant="ghost" size={shown.length ? 'icon' : 'sm'} aria-label="More actions for this milestone">
+                    <MoreHorizontal />{!shown.length && 'More'}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start">
+                  {tucked.map((st) => <DropdownMenuItem key={st.key} onSelect={() => setDialog(st.key)}>{st.icon} {st.label}</DropdownMenuItem>)}
                   {canRefund && <DropdownMenuItem onSelect={() => setDialog('refund')}><Undo2 /> Return funds to the client</DropdownMenuItem>}
                   {canDispute && (
                     <DropdownMenuItem asChild>

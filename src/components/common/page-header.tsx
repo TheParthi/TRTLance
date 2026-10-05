@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { LedgerField } from '@/components/marketing/ledger-field';
+import { SplitWords } from '@/components/marketing/reveal';
 
 export interface Crumb {
   label: string;
@@ -30,7 +32,12 @@ export function Breadcrumbs({ items }: { items: Crumb[] }) {
   );
 }
 
-export function PageHeader({ title, description, eyebrow, actions, breadcrumbs, meta, className }: {
+/**
+ * The stage every page opens with: a full-bleed band of moving ledger lines, a large serif title whose
+ * words rise in, and an optional `aside` (the escrow ring where the page is about money).
+ * `bleed={false}` keeps it inside a narrow page column.
+ */
+export function PageHeader({ title, description, eyebrow, actions, breadcrumbs, meta, className, aside, bleed = true }: {
   title: React.ReactNode;
   description?: React.ReactNode;
   eyebrow?: React.ReactNode;
@@ -38,18 +45,32 @@ export function PageHeader({ title, description, eyebrow, actions, breadcrumbs, 
   breadcrumbs?: Crumb[];
   meta?: React.ReactNode;
   className?: string;
+  aside?: React.ReactNode;
+  bleed?: boolean;
 }) {
   return (
-    <header className={cn('mb-6 space-y-3 md:mb-8', className)}>
-      {breadcrumbs && <Breadcrumbs items={breadcrumbs} />}
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div className="min-w-0 space-y-1.5">
-          {eyebrow && <p className="t-eyebrow">{eyebrow}</p>}
-          <h1 className="t-page-title break-words">{title}</h1>
-          {description && <p className="max-w-reading text-sm text-ink-secondary md:text-base">{description}</p>}
-          {meta && <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-1 text-sm text-ink-secondary">{meta}</div>}
+    <header
+      className={cn(
+        'relative mb-8 md:mb-12',
+        bleed && 'mx-[calc(50%-50vw)] -mt-6 overflow-hidden border-b md:-mt-10',
+        className,
+      )}
+    >
+      {bleed && <LedgerField density={18} pulses={2} className="opacity-60 [mask-image:linear-gradient(to_bottom,black_15%,transparent_95%)]" />}
+      <div className={cn('relative', bleed && 'mx-auto max-w-content px-4 pb-10 pt-8 md:px-6 md:pb-14 md:pt-12')}>
+        {breadcrumbs && <Breadcrumbs items={breadcrumbs} />}
+        <div className={cn('grid gap-8 lg:grid-cols-12 lg:items-center', breadcrumbs && 'mt-6')}>
+          <div className={cn('min-w-0 space-y-5', aside ? 'lg:col-span-7' : 'lg:col-span-10')}>
+            {eyebrow && <p className="text-2xs font-semibold uppercase tracking-[0.18em] text-ink-muted">{eyebrow}</p>}
+            <h1 className="break-words font-display text-[clamp(2.6rem,5.8vw,5.25rem)] font-medium leading-[0.95] tracking-[-0.04em]">
+              {typeof title === 'string' ? <SplitWords text={title} immediate stagger={45} /> : title}
+            </h1>
+            {description && <p className="max-w-xl text-base text-ink-secondary md:text-lg">{description}</p>}
+            {meta && <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-ink-secondary">{meta}</div>}
+            {actions && <div className="flex flex-wrap gap-2 pt-1">{actions}</div>}
+          </div>
+          {aside && <div className="order-first lg:order-none lg:col-span-5">{aside}</div>}
         </div>
-        {actions && <div className="flex shrink-0 flex-wrap gap-2">{actions}</div>}
       </div>
     </header>
   );

@@ -92,7 +92,7 @@ export function Composer({ conversationId, viewerId, onSent }: {
 
   return (
     <form
-      className="space-y-2 border-t bg-surface p-3"
+      className="space-y-2 border-t pt-3"
       onSubmit={(e) => {
         e.preventDefault();
         void send();

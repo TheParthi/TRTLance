@@ -34,12 +34,12 @@ export function AddEvidenceForm({ disputeId }: { disputeId: string }) {
   };
 
   return (
-    <form onSubmit={submit} className="panel space-y-4 p-5" aria-labelledby="add-evidence-title">
-      <h3 id="add-evidence-title" className="text-sm font-semibold">Add evidence</h3>
+    <form onSubmit={submit} className="space-y-3" aria-labelledby="add-evidence-title">
+      <h3 id="add-evidence-title" className="t-label-caps">Add evidence</h3>
       <EvidenceComposer drafts={drafts} onChange={setDrafts} errors={errors} disabled={busy} />
       {problem && <Callout tone="danger" role="alert">{problem}</Callout>}
       {drafts.length > 0 && (
-        <div className="flex justify-end border-t pt-4">
+        <div className="flex justify-end">
           <Button type="submit" loading={busy}>Add {drafts.length} item{drafts.length === 1 ? '' : 's'} to the case</Button>
         </div>
       )}

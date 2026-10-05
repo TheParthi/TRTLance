@@ -100,12 +100,12 @@ export function EvidenceComposer({ drafts, onChange, errors = {}, disabled }: {
   return (
     <div className="space-y-4">
       {drafts.length > 0 && (
-        <ul className="space-y-3">
+        <ul className="ledger">
           {drafts.map((d, i) => {
             const Icon = d.kind === 'file' ? FileText : d.kind === 'link' ? Link2 : StickyNote;
             const label = d.kind === 'file' ? 'File' : d.kind === 'link' ? 'Link' : 'Note';
             return (
-              <li key={d.key} className="space-y-3 rounded-lg border p-4">
+              <li key={d.key} className="space-y-3 py-4">
                 <div className="flex items-center justify-between gap-2">
                   <p className="flex min-w-0 items-center gap-2 text-sm font-semibold">
                     <Icon className="size-4 shrink-0 text-ink-muted" aria-hidden />

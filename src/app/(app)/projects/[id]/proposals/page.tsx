@@ -1,7 +1,5 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { Inbox } from 'lucide-react';
 import { PageHeader } from '@/components/common/page-header';
 import { EmptyState } from '@/components/common/states';
 import { requireViewer } from '@/lib/auth';
@@ -35,10 +33,9 @@ export default async function ProposalsPage({ params }: { params: Promise<{ id: 
       />
       {items.length === 0 ? (
         <EmptyState
-          icon={Inbox}
           title="No proposals yet"
           description={data.project.status === 'open' ? 'You’ll be notified as soon as a freelancer applies.' : 'This project is not accepting proposals.'}
-          action={<Link className="link text-sm" href={`/projects/${id}`}>Back to project</Link>}
+          action={{ label: 'Back to project', href: `/projects/${id}` }}
         />
       ) : (
         <ProposalBoard

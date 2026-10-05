@@ -1,11 +1,10 @@
 'use client';
 
-import { Award, PenLine, Plus } from 'lucide-react';
+import { PenLine, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { Section } from '@/components/common/page-header';
-import { EmptyState } from '@/components/common/states';
+import { SettingsSection } from '@/components/settings/settings-section';
 import { deleteCertification, saveCertification } from '@/lib/actions/profile-sections';
 import { formatDate } from '@/lib/format';
 import type { Certification } from '@/lib/types';
@@ -20,13 +19,17 @@ export function CertificationManager({ items }: { items: Certification[] }) {
   const add = <Button type="button" variant="secondary" size="sm" onClick={() => ed.start(null, EMPTY)}><Plus /> Add certification</Button>;
 
   return (
-    <Section id="certifications" title="Certifications" description="Shown as self-reported. A credential link lets others check with the issuer." action={items.length ? add : undefined}>
+    <SettingsSection id="certifications" title="Certifications" description="Shown as self-reported. A credential link lets others check with the issuer." action={items.length ? add : undefined}>
       {items.length === 0 ? (
-        <EmptyState compact icon={Award} title="No certifications added" description="Optional. Add professional certificates relevant to your work." action={add} />
+        <div className="space-y-1">
+          <p className="font-medium">No certifications added</p>
+          <p className="text-sm text-ink-secondary">Optional. Add professional certificates relevant to your work.</p>
+          <div className="pt-3">{add}</div>
+        </div>
       ) : (
-        <ul className="panel divide-y">
+        <ul className="ledger">
           {items.map((item) => (
-            <li key={item.id} className="flex items-start gap-3 p-4">
+            <li key={item.id} className="flex items-start gap-3 py-4">
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium">{item.name}</p>
                 <p className="t-meta">{[item.issuer, item.issued_on ? `Issued ${formatDate(item.issued_on, 'MMM yyyy')}` : null].filter(Boolean).join(' · ') || 'No issuer or date'}</p>
@@ -61,6 +64,6 @@ export function CertificationManager({ items }: { items: Certification[] }) {
           <Input type="url" inputMode="url" placeholder="https://" value={ed.values.credential_url} onChange={(e) => ed.set('credential_url', e.target.value)} maxLength={500} />
         </Field>
       </EditorDialog>
-    </Section>
+    </SettingsSection>
   );
 }

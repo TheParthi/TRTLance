@@ -25,6 +25,7 @@ export default async function ApplyPage({ params }: { params: Promise<{ id: stri
   return (
     <div className="mx-auto max-w-5xl">
       <PageHeader
+          bleed={false}
         breadcrumbs={[{ label: 'Find work', href: '/work' }, { label: project.title, href: `/projects/${id}` }, { label: 'Proposal' }]}
         title="Submit a proposal"
         description={`For “${project.title}”. The client sees your price, timeline, milestones and verified track record.`}

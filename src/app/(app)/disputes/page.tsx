@@ -1,20 +1,46 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight, Scale } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Clock } from 'lucide-react';
+import { Ledger, LedgerRow } from '@/components/common/ledger';
 import { Money } from '@/components/common/money';
 import { PageHeader } from '@/components/common/page-header';
-import { DisputeStatusBadge, SettlementStatusBadge } from '@/components/common/status-badge';
 import { EmptyState } from '@/components/common/states';
+import { DisputeStatusMark, SettlementStatusMark } from '@/components/common/status-mark';
+import { SubNav } from '@/components/shell/sub-nav';
 import { requireViewer } from '@/lib/auth';
-import { listPartyDisputes } from '@/lib/data/disputes';
-import { disputeNumber, formatDate, formatRelative } from '@/lib/format';
+import { listPartyDisputes, type DisputeListItem } from '@/lib/data/disputes';
+import { daysUntil, disputeNumber, formatDate } from '@/lib/format';
 import { disputeReasonLabel } from '@/lib/status';
+import { createClient } from '@/lib/supabase/server';
+import { cn } from '@/lib/utils';
 
 export const metadata: Metadata = { title: 'Disputes' };
 
+/** What the case needs from a party right now, if anything. */
+function needsYou(d: DisputeListItem): { tone: 'warning' | 'brand'; text: string } | null {
+  if (d.settlement_status === 'awaiting_flag') return { tone: 'warning', text: `Flag milestone ${d.milestone?.position ?? ''} on-chain so the decision can be settled` };
+  if (d.status === 'awaiting_evidence') {
+    const days = daysUntil(d.evidence_due_at);
+    return { tone: 'brand', text: days !== null && days > 0 ? `Add your evidence · ${days} day${days === 1 ? '' : 's'} left` : 'Add your evidence' };
+  }
+  return null;
+}
+
+const waitingText: Partial<Record<DisputeListItem['status'], string>> = {
+  open: 'Waiting for an arbitrator to be assigned',
+  under_review: 'The arbitrator is reviewing the case',
+  escalated: 'With the TrustLance platform team',
+};
+
 export default async function DisputesPage() {
   const viewer = await requireViewer('/disputes');
-  const { disputes, members } = await listPartyDisputes(viewer.id);
+  const supabase = await createClient();
+  const [{ disputes, members }, contractCount] = await Promise.all([
+    listPartyDisputes(viewer.id),
+    supabase.from('contracts').select('id', { count: 'exact', head: true })
+      .or(`client_id.eq.${viewer.id},freelancer_id.eq.${viewer.id}`)
+      .then((r) => r.count ?? undefined),
+  ]);
   const active = disputes.filter((d) => d.status !== 'resolved' || d.settlement_status !== 'settled');
   const closed = disputes.filter((d) => d.status === 'resolved' && d.settlement_status === 'settled');
 
@@ -22,69 +48,91 @@ export default async function DisputesPage() {
     <>
       <PageHeader
         title="Disputes"
-        description="Disagreements about a milestone, reviewed by an independent arbitrator. The disputed amount stays locked in escrow until the decision is settled on-chain."
+        description="Disagreements about a milestone, decided by an independent arbitrator. The disputed amount stays locked in escrow until the decision is settled on-chain."
       />
+      <SubNav
+        label="Contracts"
+        active="disputes"
+        items={[
+          { key: 'contracts', href: '/contracts', label: 'Contracts', count: contractCount },
+          { key: 'disputes', href: '/disputes', label: 'Disputes', count: disputes.length },
+        ]}
+      />
+
       {disputes.length === 0 ? (
         <EmptyState
-          icon={Scale}
           title="No disputes"
-          description={<>If something goes wrong on a funded milestone, open the contract, choose the milestone and select <strong>Open a dispute</strong>. Talk to the other party first — most problems are solved in messages.</>}
+          description={<>If something goes wrong on a funded milestone, open the contract, choose the milestone and select <strong className="font-medium text-ink">Open a dispute</strong>. Talk to the other party first — most problems are solved in messages.</>}
           action={{ label: 'Go to contracts', href: '/contracts' }}
         />
       ) : (
-        <div className="space-y-10">
-          <DisputeTable title={`Active (${active.length})`} rows={active} members={members} viewerId={viewer.id} empty="No active disputes." />
-          {closed.length > 0 && <DisputeTable title={`Settled (${closed.length})`} rows={closed} members={members} viewerId={viewer.id} empty="" />}
+        <div className="space-y-12">
+          <Ledger
+            id="active-disputes"
+            title={`Active (${active.length})`}
+            action={<Link className="link" href="/disputes/new">Open a dispute</Link>}
+            empty={<p className="border-y py-5 text-sm text-ink-secondary">No active disputes.</p>}
+          >
+            {active.map((d) => <DisputeRow key={d.id} d={d} members={members} viewerId={viewer.id} />)}
+          </Ledger>
+          {closed.length > 0 && (
+            <Ledger id="settled-disputes" title={`Settled (${closed.length})`}>
+              {closed.map((d) => <DisputeRow key={d.id} d={d} members={members} viewerId={viewer.id} />)}
+            </Ledger>
+          )}
         </div>
       )}
     </>
   );
 }
 
-function DisputeTable({ title, rows, members, viewerId, empty }: {
-  title: string;
-  rows: Awaited<ReturnType<typeof listPartyDisputes>>['disputes'];
+function DisputeRow({ d, members, viewerId }: {
+  d: DisputeListItem;
   members: Awaited<ReturnType<typeof listPartyDisputes>>['members'];
   viewerId: string;
-  empty: string;
 }) {
+  const raisedBy = d.raised_by === viewerId ? 'you' : members.get(d.raised_by)?.display_name ?? 'the other party';
+  const need = needsYou(d);
+  const settled = d.status === 'resolved' && d.settlement_status === 'settled';
+  const waiting = !need && !settled ? (d.status === 'resolved' ? 'Decided · waiting for the on-chain settlement' : waitingText[d.status]) : null;
   return (
-    <section className="space-y-3" aria-label={title}>
-      <h2 className="t-section-title">{title}</h2>
-      {rows.length === 0 ? <p className="text-sm text-ink-secondary">{empty}</p> : (
-        <ul className="panel divide-y">
-          {rows.map((d) => {
-            const raisedBy = d.raised_by === viewerId ? 'You' : members.get(d.raised_by)?.display_name ?? 'The other party';
-            return (
-              <li key={d.id}>
-                <Link href={`/disputes/${d.id}`} className="grid gap-3 p-4 hover:bg-surface-subtle md:grid-cols-[1fr_auto] md:items-center">
-                  <div className="min-w-0 space-y-1.5">
-                    <p className="flex flex-wrap items-center gap-2">
-                      <span className="t-mono text-ink-muted">{disputeNumber(d.number)}</span>
-                      <span className="font-semibold">{d.contract?.title ?? 'Contract'}</span>
-                    </p>
-                    <p className="text-sm text-ink-secondary">
-                      Milestone {d.milestone?.position}{d.milestone?.title ? ` · ${d.milestone.title}` : ''} · {disputeReasonLabel[d.reason]}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <DisputeStatusBadge status={d.status} />
-                      {(d.status === 'resolved' || d.settlement_status === 'awaiting_flag') && <SettlementStatusBadge status={d.settlement_status} />}
-                    </div>
-                    <p className="t-meta">Raised by {raisedBy} · opened {formatDate(d.created_at)} · updated {formatRelative(d.decided_at ?? d.assigned_at ?? d.created_at)}</p>
-                  </div>
-                  <div className="flex items-center justify-between gap-4 md:flex-col md:items-end">
-                    <Money amount={d.amount} size="lg" />
-                    <span className="inline-flex items-center gap-1 text-sm font-medium text-brand">Open case <ArrowRight className="size-4" aria-hidden /></span>
-                  </div>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-      {title.startsWith('Active') && rows.length > 0 && (
-        <p className="t-meta">Need to raise a new dispute? Start from the milestone on its contract page, or <Link className="link" href="/disputes/new">choose a contract here</Link>.</p>
-      )}
-    </section>
+    <LedgerRow
+      href={`/disputes/${d.id}`}
+      tone={need?.tone}
+      className="group pl-4"
+      trail={
+        <div className="flex items-baseline gap-2 sm:flex-col sm:items-end sm:gap-0.5">
+          <Money amount={d.amount} />
+          <span className="t-meta">{settled ? 'settled' : 'frozen in escrow'}</span>
+        </div>
+      }
+    >
+      <div className="space-y-1.5">
+        <p className="flex min-w-0 items-center gap-2">
+          <span className="t-mono shrink-0 text-ink-muted">{disputeNumber(d.number)}</span>
+          <span className="row-title truncate font-medium">{d.contract?.title ?? 'Contract'}</span>
+          <ArrowRight className="row-arrow size-4 shrink-0 text-ink-muted" aria-hidden />
+        </p>
+        <p className="text-sm text-ink-secondary">
+          Milestone {d.milestone?.position}{d.milestone?.title ? ` · ${d.milestone.title}` : ''} · {disputeReasonLabel[d.reason]}
+        </p>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <DisputeStatusMark status={d.status} />
+          {(d.status === 'resolved' || d.settlement_status === 'awaiting_flag') && <SettlementStatusMark status={d.settlement_status} />}
+          <span className="t-meta">Opened {formatDate(d.created_at)} by {raisedBy}</span>
+        </div>
+        {need && (
+          <p className={cn('flex items-center gap-1.5 text-sm font-medium', need.tone === 'warning' ? 'text-warning-strong' : 'text-brand')}>
+            {need.tone === 'warning' ? <AlertTriangle className="size-3.5 shrink-0" aria-hidden /> : <ArrowRight className="size-3.5 shrink-0" aria-hidden />}
+            <span><span className="sr-only">Needs you: </span>{need.text}</span>
+          </p>
+        )}
+        {waiting && (
+          <p className="flex items-center gap-1.5 text-sm text-ink-secondary">
+            <Clock className="size-3.5 shrink-0 text-ink-muted" aria-hidden /> {waiting}
+          </p>
+        )}
+      </div>
+    </LedgerRow>
   );
 }

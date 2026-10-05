@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter, useSelectedLayoutSegment } from 'next/navigation';
-import { MessagesSquare, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { EmptyState, ErrorState } from '@/components/common/states';
@@ -33,7 +33,12 @@ function useLiveRefresh(viewerId: string) {
   }, [router, viewerId]);
 }
 
-export function ConversationList({ conversations, viewerId }: { conversations: ConversationSummary[] | null; viewerId: string }) {
+export function ConversationList({ conversations, viewerId, emptyAction }: {
+  conversations: ConversationSummary[] | null;
+  viewerId: string;
+  /** Where a member without conversations can start one. */
+  emptyAction: { label: string; href: string } | null;
+}) {
   const router = useRouter();
   const activeId = useSelectedLayoutSegment();
   const [query, setQuery] = React.useState('');
@@ -53,9 +58,9 @@ export function ConversationList({ conversations, viewerId }: { conversations: C
 
   return (
     <section aria-labelledby="messages-title" className="flex min-h-0 flex-1 flex-col">
-      <div className="space-y-3 pb-4 lg:border-b lg:p-4">
+      <div className="space-y-4 pb-5">
         <div className="flex items-baseline justify-between gap-2">
-          <h1 id="messages-title" className="t-page-title lg:text-2xl">Messages</h1>
+          <h1 id="messages-title" className="t-page-title">Messages</h1>
           {unreadCount > 0 && <p className="t-meta">{unreadCount} unread</p>}
         </div>
         {conversations && conversations.length > 0 && (
@@ -81,22 +86,20 @@ export function ConversationList({ conversations, viewerId }: { conversations: C
       <div className="min-h-0 flex-1 lg:overflow-y-auto">
         {conversations === null ? (
           <ErrorState
-            className="lg:m-4"
             title="Conversations could not be loaded"
             retry={<Button variant="secondary" onClick={() => router.refresh()}>Try again</Button>}
           />
         ) : conversations.length === 0 ? (
           <EmptyState
-            className="lg:m-4"
             compact
-            icon={MessagesSquare}
             title="No conversations yet"
-            description="A conversation starts when a client and a freelancer discuss a proposal. It stays with the project and its contract."
+            description="A conversation starts when a client and a freelancer discuss a proposal, and stays with the project and its contract."
+            action={emptyAction ?? undefined}
           />
         ) : filtered.length === 0 ? (
-          <p className="px-4 py-8 text-center text-sm text-ink-muted">No conversations match “{query.trim()}”.</p>
+          <p className="border-y py-6 text-sm text-ink-muted">No conversations match “{query.trim()}”.</p>
         ) : (
-          <ul className="panel divide-y overflow-hidden lg:rounded-none lg:border-0 lg:shadow-none" aria-label="Conversations">
+          <ul className="ledger" aria-label="Conversations">
             {filtered.map((c) => (
               <ConversationItem
                 key={c.id}

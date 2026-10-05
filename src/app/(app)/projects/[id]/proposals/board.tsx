@@ -11,13 +11,15 @@ import { Textarea } from '@/components/ui/input';
 import { toast } from '@/components/ui/toaster';
 import { ConfirmDialog } from '@/components/common/confirm-dialog';
 import { Money } from '@/components/common/money';
-import { ProposalStatusBadge } from '@/components/common/status-badge';
-import { TrustSignals } from '@/components/common/trust-signals';
+import { EscrowRail } from '@/components/common/escrow-rail';
+import { ProposalStatusMark } from '@/components/common/status-mark';
+import { TrustLine } from '@/components/common/trust-signals';
 import { MessageButton } from '@/components/projects/project-actions';
 import { acceptProposal, declineProposal } from '@/lib/actions/projects';
 import type { PublicMember, ProposalWithMilestones } from '@/lib/data/projects';
 import { formatRelative } from '@/lib/format';
-import { formatAmount } from '@/lib/money';
+import { proposalSegments } from '@/lib/escrow-summary';
+import { formatAmount, toWei, weiToAmount } from '@/lib/money';
 import { cn } from '@/lib/utils';
 
 interface Item { proposal: ProposalWithMilestones; member: PublicMember | null; matched: string[] }
@@ -34,60 +36,43 @@ export function ProposalBoard({ projectId, projectOpen, budget, projectSkillCoun
   const [hire, setHire] = React.useState<Item | null>(null);
   const [decline, setDecline] = React.useState<Item | null>(null);
   const shown = items.filter((i) => filter === 'all' || i.proposal.status === 'pending');
+  // Rails share one scale (the largest of the budget and the shown prices), so their lengths compare like the prices do.
+  const scale = shown.reduce((max, i) => (toWei(i.proposal.amount) > max ? toWei(i.proposal.amount) : max), budget ? toWei(budget) : 0n);
 
   return (
-    <div className="space-y-5">
-      <div role="radiogroup" aria-label="Show" className="inline-flex rounded border bg-surface p-0.5 text-sm">
-        {(['pending', 'all'] as const).map((f) => (
-          <button key={f} role="radio" aria-checked={filter === f} onClick={() => setFilter(f)}
-            className={cn('rounded-sm px-3 py-1.5', filter === f ? 'bg-surface-sunken font-semibold' : 'text-ink-secondary')}>
-            {f === 'pending' ? `Pending (${pendingCount})` : `All (${items.length})`}
-          </button>
-        ))}
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div role="radiogroup" aria-label="Show" className="inline-flex rounded border bg-surface p-0.5 text-sm">
+          {(['pending', 'all'] as const).map((f) => (
+            <button key={f} role="radio" aria-checked={filter === f} onClick={() => setFilter(f)}
+              className={cn('h-9 rounded-sm px-3', filter === f ? 'bg-surface-sunken font-semibold' : 'text-ink-secondary')}>
+              {f === 'pending' ? `Pending (${pendingCount})` : `All (${items.length})`}
+            </button>
+          ))}
+        </div>
+        {budget && <p className="flex items-baseline gap-2 text-sm text-ink-secondary">Your budget <Money amount={budget} size="sm" className="text-ink" /></p>}
       </div>
 
-      {/* Side-by-side comparison on wide screens */}
-      {shown.length > 1 && (
-        <div className="panel hidden overflow-x-auto md:block">
-          <table className="w-full min-w-[40rem] text-sm">
-            <caption className="sr-only">Proposal comparison</caption>
-            <thead>
-              <tr className="border-b bg-surface-subtle text-left">
-                <th scope="col" className="p-3 font-medium text-ink-muted">Freelancer</th>
-                <th scope="col" className="p-3 font-medium text-ink-muted">Price</th>
-                <th scope="col" className="p-3 font-medium text-ink-muted">Duration</th>
-                <th scope="col" className="p-3 font-medium text-ink-muted">Milestones</th>
-                <th scope="col" className="p-3 font-medium text-ink-muted">Skill match</th>
-                <th scope="col" className="p-3 font-medium text-ink-muted">Track record</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {shown.map(({ proposal: p, member: m, matched }) => (
-                <tr key={p.id}>
-                  <th scope="row" className="p-3 text-left font-medium"><a href={`#proposal-${p.id}`} className="hover:text-brand">{m?.display_name ?? 'Member'}</a></th>
-                  <td className="p-3"><Money amount={p.amount} size="sm" /></td>
-                  <td className="p-3">{p.duration_days} days</td>
-                  <td className="p-3">{p.milestones.length}</td>
-                  <td className="p-3">{matched.length}/{projectSkillCount}</td>
-                  <td className="p-3 text-ink-secondary">
-                    {m?.stats ? `${m.stats.completed_as_freelancer} completed · ${m.stats.review_count ? `${Number(m.stats.rating_avg).toFixed(1)}★` : 'no reviews'}` : '—'}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {shown.length === 0 ? (
+        <p className="border-y py-5 text-sm text-ink-secondary">No pending proposals. <button className="link" onClick={() => setFilter('all')}>Show all</button></p>
+      ) : (
+        /* One column per proposal from md up (rows aligned with subgrid, scrolls sideways past three); stacked rows on phones. */
+        <div className="min-w-0 border-y md:overflow-x-auto md:border-y-0 md:pb-3">
+          <div
+            role="list"
+            aria-label="Proposals"
+            className={cn(
+              'divide-y md:grid md:grid-flow-col md:grid-rows-[repeat(9,auto)] md:gap-x-8 md:divide-y-0',
+              shown.length < 3 ? 'md:auto-cols-[minmax(18rem,26rem)]' : 'md:auto-cols-[minmax(18rem,1fr)]',
+            )}
+          >
+            {shown.map((item) => (
+              <ProposalColumn key={item.proposal.id} item={item} budget={budget} scale={scale} projectSkillCount={projectSkillCount} projectOpen={projectOpen}
+                onHire={() => setHire(item)} onDecline={() => setDecline(item)} />
+            ))}
+          </div>
         </div>
       )}
-
-      <ul className="space-y-4">
-        {shown.map((item) => (
-          <li key={item.proposal.id} id={`proposal-${item.proposal.id}`} className="scroll-mt-20">
-            <ProposalCard item={item} budget={budget} projectSkillCount={projectSkillCount} projectOpen={projectOpen}
-              onHire={() => setHire(item)} onDecline={() => setDecline(item)} />
-          </li>
-        ))}
-        {shown.length === 0 && <li className="text-sm text-ink-secondary">No pending proposals. <button className="link" onClick={() => setFilter('all')}>Show all</button></li>}
-      </ul>
 
       {hire && <HireDialog item={hire} onClose={() => setHire(null)} />}
       {decline && <DeclineDialog item={decline} projectId={projectId} onClose={() => setDecline(null)} />}
@@ -95,64 +80,136 @@ export function ProposalBoard({ projectId, projectOpen, budget, projectSkillCoun
   );
 }
 
-function ProposalCard({ item, budget, projectSkillCount, projectOpen, onHire, onDecline }: {
-  item: Item; budget: string | null; projectSkillCount: number; projectOpen: boolean; onHire: () => void; onDecline: () => void;
+/** One comparison cell. On phones short facts sit on one line (label left, value right). */
+function Cell({ label, children, inline, className }: { label?: string; children: React.ReactNode; inline?: boolean; className?: string }) {
+  return (
+    <div className={cn('min-w-0 md:border-t md:py-4', inline ? 'flex items-baseline justify-between gap-4 md:block md:space-y-1' : 'space-y-2', className)}>
+      {label && <p className="t-label-caps">{label}</p>}
+      {children}
+    </div>
+  );
+}
+
+function budgetDelta(amount: string, budget: string | null) {
+  if (!budget || !Number(budget)) return null;
+  const diff = toWei(amount) - toWei(budget);
+  if (diff === 0n) return 'Matches your budget';
+  return `${formatAmount(weiToAmount(diff < 0n ? -diff : diff))} ${diff < 0n ? 'under' : 'over'} your budget`;
+}
+
+function ProposalColumn({ item, budget, scale, projectSkillCount, projectOpen, onHire, onDecline }: {
+  item: Item; budget: string | null; scale: bigint; projectSkillCount: number; projectOpen: boolean; onHire: () => void; onDecline: () => void;
 }) {
   const { proposal: p, member: m, matched } = item;
   const [open, setOpen] = React.useState(false);
+  const delta = budgetDelta(p.amount, budget);
+  const titleId = `proposal-${p.id}-name`;
+  const detailsId = `proposal-${p.id}-details`;
+  const railWidth = scale > 0n ? Math.max(12, Number((toWei(p.amount) * 1000n) / scale) / 10) : 100;
+  const completed = m?.stats?.completed_as_freelancer ?? 0;
   return (
-    <article className="panel overflow-hidden">
-      <div className="grid gap-5 p-5 md:grid-cols-[1fr_auto]">
-        <div className="min-w-0 space-y-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <Avatar name={m?.display_name ?? '?'} path={m?.avatar_path} />
-            <div className="min-w-0">
-              {m ? <Link href={`/u/${m.username}`} className="font-semibold hover:text-brand">{m.display_name}</Link> : <span className="font-semibold">Member</span>}
-              <p className="t-meta truncate">{m?.headline ?? 'No headline'} · sent {formatRelative(p.created_at)}</p>
-            </div>
-            <ProposalStatusBadge status={p.status} />
-          </div>
-          {m?.stats && <TrustSignals stats={m.stats} role="freelancer" compact />}
-          <p className={cn('whitespace-pre-line text-sm text-ink-secondary', !open && 'line-clamp-3')}>{p.cover_letter}</p>
-          <p className="text-xs text-ink-secondary">
-            Skill match: <span className="font-medium text-ink">{matched.length} of {projectSkillCount}</span>
-            {matched.length > 0 && <> ({matched.join(', ')})</>}
+    <article
+      id={`proposal-${p.id}`}
+      role="listitem"
+      aria-labelledby={titleId}
+      className="scroll-mt-20 space-y-4 py-6 md:row-span-9 md:grid md:grid-rows-subgrid md:gap-0 md:space-y-0 md:py-0"
+    >
+      <header className="flex min-w-0 items-center gap-3 md:pb-4">
+        <Avatar name={m?.display_name ?? '?'} path={m?.avatar_path} />
+        <div className="min-w-0 flex-1">
+          <h2 id={titleId} className="truncate font-semibold">
+            {m ? <Link href={`/u/${m.username}`} className="hover:text-brand">{m.display_name}</Link> : 'Member'}
+          </h2>
+          <p className="flex flex-wrap items-center gap-x-2 t-meta">
+            Sent {formatRelative(p.created_at)}
+            {p.status !== 'pending' && <ProposalStatusMark status={p.status} />}
           </p>
         </div>
-        <div className="space-y-1 md:text-right">
+      </header>
+
+      <Cell label="Amount" inline>
+        <div className="text-right md:text-left">
           <Money amount={p.amount} size="xl" />
-          <p className="t-meta">{p.duration_days} days · {p.milestones.length} milestone{p.milestones.length === 1 ? '' : 's'}</p>
-          {budget && <p className="t-meta">Your budget {formatAmount(budget)}</p>}
+          {delta && <p className="t-meta">{delta}</p>}
         </div>
-      </div>
-      <div className="border-t">
-        <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
-          className="flex w-full items-center justify-between px-5 py-3 text-sm font-medium text-ink-secondary hover:bg-surface-subtle">
-          {open ? 'Hide details' : 'Show cover letter and milestones'}
-          <ChevronDown className={cn('size-4 transition-transform', open && 'rotate-180')} aria-hidden />
+      </Cell>
+
+      <Cell label="Timeline" inline>
+        <p className="text-sm">{p.duration_days} days</p>
+      </Cell>
+
+      <Cell label="Milestones">
+        <div style={{ width: `${railWidth}%` }}>
+          <EscrowRail segments={proposalSegments(p.milestones)} label={`Milestones proposed by ${m?.display_name ?? 'this freelancer'}, ${formatAmount(p.amount)} in total`} />
+        </div>
+        <ol className="space-y-1 text-sm">
+          {p.milestones.map((ms) => (
+            <li key={ms.id} className="flex items-baseline justify-between gap-3">
+              <span className="min-w-0 truncate">{ms.position}. {ms.title}</span>
+              <Money amount={ms.amount} size="sm" className="shrink-0" />
+            </li>
+          ))}
+        </ol>
+      </Cell>
+
+      <Cell label="Skills" inline>
+        <p className="text-right text-sm md:text-left">
+          <span className="font-medium">{matched.length} of {projectSkillCount} match</span>
+          {matched.length > 0 && <span className="text-ink-secondary"> · {matched.join(', ')}</span>}
+        </p>
+      </Cell>
+
+      <Cell label="Trust facts">
+        {m?.stats ? <TrustLine stats={m.stats} role="freelancer" /> : <p className="text-xs text-ink-muted">New to TrustLance</p>}
+      </Cell>
+
+      <Cell label="Relevant experience">
+        {m?.headline && <p className="text-sm">{m.headline}</p>}
+        {p.relevant_skills.length > 0 && (
+          <p className="flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-ink-secondary">{p.relevant_skills.map((s) => <span key={s}>#{s}</span>)}</p>
+        )}
+        {completed > 0 && <p className="t-meta">{completed} contract{completed === 1 ? '' : 's'} completed on TrustLance</p>}
+        {!m?.headline && !p.relevant_skills.length && !completed && <p className="text-xs text-ink-muted">Not stated</p>}
+      </Cell>
+
+      <Cell label="Cover letter">
+        <p className={cn('whitespace-pre-line text-sm text-ink-secondary', !open && 'line-clamp-3')}>{p.cover_letter}</p>
+        <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={detailsId}
+          className="inline-flex h-10 items-center gap-1 text-sm font-medium text-brand md:h-8">
+          {open ? 'Hide letter and milestone details' : 'Read letter and milestone details'}
+          <ChevronDown className={cn('size-4 transition-transform duration-base ease-ledger', open && 'rotate-180')} aria-hidden />
         </button>
-        {open && (
-          <ol className="divide-y border-t">
+        <div id={detailsId} hidden={!open} className="space-y-1">
+          <p className="t-label-caps pt-1">Milestone details</p>
+          <ol className="divide-y text-sm">
             {p.milestones.map((ms) => (
-              <li key={ms.id} className="flex items-start justify-between gap-4 px-5 py-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium">{ms.position}. {ms.title}</p>
-                  {ms.description && <p className="text-sm text-ink-secondary">{ms.description}</p>}
-                  <p className="t-meta">Due by day {ms.due_in_days}</p>
-                </div>
-                <Money amount={ms.amount} size="sm" />
+              <li key={ms.id} className="space-y-0.5 py-2">
+                <p className="flex items-baseline justify-between gap-3 font-medium">
+                  <span className="min-w-0">{ms.position}. {ms.title}</span>
+                  <Money amount={ms.amount} size="sm" className="shrink-0" />
+                </p>
+                {ms.description && <p className="text-xs text-ink-secondary">{ms.description}</p>}
+                <p className="t-meta">Due by day {ms.due_in_days}</p>
               </li>
             ))}
           </ol>
-        )}
-      </div>
-      {p.status === 'pending' && projectOpen && (
-        <div className="flex flex-col-reverse gap-2 border-t bg-surface-subtle p-4 sm:flex-row sm:justify-end">
-          <Button variant="ghost" onClick={onDecline}>Decline</Button>
-          <MessageButton proposalId={p.id} />
-          <Button onClick={onHire}>Hire {m?.display_name.split(' ')[0] ?? ''}</Button>
         </div>
-      )}
+      </Cell>
+
+      <Cell className="md:pb-0">
+        {p.status === 'pending' && projectOpen ? (
+          <div className="space-y-2">
+            {/* Equal options side by side, so none is filled: the hire dialog holds the one primary action. */}
+            <Button variant="secondary" className="w-full border-brand/40 text-brand-strong hover:bg-brand-soft" onClick={onHire}>Hire {m?.display_name.split(' ')[0] ?? ''}</Button>
+            <div className="flex gap-2">
+              <MessageButton proposalId={p.id} className="flex-1" />
+              <Button variant="ghost" className="flex-1" onClick={onDecline}>Decline</Button>
+            </div>
+          </div>
+        ) : (
+          <p className="t-meta">{p.status === 'pending' ? 'This project is not accepting proposals.' : `No actions — this proposal is ${p.status}.`}</p>
+        )}
+      </Cell>
     </article>
   );
 }

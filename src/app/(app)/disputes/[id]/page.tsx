@@ -2,24 +2,25 @@ import { PendingEscrowWatcher } from '@/components/escrow/pending-escrow-watcher
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { FileText, Gavel, History, MessagesSquare, Scale, Sparkles } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Money } from '@/components/common/money';
-import { Facts, PageHeader } from '@/components/common/page-header';
-import { DisputeStatusBadge, MilestoneStatusBadge, SettlementStatusBadge } from '@/components/common/status-badge';
+import { Button } from '@/components/ui/button';
+import { MoneyRing, type RingState } from '@/components/common/money-ring';
+import { formatAmount, splitByPct } from '@/lib/money';
+import { PageHeader } from '@/components/common/page-header';
+import { DisputeStatusMark, MilestoneStatusMark } from '@/components/common/status-mark';
 import { requireViewer } from '@/lib/auth';
 import { getDisputeCase, toMemberRecord } from '@/lib/data/disputes';
 import { disputeNumber, formatDate, formatDateTime } from '@/lib/format';
 import { AddEvidenceForm } from '../_components/add-evidence-form';
 import { AiRecommendationPanel } from '../_components/ai-recommendation';
 import { AuditTrail } from '../_components/audit-trail';
-import { DecisionCard } from '../_components/decision-card';
+import { CaseMoney, CaseTimeline, TxHash } from '../_components/case-summary';
+import { DecisionCard, FactRows } from '../_components/decision-card';
 import { DisputeChat } from '../_components/dispute-chat';
 import { EscalateButton } from '../_components/escalate-button';
 import { EvidenceList } from '../_components/evidence-list';
-import { partyEscalation, roleIn } from '../_components/labels';
-import { NextSteps } from '../_components/next-steps';
-import { OnchainProtectionCard } from '../_components/onchain-card';
+import { flagState, partyEscalation, roleIn } from '../_components/labels';
+import { NextSteps, type CaseStep } from '../_components/next-steps';
+import { FlagMilestoneButton, FlagMilestoneTrigger } from '../_components/onchain-card';
 import { Statements } from '../_components/statements';
 
 type Params = { params: Promise<{ id: string }> };
@@ -43,92 +44,128 @@ export default async function DisputePage({ params }: Params) {
   const roles: Record<string, string> = { [c.client_id]: 'Client', [c.freelancer_id]: 'Freelancer' };
   if (d.arbitrator_id) roles[d.arbitrator_id] = 'Arbitrator';
   const open = d.status !== 'resolved';
+  const decided = d.status === 'resolved' && d.decision !== null && d.freelancer_pct !== null;
   const escalation = partyEscalation(d);
   const arbitrator = d.arbitrator_id ? members[d.arbitrator_id] : null;
+  const raisedByMe = d.raised_by === viewer.id;
+  const flag = flagState(d.settlement_status, data.transactions);
+
+  // The one next step on the page. Flagging on-chain is the party's own action, so it wins when needed.
+  let step: CaseStep | undefined;
+  let control: React.ReactNode;
+  if (flag.needsFlag) {
+    step = {
+      tone: 'action',
+      title: `Flag milestone ${m.position} on-chain`,
+      body: (
+        <>
+          The escrow contract does not know about this dispute yet. Either party flags it from their verified wallet so the arbiter can settle the decision. This sends no money.
+          {flag.failedFlag && <span className="mt-1 block text-xs text-danger-strong">A previous flag transaction was not accepted (<TxHash hash={flag.failedFlag.tx_hash} />). You can try again.</span>}
+        </>
+      ),
+    };
+    control = <FlagMilestoneTrigger escrowKey={c.escrow_key} />;
+  } else if (flag.pendingFlag && !flag.flagged) {
+    step = { tone: 'waiting', title: 'Flag transaction confirming', body: <>Your flag was broadcast (<TxHash hash={flag.pendingFlag.tx_hash} />). TrustLance updates this case once it is confirmed on-chain.</> };
+  }
 
   return (
-    <>
+    <div className="space-y-10">
       <PendingEscrowWatcher contractIds={[c.id]} />
+      {/* The flag dialog lives here, not in the next-step line, so it survives the refresh after confirmation. */}
+      {(role === 'client' || role === 'freelancer') && (
+        <FlagMilestoneButton
+          trigger={false}
+          contractId={c.id}
+          milestoneId={m.id}
+          milestonePosition={m.position}
+          milestoneTitle={m.title}
+          amount={d.amount}
+          escrowKey={c.escrow_key}
+          requiredWallet={role === 'client' ? c.client_wallet : c.freelancer_wallet}
+        />
+      )}
       <PageHeader
-        breadcrumbs={[{ label: 'Disputes', href: '/disputes' }, { label: disputeNumber(d.number) }]}
-        eyebrow={<span className="font-mono">{disputeNumber(d.number)}</span>}
-        title={`Milestone ${m.position}: ${m.title}`}
-        description={<>On <Link className="link" href={`/contracts/${c.id}`}>{c.title}</Link>{data.projectTitle && data.projectTitle !== c.title ? ` · ${data.projectTitle}` : ''}</>}
+        className="mb-0 md:mb-0"
+        breadcrumbs={[{ label: 'Contracts', href: '/contracts' }, { label: 'Disputes', href: '/disputes' }, { label: disputeNumber(d.number) }]}
+        eyebrow={<>Dispute · <span className="font-mono">{disputeNumber(d.number)}</span></>}
+        title={c.title}
+        description={<>Milestone {m.position}: {m.title}{data.projectTitle && data.projectTitle !== c.title ? ` · ${data.projectTitle}` : ''}</>}
         meta={
           <>
-            <DisputeStatusBadge status={d.status} />
-            <SettlementStatusBadge status={d.settlement_status} />
-            <span>Opened {formatDate(d.created_at)}</span>
+            <DisputeStatusMark status={d.status} />
+            <span>{raisedByMe ? 'You opened this dispute' : `Opened by ${members[d.raised_by]?.display_name ?? 'the other party'}`} on {formatDate(d.created_at)}</span>
           </>
         }
-        actions={<Money amount={d.amount} size="xl" />}
+        actions={<Button asChild variant="secondary"><Link href={`/contracts/${c.id}`}>View contract</Link></Button>}
+        aside={(() => {
+          // The frozen money as two arcs: the freelancer's share and the client's, decided or requested.
+          const pct = decided ? d.freelancer_pct! : d.requested_outcome === 'release' ? 100 : d.requested_outcome === 'refund' ? 0 : d.requested_freelancer_pct ?? 50;
+          const split = splitByPct(d.amount, pct);
+          const parts = [
+            { amount: Number(split.freelancer) || 0, state: (decided ? 'released' : 'disputed') as RingState },
+            { amount: Number(split.client) || 0, state: (decided ? 'refunded' : 'disputed') as RingState },
+          ].filter((x) => x.amount > 0);
+          return (
+            <MoneyRing
+              className="-mx-4 h-[240px] sm:h-[300px] lg:mx-0 lg:h-[360px]"
+              parts={parts.length ? parts : [{ amount: 1, state: 'disputed' }]}
+              readout={{ label: decided ? 'Decided split' : 'Frozen in escrow', state: `${pct}% freelancer · ${100 - pct}% client`, amount: formatAmount(d.amount) }}
+            />
+          );
+        })()}
       />
 
-      <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
-        <div className="min-w-0">
-          <Tabs defaultValue="overview">
-            <TabsList aria-label="Case sections">
-              <TabsTrigger value="overview"><Scale aria-hidden /> Overview</TabsTrigger>
-              <TabsTrigger value="evidence"><FileText aria-hidden /> Evidence ({data.evidence.length})</TabsTrigger>
-              <TabsTrigger value="messages"><MessagesSquare aria-hidden /> Messages</TabsTrigger>
-              {data.recommendation && <TabsTrigger value="ai"><Sparkles aria-hidden /> AI analysis</TabsTrigger>}
-              <TabsTrigger value="decision"><Gavel aria-hidden /> Decision</TabsTrigger>
-              <TabsTrigger value="audit"><History aria-hidden /> Audit trail</TabsTrigger>
-            </TabsList>
-            <TabsContent value="overview" className="space-y-6">
-              <Statements data={data} members={members} />
-            </TabsContent>
-            <TabsContent value="evidence" className="space-y-6">
-              <EvidenceList evidence={data.evidence} members={members} contract={c} />
-              {open ? <AddEvidenceForm disputeId={d.id} /> : <p className="t-meta">This case is decided; evidence is closed.</p>}
-            </TabsContent>
-            <TabsContent value="messages">
-              <DisputeChat disputeId={d.id} viewerId={viewer.id} initial={data.messages} members={members} roles={roles}
-                canSend={open} closedReason="This case is decided. Messaging is closed." />
-            </TabsContent>
-            {data.recommendation && (
-              <TabsContent value="ai">
-                <AiRecommendationPanel disputeId={d.id} amount={d.amount} initial={data.recommendation} canGenerate={false} />
-              </TabsContent>
-            )}
-            <TabsContent value="decision">
-              <DecisionCard dispute={d} transactions={data.transactions} members={members} />
-            </TabsContent>
-            <TabsContent value="audit">
-              <AuditTrail events={data.events} members={members} />
-            </TabsContent>
-          </Tabs>
+      <CaseMoney dispute={d} milestone={m} transactions={data.transactions} raisedBy={raisedByMe ? 'you' : members[d.raised_by]?.display_name ?? 'the other party'} />
+
+      <NextSteps dispute={d} isParty step={step} control={control} />
+
+      <CaseTimeline dispute={d} arbitratorName={arbitrator?.display_name ?? null} className="border-y py-5" />
+
+      <div className="grid grid-cols-1 gap-12 lg:grid-cols-[minmax(0,1fr)_17rem]">
+        <div className="min-w-0 space-y-12">
+          {decided && <DecisionCard dispute={d} transactions={data.transactions} members={members} />}
+
+          <section aria-labelledby="statements-title" className="space-y-3">
+            <h2 id="statements-title" className="t-label-caps">Statements</h2>
+            <Statements data={data} members={members} />
+          </section>
+
+          <EvidenceList
+            evidence={data.evidence}
+            members={members}
+            contract={c}
+            footer={open ? <AddEvidenceForm disputeId={d.id} /> : <p className="t-meta">This case is decided; evidence is closed.</p>}
+          />
+
+          <section aria-labelledby="messages-title" className="space-y-3">
+            <h2 id="messages-title" className="t-label-caps">Messages</h2>
+            <DisputeChat disputeId={d.id} viewerId={viewer.id} initial={data.messages} members={members} roles={roles}
+              canSend={open} closedReason="This case is decided. Messaging is closed." />
+          </section>
+
+          {data.recommendation && (
+            <AiRecommendationPanel disputeId={d.id} amount={d.amount} initial={data.recommendation} canGenerate={false} />
+          )}
+
+          <AuditTrail events={data.events} members={members} />
         </div>
 
-        <aside className="space-y-6">
-          <NextSteps dispute={d} isParty />
-          <OnchainProtectionCard
-            contractId={c.id}
-            milestoneId={m.id}
-            milestonePosition={m.position}
-            milestoneTitle={m.title}
-            amount={d.amount}
-            escrowKey={c.escrow_key}
-            requiredWallet={role === 'client' ? c.client_wallet : c.freelancer_wallet}
-            settlement={d.settlement_status}
-            flaggedAt={d.onchain_flagged_at}
-            transactions={data.transactions}
-            isParty
-          />
-          <section className="panel space-y-4 p-5" aria-labelledby="case-facts-title">
-            <h2 id="case-facts-title" className="t-eyebrow">Case details</h2>
-            <Facts className="sm:grid-cols-1" items={[
+        <aside className="space-y-8" aria-labelledby="case-facts-title">
+          <div className="space-y-3">
+            <h2 id="case-facts-title" className="t-label-caps">Case details</h2>
+            <FactRows stacked items={[
               { label: 'Contract', value: <Link className="link" href={`/contracts/${c.id}`}>{c.title}</Link> },
-              { label: 'Milestone', value: <span className="flex flex-wrap items-center gap-2">{m.position}. {m.title} <MilestoneStatusBadge status={m.status} /></span> },
-              { label: 'Raised by', value: `${d.raised_by === viewer.id ? 'You' : members[d.raised_by]?.display_name ?? 'Other party'} (${roles[d.raised_by] ?? ''})` },
+              { label: 'Milestone', value: <span className="flex flex-wrap items-center gap-x-2 gap-y-1">{m.position}. {m.title} <MilestoneStatusMark status={m.status} /></span> },
+              { label: 'Raised by', value: `${raisedByMe ? 'You' : members[d.raised_by]?.display_name ?? 'Other party'} (${roles[d.raised_by] ?? ''})` },
               { label: 'Arbitrator', value: arbitrator ? `${arbitrator.display_name}${d.assigned_at ? ` · assigned ${formatDateTime(d.assigned_at)}` : ''}` : 'Not assigned yet' },
               ...(d.evidence_due_at && open ? [{ label: 'Evidence due', value: formatDateTime(d.evidence_due_at) }] : []),
               ...(d.escalation_reason ? [{ label: 'Escalation reason', value: d.escalation_reason }] : []),
             ]} />
-          </section>
+          </div>
           {open && <EscalateButton disputeId={d.id} allowed={escalation.allowed} explanation={escalation.reason} size="sm" />}
         </aside>
       </div>
-    </>
+    </div>
   );
 }

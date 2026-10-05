@@ -37,7 +37,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
         description="Updates on your projects, contracts, milestones, payments and disputes."
         actions={
           <Button asChild variant="ghost" size="sm">
-            <Link href="/settings"><Settings /> Preferences</Link>
+            <Link href="/settings/notifications"><Settings /> Preferences</Link>
           </Button>
         }
       />

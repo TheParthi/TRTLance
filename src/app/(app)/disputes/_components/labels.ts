@@ -1,4 +1,4 @@
-import type { Contract, Dispute } from '@/lib/types';
+import type { Contract, Dispute, EscrowTransaction, SettlementStatus } from '@/lib/types';
 
 export type CaseRole = 'client' | 'freelancer' | 'arbitrator' | 'admin' | 'other';
 
@@ -58,4 +58,18 @@ export function partyEscalation(dispute: Pick<Dispute, 'status' | 'arbitrator_id
     return { allowed: false, reason: `If no arbitrator is assigned, you can escalate in about ${hours} hour${hours === 1 ? '' : 's'}.` };
   }
   return { allowed: true, reason: 'No arbitrator was assigned within 48 hours. You can send this case to the platform team.' };
+}
+
+/** Where the on-chain flag of the disputed milestone stands. */
+export function flagState(settlement: SettlementStatus, transactions: EscrowTransaction[]) {
+  const flagTx = transactions.find((t) => t.kind === 'dispute' && t.status === 'confirmed');
+  const pendingFlag = transactions.find((t) => t.kind === 'dispute' && t.status === 'pending');
+  const failedFlag = !pendingFlag && !flagTx ? transactions.find((t) => t.kind === 'dispute' && t.status === 'failed') : undefined;
+  const flagged = settlement !== 'awaiting_flag';
+  return { flagged, flagTx, pendingFlag, failedFlag, needsFlag: !flagged && !pendingFlag };
+}
+
+/** The freelancer's share the raising party asked for. */
+export function requestedPct(d: Pick<Dispute, 'requested_outcome' | 'requested_freelancer_pct'>) {
+  return d.requested_freelancer_pct ?? (d.requested_outcome === 'release' ? 100 : 0);
 }

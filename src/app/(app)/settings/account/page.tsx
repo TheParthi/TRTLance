@@ -1,27 +1,24 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { CheckCircle2, LogOut, Mail, Wallet } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Callout } from '@/components/ui/callout';
-import { Facts } from '@/components/common/page-header';
+import { SettingsSection, SettingsSections } from '@/components/settings/settings-section';
 import { requireViewer } from '@/lib/auth';
 import { formatDate, shortAddress } from '@/lib/format';
 import { createClient } from '@/lib/supabase/server';
+import { cn } from '@/lib/utils';
 import { PasswordForm } from './password-form';
 import { PhoneForm } from './phone-form';
 
 export const metadata: Metadata = { title: 'Account & security' };
 
-function Panel({ id, title, description, children }: { id: string; title: string; description?: string; children: React.ReactNode }) {
+/** Dot + small-caps state, the quiet alternative to a pill. */
+function Mark({ ok, children }: { ok: boolean; children: React.ReactNode }) {
   return (
-    <section className="panel space-y-4 p-5 md:p-6" aria-labelledby={`${id}-title`}>
-      <div className="space-y-1">
-        <h2 id={`${id}-title`} className="t-section-title">{title}</h2>
-        {description && <p className="text-sm text-ink-secondary">{description}</p>}
-      </div>
+    <span className={cn('inline-flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-[0.1em]', ok ? 'text-success-strong' : 'text-warning-strong')}>
+      <span className={cn('inline-block size-1.5 rounded-full', ok ? 'bg-success' : 'bg-warning')} aria-hidden />
       {children}
-    </section>
+    </span>
   );
 }
 
@@ -32,56 +29,59 @@ export default async function AccountSettingsPage() {
   if (error) throw error;
 
   return (
-    <div className="space-y-6">
-      <Panel id="email" title="Email" description="Used to sign in and for contract, payment and security notifications. Never shown publicly.">
-        <div className="flex flex-wrap items-center gap-3">
-          <Mail className="size-4 text-ink-muted" aria-hidden />
-          <span className="break-all text-sm font-medium">{viewer.email ?? 'No email on file'}</span>
-          {viewer.emailConfirmed
-            ? <Badge tone="success"><CheckCircle2 aria-hidden /> Verified</Badge>
-            : <Badge tone="warning">Not verified</Badge>}
+    <SettingsSections>
+      <SettingsSection id="email" title="Email" description="Used to sign in and for contract, payment and security notifications. Never shown publicly.">
+        <div className="space-y-1.5">
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="break-all text-sm font-medium">{viewer.email ?? 'No email on file'}</span>
+            <Mark ok={viewer.emailConfirmed}>{viewer.emailConfirmed ? 'Verified' : 'Not verified'}</Mark>
+          </p>
+          {!viewer.emailConfirmed && (
+            <p className="text-sm text-warning-strong">
+              Open the confirmation link we sent when you signed up. Members see whether your email is verified.
+            </p>
+          )}
         </div>
-        {!viewer.emailConfirmed && (
-          <Callout tone="warning" title="Verify your email">
-            Open the confirmation link we sent when you signed up. Members see whether your email is verified.
-          </Callout>
-        )}
-      </Panel>
+      </SettingsSection>
 
-      <Panel id="password" title="Password" description="If you signed in with Google, this adds a password you can also use.">
+      <SettingsSection id="password" title="Password" description="If you signed in with Google, this adds a password you can also use.">
         <PasswordForm />
-      </Panel>
+      </SettingsSection>
 
-      <Panel id="phone" title="Phone">
+      <SettingsSection id="phone" title="Phone">
         <PhoneForm phone={priv?.phone ?? null} />
-      </Panel>
+      </SettingsSection>
 
-      <Panel id="wallet" title="Wallet" description="Payments are released to, and refunds returned to, your verified wallet.">
+      <SettingsSection id="wallet" title="Wallet" description="Payments are released to, and refunds returned to, your verified wallet.">
         {viewer.wallet ? (
-          <Facts
-            items={[
-              { label: 'Verified address', value: <span className="t-mono">{shortAddress(viewer.wallet.address)}</span> },
-              { label: 'Verified on', value: formatDate(viewer.wallet.verified_at) },
-            ]}
-          />
+          <dl className="flex flex-wrap gap-x-10 gap-y-3 text-sm">
+            <div className="space-y-0.5">
+              <dt className="t-label-caps">Verified address</dt>
+              <dd className="flex items-center gap-3 font-mono">{shortAddress(viewer.wallet.address)} <Mark ok>Verified</Mark></dd>
+            </div>
+            <div className="space-y-0.5">
+              <dt className="t-label-caps">Verified on</dt>
+              <dd>{formatDate(viewer.wallet.verified_at)}</dd>
+            </div>
+          </dl>
         ) : (
-          <p className="flex items-center gap-2 text-sm text-ink-secondary"><Wallet className="size-4 text-ink-muted" aria-hidden /> No verified wallet yet. You need one to sign or fund a contract.</p>
+          <p className="text-sm text-ink-secondary">No verified wallet yet. You need one to sign or fund a contract.</p>
         )}
         <Button asChild variant="secondary" size="sm"><Link href="/wallet">{viewer.wallet ? 'Manage wallet' : 'Connect a wallet'}</Link></Button>
-      </Panel>
+      </SettingsSection>
 
-      <Panel id="session" title="Sessions" description="Sign out of TrustLance on this device. Other devices stay signed in.">
+      <SettingsSection id="session" title="Sessions" description="Sign out of TrustLance on this device. Other devices stay signed in.">
         <form action="/auth/signout" method="post">
           <Button type="submit" variant="secondary"><LogOut /> Sign out of this device</Button>
         </form>
-      </Panel>
+      </SettingsSection>
 
-      <Panel id="delete" title="Delete account">
-        <p className="text-sm text-ink-secondary">
+      <SettingsSection id="delete" title="Delete account">
+        <p className="max-w-prose text-sm text-ink-secondary">
           Account deletion is handled by our support team for now, because open contracts, escrowed funds and disputes have to be
           settled first. Contact support from the email address on this account and we will walk you through it.
         </p>
-      </Panel>
-    </div>
+      </SettingsSection>
+    </SettingsSections>
   );
 }

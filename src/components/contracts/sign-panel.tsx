@@ -51,31 +51,40 @@ export function SignPanel({ contract, role, myName, walletAddress }: {
   };
 
   return (
-    <section id="sign" aria-labelledby="sign-title" className="statement scroll-mt-24 space-y-5">
-      <div className="space-y-1">
-        <h2 id="sign-title" className="t-section-title flex items-center gap-2"><PenLine className="size-5 text-brand" aria-hidden /> Signatures</h2>
+    <section id="sign" aria-labelledby="sign-title" className="scroll-mt-24 space-y-5">
+      <div className="space-y-1 border-b pb-3">
+        <h2 id="sign-title" className="t-label-caps">Signatures</h2>
         <p className="text-sm text-ink-secondary">Both parties sign the same version of the terms (fingerprint <span className="t-mono">{contract.terms_hash.slice(0, 12)}…</span>). Signing does not move money.</p>
       </div>
-      <ul className="grid gap-3 sm:grid-cols-2">
+      <ul className="grid gap-x-8 sm:grid-cols-2">
         {parties.map((p) => (
-          <li key={p.label} className="rounded-lg border p-4">
-            <p className="t-eyebrow">{p.label}</p>
-            {p.at ? (
-              <div className="mt-1 space-y-0.5 text-sm">
-                <p className="flex items-center gap-1.5 font-medium text-success-strong"><CheckCircle2 className="size-4" aria-hidden /> Signed by {p.name}</p>
-                <p className="t-meta">{formatDateTime(p.at)} · wallet {shortAddress(p.wallet)}</p>
-              </div>
-            ) : (
-              <p className="mt-1 flex items-center gap-1.5 text-sm text-ink-secondary"><Clock className="size-4" aria-hidden /> Not signed yet</p>
-            )}
+          <li key={p.label} className="flex items-start gap-3 border-b py-3 sm:border-b-0">
+            {p.at
+              ? <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
+              : <Clock className="mt-0.5 size-4 shrink-0 text-ink-muted" aria-hidden />}
+            <div className="min-w-0 space-y-0.5 text-sm">
+              <p className="t-label-caps">{p.label}</p>
+              {p.at ? (
+                <>
+                  <p className="font-medium text-success-strong">Signed by {p.name}</p>
+                  <p className="t-meta">{formatDateTime(p.at)} · wallet <span className="font-mono">{shortAddress(p.wallet)}</span></p>
+                </>
+              ) : (
+                <p className="text-ink-secondary">Not signed yet</p>
+              )}
+            </div>
           </li>
         ))}
       </ul>
 
       {contract.status === 'pending_signatures' && !signedAt && (
         walletAddress ? (
-          <form onSubmit={sign} className="space-y-4 rounded-lg border border-brand/25 bg-brand-soft/30 p-4">
-            <Field label="Type your full name to sign" hint={`Signing as ${role}. Your verified wallet ${shortAddress(walletAddress)} will ${role === 'client' ? 'fund' : 'receive'} the escrow payments.`}>
+          <form onSubmit={sign} className="statement space-y-4">
+            <div className="flex items-center gap-2">
+              <PenLine className="size-4 text-brand" aria-hidden />
+              <p className="font-medium">Sign as the {role}</p>
+            </div>
+            <Field label="Type your full name to sign" hint={`Your verified wallet ${shortAddress(walletAddress)} will ${role === 'client' ? 'fund' : 'receive'} the escrow payments.`}>
               <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={myName} autoComplete="name" maxLength={100} />
             </Field>
             <label className="flex items-start gap-3 text-sm">

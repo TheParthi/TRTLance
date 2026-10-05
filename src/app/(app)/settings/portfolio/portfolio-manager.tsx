@@ -1,12 +1,10 @@
 'use client';
 
-import { BadgeCheck, ExternalLink, FolderOpen, PenLine, Plus } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { ExternalLink, PenLine, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Input, Textarea } from '@/components/ui/input';
-import { Section } from '@/components/common/page-header';
-import { EmptyState } from '@/components/common/states';
+import { SettingsSection } from '@/components/settings/settings-section';
 import { deletePortfolioItem, savePortfolioItem } from '@/lib/actions/profile-sections';
 import type { PortfolioItem } from '@/lib/types';
 import { DeleteItemButton } from './delete-item-button';
@@ -20,17 +18,21 @@ export function PortfolioManager({ items }: { items: PortfolioItem[] }) {
   const add = <Button type="button" variant="secondary" size="sm" onClick={() => ed.start(null, EMPTY)}><Plus /> Add item</Button>;
 
   return (
-    <Section id="portfolio" title="Portfolio" description="Examples of your work. Items from completed TrustLance contracts are verified and cannot be edited." action={items.length ? add : undefined}>
+    <SettingsSection id="portfolio" title="Portfolio" description="Examples of your work. Items from completed TrustLance contracts are verified and cannot be edited." action={items.length ? add : undefined}>
       {items.length === 0 ? (
-        <EmptyState compact icon={FolderOpen} title="No portfolio items yet" description="Add a few projects you are proud of, with a link where people can see them." action={add} />
+        <div className="space-y-1">
+          <p className="font-medium">No portfolio items yet</p>
+          <p className="text-sm text-ink-secondary">Add a few projects you are proud of, with a link where people can see them.</p>
+          <div className="pt-3">{add}</div>
+        </div>
       ) : (
-        <ul className="panel divide-y">
+        <ul className="ledger">
           {items.map((item) => (
-            <li key={item.id} className="flex items-start gap-3 p-4">
+            <li key={item.id} className="flex items-start gap-3 py-4">
               <div className="min-w-0 flex-1 space-y-1">
-                <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
+                <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-medium">
                   {item.title}
-                  {item.contract_id && <Badge tone="success"><BadgeCheck aria-hidden /> Verified contract</Badge>}
+                  {item.contract_id && <VerifiedMark />}
                 </p>
                 {item.description && <p className="line-clamp-2 text-sm text-ink-secondary">{item.description}</p>}
                 {item.url && (
@@ -67,6 +69,16 @@ export function PortfolioManager({ items }: { items: PortfolioItem[] }) {
           <Input type="url" inputMode="url" placeholder="https://" value={ed.values.url} onChange={(e) => ed.set('url', e.target.value)} maxLength={500} />
         </Field>
       </EditorDialog>
-    </Section>
+    </SettingsSection>
+  );
+}
+
+/** Dot + small caps: this item comes from a completed TrustLance contract. */
+function VerifiedMark() {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-2xs font-semibold uppercase tracking-[0.1em] text-success-strong">
+      <span className="inline-block size-1.5 rounded-full bg-success" aria-hidden />
+      Verified contract
+    </span>
   );
 }

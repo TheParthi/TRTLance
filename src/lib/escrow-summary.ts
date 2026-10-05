@@ -110,3 +110,10 @@ export function stateSegments(milestones: MilestoneLike[]): RailSegment[] {
   }
   return STATE_ORDER.filter((s) => (sums.get(s) ?? 0n) > 0n).map((s) => ({ key: s, label: s, parts: [{ state: s, amount: weiToAmount(sums.get(s)!) }] }));
 }
+
+/** Money by state as ring arcs (amount as a number for drawing only; figures are always shown from strings). */
+export function moneyParts(milestones: MilestoneLike[]): { amount: number; state: Exclude<RailState, 'proposed'> }[] {
+  return stateSegments(milestones)
+    .filter((s) => s.parts[0].state !== 'proposed')
+    .map((s) => ({ amount: Number(s.parts[0].amount) || 0, state: s.parts[0].state as Exclude<RailState, 'proposed'> }));
+}

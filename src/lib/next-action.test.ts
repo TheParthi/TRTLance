@@ -29,8 +29,13 @@ describe('nextAction', () => {
     expect(nextAction('freelancer', c('active'), [m(1, 'paid'), m(2, 'funded')]).title).toMatch(/Deliver milestone 2/);
   });
 
+  it('puts work the freelancer can deliver ahead of milestones waiting on the client', () => {
+    expect(nextAction('freelancer', c('active'), [m(1, 'submitted'), m(2, 'funded')]).milestoneId).toBe('m2');
+    expect(nextAction('freelancer', c('active'), [m(1, 'submitted'), m(2, 'paid')]).tone).toBe('waiting');
+  });
+
   it('asks for a review once complete, until one is written', () => {
-    expect(nextAction('freelancer', c('completed'), []).target).toBe('?tab=review');
+    expect(nextAction('freelancer', c('completed'), []).target).toBe('#review');
     expect(nextAction('freelancer', c('completed'), [], [], [{ reviewer_role: 'freelancer' }]).tone).toBe('done');
   });
 

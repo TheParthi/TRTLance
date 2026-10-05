@@ -10,6 +10,11 @@
  */
 @layer base {
   :root {
+    --ease-ledger: cubic-bezier(0.2, 0, 0, 1);
+    --dur-fast: 120ms;
+    --dur-base: 200ms;
+    --dur-slow: 360ms;
+
     --canvas: 40 22% 97%;
     --surface: 0 0% 100%;
     --surface-subtle: 40 16% 95%;
@@ -54,6 +59,10 @@
     --refund-soft: 262 45% 95%;
 
     --focus: 190 90% 35%;
+
+    /* Signal: the one loud colour. Used for the main call to action and live money, never for text on paper. */
+    --signal: 156 88% 52%;
+    --signal-ink: 200 40% 8%;
 
     --radius-sm: 0.375rem;
     --radius: 0.5rem;
@@ -113,6 +122,9 @@
 
     --focus: 186 70% 55%;
 
+    --signal: 156 84% 55%;
+    --signal-ink: 200 40% 8%;
+
     --shadow-xs: 0 1px 1px 0 rgb(0 0 0 / 0.3);
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.4);
     --shadow-md: 0 6px 16px -4px rgb(0 0 0 / 0.5);
@@ -167,7 +179,7 @@
     font-variation-settings: 'opsz' 144, 'SOFT' 30;
   }
   .t-page-title {
-    @apply font-display text-2xl font-medium md:text-3xl;
+    @apply font-display text-[2.5rem] font-medium leading-[1] tracking-[-0.035em] md:text-[3.5rem];
     font-variation-settings: 'opsz' 72, 'SOFT' 30;
   }
   .t-section-title {
@@ -212,7 +224,25 @@
     @apply relative flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:gap-6;
   }
   a.ledger-row, .ledger-row-link {
-    @apply transition-colors hover:bg-surface-subtle/70;
+    @apply transition-colors duration-base ease-ledger hover:bg-surface-subtle/70;
+  }
+
+  /* Row motion: put `group` on the row, then the title nudges and an arrow appears on hover/focus. */
+  .row-title {
+    @apply transition-[transform,color] duration-base ease-ledger group-hover:translate-x-0.5 group-hover:text-brand-strong group-focus-visible:translate-x-0.5;
+  }
+  .row-arrow {
+    @apply -translate-x-1 opacity-0 transition-[transform,opacity] duration-base ease-ledger group-hover:translate-x-0 group-hover:opacity-100 group-focus-visible:translate-x-0 group-focus-visible:opacity-100;
+  }
+
+  /* Page entrance: content rises into place once. */
+  .enter {
+    @apply animate-rise;
+  }
+
+  /* A hairline rule between groups of content. */
+  .rule {
+    @apply border-0 border-t border-line;
   }
 
   /* The escrow statement: the one boxed element on a page. */
@@ -232,6 +262,94 @@
   .rail-hatch {
     background-image: repeating-linear-gradient(45deg, rgb(255 255 255 / 0.45) 0 2px, transparent 2px 6px);
   }
+}
+
+/* Landing intro: a counter fills the escrow, then the paper lifts. Skipped once seen (see Intro). */
+@property --n {
+  syntax: '<integer>';
+  initial-value: 0;
+  inherits: false;
+}
+:root {
+  --intro-delay: 1350ms;
+}
+html[data-intro='seen'] {
+  --intro-delay: 0ms;
+}
+html[data-intro='seen'] .intro {
+  display: none;
+}
+.intro {
+  animation: intro-lift 900ms var(--ease-ledger) 1150ms both;
+}
+.intro-bar {
+  animation: intro-fill 1000ms var(--ease-ledger) 120ms both;
+}
+.intro-count-value {
+  counter-reset: n var(--n);
+  animation: intro-count 1000ms var(--ease-ledger) 120ms both;
+}
+.intro-count-value::after {
+  content: counter(n);
+}
+@keyframes intro-lift {
+  from { clip-path: inset(0 0 0 0); }
+  to { clip-path: inset(0 0 100% 0); }
+}
+@keyframes intro-fill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+@keyframes intro-count {
+  from { --n: 0; }
+  to { --n: 600; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .intro { display: none; }
+}
+
+/* Scroll reveals (see RevealObserver): hidden only once JavaScript is ready, animated once, then left alone. */
+.reveal-ready [data-reveal]:not([data-shown]) {
+  opacity: 0;
+}
+.reveal-ready [data-reveal][data-shown='anim'] {
+  animation: reveal-in 820ms var(--ease-ledger) backwards;
+}
+.reveal-ready [data-reveal='rail']:not([data-shown]) {
+  opacity: 1;
+  clip-path: inset(0 100% 0 0);
+}
+.reveal-ready [data-reveal='rail'][data-shown='anim'] {
+  animation: rail-grow 1100ms var(--ease-ledger) backwards;
+}
+@keyframes reveal-in {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes rail-grow {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+/* Lenis smooth scrolling (see SmoothScroll). */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+/* Landing page: the custom cursor replaces the system one for mouse users. */
+html.has-cursor,
+html.has-cursor * {
+  cursor: none !important;
 }
 
 @layer utilities {

@@ -41,19 +41,19 @@ export function ApplyForm({ categories, eligible }: { categories: Category[]; el
   };
 
   return (
-    <form onSubmit={submit} className="panel space-y-6 p-5 md:p-6" aria-labelledby="apply-title">
+    <form onSubmit={submit} className="statement space-y-6" aria-labelledby="apply-title">
       <div className="space-y-1">
         <h2 id="apply-title" className="t-section-title">Apply to arbitrate</h2>
         {!eligible && <p className="text-sm text-ink-secondary">The form unlocks once you meet every requirement above.</p>}
       </div>
       <fieldset disabled={!eligible || busy} className="space-y-6 disabled:opacity-60">
         <FieldGroup legend="Specialisations" hint={`Choose one to three areas you can judge well (${specs.length}/3).`} error={errors.specs}>
-          <ul className="grid gap-2 sm:grid-cols-2">
+          <ul className="grid grid-cols-1 gap-x-6 border-t sm:grid-cols-2">
             {categories.map((c) => {
               const checked = specs.includes(c.slug);
               const id = `spec-${c.slug}`;
               return (
-                <li key={c.slug} className="flex items-start gap-3 rounded-lg border p-3">
+                <li key={c.slug} className="flex items-start gap-3 border-b py-3">
                   <Checkbox id={id} checked={checked} disabled={!checked && specs.length >= 3}
                     onCheckedChange={(v) => toggle(c.slug, v === true)} />
                   <label htmlFor={id} className="min-w-0 text-sm">
@@ -74,7 +74,7 @@ export function ApplyForm({ categories, eligible }: { categories: Category[]; el
         </Field>
       </fieldset>
       {problem && <Callout tone="danger" role="alert">{problem}</Callout>}
-      <div className="flex justify-end border-t pt-5">
+      <div className="flex justify-end">
         <Button type="submit" loading={busy} disabled={!eligible}>Submit application</Button>
       </div>
     </form>

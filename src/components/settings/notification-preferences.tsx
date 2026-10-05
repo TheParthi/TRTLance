@@ -1,10 +1,11 @@
 'use client';
 
 import * as React from 'react';
+import { Lock } from 'lucide-react';
 import { Switch } from '@/components/ui/choice';
-import { Callout } from '@/components/ui/callout';
 import { toast } from '@/components/ui/toaster';
 import { updatePrivate } from '@/lib/actions/profile';
+import { SettingsSection, SettingsSections } from './settings-section';
 
 const MUTABLE = [
   { key: 'projects', label: 'Projects', description: 'New proposals on your projects, and updates to projects you applied to.' },
@@ -33,33 +34,40 @@ export function NotificationPreferences({ muted: initialMuted }: { muted: string
   }
 
   return (
-    <div className="space-y-4">
-      <ul className="panel divide-y">
-        {MUTABLE.map((item) => {
-          const id = `notify-${item.key}`;
-          const enabled = !muted.includes(item.key);
-          return (
-            <li key={item.key} className="flex items-start justify-between gap-4 p-4">
-              <div className="min-w-0 space-y-0.5">
-                <label htmlFor={id} className="t-label">{item.label}</label>
-                <p id={`${id}-desc`} className="text-sm text-ink-secondary">{item.description}</p>
-              </div>
-              <Switch
-                id={id}
-                checked={enabled}
-                disabled={saving !== null}
-                aria-describedby={`${id}-desc`}
-                aria-busy={saving === item.key || undefined}
-                onCheckedChange={(value) => void toggle(item.key, value)}
-              />
-            </li>
-          );
-        })}
-      </ul>
-      <Callout tone="secure" title="Always delivered">
-        Contract, milestone, payment, dispute and security notifications cannot be turned off, because they concern money in
-        escrow or the safety of your account.
-      </Callout>
-    </div>
+    <SettingsSections>
+      <SettingsSection id="notify-optional" title="You choose" description="Turn these off if you don’t need them. Changes save as you switch.">
+        <ul className="ledger">
+          {MUTABLE.map((item) => {
+            const id = `notify-${item.key}`;
+            const enabled = !muted.includes(item.key);
+            return (
+              <li key={item.key} className="flex items-start justify-between gap-4 py-4">
+                <div className="min-w-0 space-y-0.5">
+                  <label htmlFor={id} className="t-label">{item.label}</label>
+                  <p id={`${id}-desc`} className="text-sm text-ink-secondary">{item.description}</p>
+                </div>
+                <Switch
+                  id={id}
+                  checked={enabled}
+                  disabled={saving !== null}
+                  aria-describedby={`${id}-desc`}
+                  aria-busy={saving === item.key || undefined}
+                  onCheckedChange={(value) => void toggle(item.key, value)}
+                />
+              </li>
+            );
+          })}
+        </ul>
+      </SettingsSection>
+      <SettingsSection id="notify-always" title="Always delivered">
+        <p className="flex items-start gap-2 text-sm text-ink-secondary">
+          <Lock className="mt-0.5 size-4 shrink-0 text-ink-muted" aria-hidden />
+          <span>
+            Contract, milestone, payment, dispute and security notifications cannot be turned off, because they concern money in
+            escrow or the safety of your account.
+          </span>
+        </p>
+      </SettingsSection>
+    </SettingsSections>
   );
 }

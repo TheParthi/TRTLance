@@ -83,3 +83,41 @@ TrustLance should feel like a well-made financial statement — calm paper, prec
 | Contract | Header with parties and the escrow statement (rail + figures); one next-action line; milestone spine; tabs for agreement, transactions and activity. On phones the statement comes first and the current action sticks to the bottom. |
 | Notifications | Grouped by day, quiet rows, category filter that scrolls inside its own strip. |
 | Wallet | Statement layout: verified wallet, money as client and as freelancer, transactions. |
+
+## Outcome (second pass, 5 October 2026)
+
+The direction above was implemented across every route. What changed, problem by problem:
+
+| # | Problem | Now |
+|---|---|---|
+| 1 | Everything is a box | Bordered panels in the app went from 120 to none (7 remain: the onboarding form and the landing hero illustration). Content is organised by `Ledger` rows, hairline `Rule`s and type. Boxes are kept for the escrow statement, forms being filled in, and dialogs. |
+| 2 | Oversized next-action banners | Home's "Next up" is a numbered ledger that starts with the contract or project name, then the counterparty, the step, the due date and one action named for the job ("Review submission"). Only the first row's action is filled. |
+| 3 | Money story invisible | `EscrowRail` appears on contract rows, project rows, proposals, messages, wallet and disputes. The contract page opens with the escrow statement: a captioned rail (number · state · amount per milestone, a list on phones) and the figures Total, Secured, Released, Refunded, In dispute. The wallet chip in the top bar shows funds in escrow. |
+| 4 | Duplicate alerts | One `NextActionBanner` per contract and one next-step line per dispute, in the same voice (small-caps label, serif headline, one control). |
+| 5 | Three equal milestone actions | Milestone spine: only the milestone the next action points at shows buttons (one filled); its other steps and the risky ones (return funds, raise a dispute) are in "More". |
+| 6 | Wrong nav highlight | Pages declare their section with `SetSection`; a project opened from Find work keeps Find work active. |
+| 7 | Sidebar cost | Top navigation with an animated underline; Disputes are a sub-tab of Contracts; secondary items live in the account menu. |
+| 8 | Notifications overflow | Fixed (the cause was a visually hidden label positioned against the page). Grouped by day, quiet rows, category strip scrolls inside itself. |
+| 9 | Empty dashboards | New members get a "Get started" checklist and live projects; Home falls back to the newest open work instead of "No matching projects". `EmptyState` is a headline, a sentence and one action — no box. |
+| 10 | Negative trust signals | `TrustLine` everywhere: verified positives only, otherwise one quiet "New to TrustLance". |
+| 11 | Money last on phones | Contract: statement → next step → milestones on every width; the step follows the reader in a bar above the tab bar once scrolled past. Home interleaves its columns on phones so money follows contracts. |
+| 12 | System messages unread | A conversation is unread only when the other member's latest message is newer than your last read; system events are quiet centred lines. |
+| 13 | Polish | Timeline shows "Due 15 Dec 2026" / "Flexible"; agreement totals are formatted; the landing example contract adds up. |
+
+New shared pieces: `StatusMark` (dot + small-caps label, replaces status pills in rows), `Rule`, `EscrowRail detail`, `NextActionControl`, `StickyNextAction`, motion tokens (`duration-fast|base|slow`, `ease-ledger`, `animate-rise`, `.row-title` / `.row-arrow` hover motion), and layout-matched loading skeletons for every major route.
+
+### Verification
+
+- Every route as 8 personas at 1440, 1280, 1024, 768, 430, 390 and 375 px against a production build: 406 page loads, **0 horizontal overflow**, **0 console errors** (apart from the intentional 404 page), every internal link on those pages resolves.
+- `tsc`, `eslint`, unit and database tests, escrow contract tests, `next build`, and the Playwright public and escrow-journey specs pass.
+
+## Third pass: the experience layer
+
+The ledger made the product clear; this pass makes it feel alive, with one idea used everywhere rather than many effects.
+
+- **The escrow ring** (`components/marketing/escrow-ring.tsx`, three.js): the escrow rail bent into a lit, ceramic seal. One arc per milestone, sized by amount, coloured and textured by money state; a bead of money runs round once funded; the arc that needs attention steps forward; it leans toward the cursor. It always shows real data — a contract's milestones, a member's money by state (Home, Contracts, Wallet), a project's planned milestones (an unfunded wire cage), a dispute's frozen split — except on the landing and sign-in pages, where it plays a clearly labelled example contract. A text readout beside it says the same facts; without WebGL or with reduced motion it renders one still frame or nothing, and the page still reads completely.
+- **Moving ledger lines** (`ledger-field.tsx`, canvas): the paper's hairlines bend away from the cursor and carry pulses of money. Every page opens on them (`PageHeader` is now a full-bleed stage with a large serif title whose words rise in).
+- **Landing**: first-visit intro, hero ring, manifesto that inks itself in on scroll, a pinned "how the money moves" story, a scroll-reactive marquee, two doors that expand on hover, real open projects with a cursor-following preview, protection principles, a dark closing plate and an oversized wordmark footer. Custom cursor, magnetic calls to action and Lenis smooth scrolling on this page.
+- **App chrome**: a floating header of capsules (a gliding ink pill marks the section; it hides while reading down and returns on scroll up), a full-screen search (press `/`), and on phones a floating ink dock whose current tab becomes a signal capsule.
+- **Motion everywhere**: rows, statements and rails rise or grow in as they scroll into view (`RevealObserver`; nothing is hidden without JavaScript), money figures count up to their exact value, the contract's next step is a dark feature band with the signal button.
+- **Palette**: paper, ink and one signal colour (electric mint) reserved for the primary call to action and live money. Buttons are pills; the default primary is ink.

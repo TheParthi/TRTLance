@@ -10,7 +10,12 @@ import { toast } from '@/components/ui/toaster';
 import { ConfirmDialog } from '@/components/common/confirm-dialog';
 import { cancelProject, startConversation, withdrawProposal } from '@/lib/actions/projects';
 
-export function CloseProjectButton({ projectId, proposalCount }: { projectId: string; proposalCount: number }) {
+export function CloseProjectButton({ projectId, proposalCount, variant = 'danger-outline', className }: {
+  projectId: string;
+  proposalCount: number;
+  variant?: 'danger-outline' | 'ghost';
+  className?: string;
+}) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
@@ -26,7 +31,7 @@ export function CloseProjectButton({ projectId, proposalCount }: { projectId: st
   };
   return (
     <>
-      <Button variant="danger-outline" onClick={() => setOpen(true)}>Close project</Button>
+      <Button variant={variant} className={className} onClick={() => setOpen(true)}>Close project</Button>
       <ConfirmDialog
         open={open}
         onOpenChange={setOpen}
@@ -45,13 +50,18 @@ export function CloseProjectButton({ projectId, proposalCount }: { projectId: st
   );
 }
 
-export function WithdrawProposalButton({ proposalId, projectId }: { proposalId: string; projectId: string }) {
+export function WithdrawProposalButton({ proposalId, projectId, variant = 'secondary', className }: {
+  proposalId: string;
+  projectId: string;
+  variant?: 'secondary' | 'ghost';
+  className?: string;
+}) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   return (
     <>
-      <Button variant="secondary" onClick={() => setOpen(true)}>Withdraw proposal</Button>
+      <Button variant={variant} className={className} onClick={() => setOpen(true)}>Withdraw proposal</Button>
       <ConfirmDialog
         open={open}
         onOpenChange={setOpen}
@@ -73,12 +83,18 @@ export function WithdrawProposalButton({ proposalId, projectId }: { proposalId: 
   );
 }
 
-export function MessageButton({ proposalId, label = 'Message', variant = 'secondary' }: { proposalId: string; label?: string; variant?: 'secondary' | 'ghost' }) {
+export function MessageButton({ proposalId, label = 'Message', variant = 'secondary', className }: {
+  proposalId: string;
+  label?: string;
+  variant?: 'secondary' | 'ghost';
+  className?: string;
+}) {
   const router = useRouter();
   const [busy, setBusy] = React.useState(false);
   return (
     <Button
       variant={variant}
+      className={className}
       loading={busy}
       onClick={async () => {
         setBusy(true);

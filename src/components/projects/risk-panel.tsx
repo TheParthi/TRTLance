@@ -4,7 +4,6 @@ import * as React from 'react';
 import { AlertTriangle, CheckCircle2, CircleHelp, Gauge, Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Callout } from '@/components/ui/callout';
 import { formatDateTime } from '@/lib/format';
 import type { RiskLevel, RiskReport } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -55,60 +54,58 @@ export function RiskPanel({ projectId, initial, canGenerate }: { projectId: stri
   };
 
   return (
-    <section aria-labelledby="ai-risk-title" className="panel overflow-hidden">
-      <header className="flex items-center justify-between gap-3 border-b bg-surface-subtle px-5 py-3">
-        <h2 id="ai-risk-title" className="flex items-center gap-2 text-sm font-semibold">
+    <section aria-labelledby="ai-risk-title" className="space-y-5 rounded-lg border border-brass/35 p-5 md:p-6">
+      <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+        <h2 id="ai-risk-title" className="flex items-center gap-2 t-section-title">
           <Sparkles className="size-4 text-brass" aria-hidden /> AI project risk review
         </h2>
         <Badge tone="brass">AI-generated · advisory</Badge>
       </header>
-      <div className="space-y-5 p-5">
-        {!report && (
-          <div className="space-y-3">
-            <p className="text-sm text-ink-secondary">
-              Get a quick, independent read on scope clarity, timeline, budget, milestones and dispute risk before you apply.
-            </p>
-            {error && <Callout tone="danger" role="alert">{error}</Callout>}
-            {canGenerate ? (
-              <Button variant="secondary" onClick={generate} loading={busy}>{!busy && <Sparkles />} Generate AI review</Button>
-            ) : (
-              <p className="t-meta">Sign in to generate an AI review.</p>
-            )}
+      {!report && (
+        <div className="space-y-3">
+          <p className="text-sm text-ink-secondary">
+            Get a quick, independent read on scope clarity, timeline, budget, milestones and dispute risk before you apply.
+          </p>
+          {error && <p role="alert" className="text-sm font-medium text-danger-strong">{error}</p>}
+          {canGenerate ? (
+            <Button variant="secondary" onClick={generate} loading={busy}>{!busy && <Sparkles />} Generate AI review</Button>
+          ) : (
+            <p className="t-meta">Sign in to generate an AI review.</p>
+          )}
+        </div>
+      )}
+      {report && (
+        <>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-4">
+            <span className="shrink-0"><RiskBadge level={report.result.overall} large /></span>
+            <p className="text-sm text-ink-secondary">{report.result.summary}</p>
           </div>
-        )}
-        {report && (
-          <>
-            <div className="flex flex-wrap items-center gap-3">
-              <RiskBadge level={report.result.overall} large />
-              <p className="text-sm text-ink-secondary">{report.result.summary}</p>
+          <ul className="ledger">
+            {dimensions.map(({ key, label }) => {
+              const d = report.result.dimensions[key];
+              return (
+                <li key={key} className="grid gap-1 py-3 sm:grid-cols-[9rem_7rem_minmax(0,1fr)] sm:items-start sm:gap-4">
+                  <span className="text-sm font-medium">{label}</span>
+                  <span><RiskBadge level={d.level} /></span>
+                  <span className="text-sm text-ink-secondary">{d.explanation}</span>
+                </li>
+              );
+            })}
+          </ul>
+          {report.result.missing_information.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="flex items-center gap-2 text-sm font-semibold"><CircleHelp className="size-4 text-ink-muted" aria-hidden /> Questions to ask the client</h3>
+              <ul className="list-disc space-y-1 pl-5 text-sm text-ink-secondary">
+                {report.result.missing_information.map((q) => <li key={q}>{q}</li>)}
+              </ul>
             </div>
-            <ul className="divide-y rounded-lg border">
-              {dimensions.map(({ key, label }) => {
-                const d = report.result.dimensions[key];
-                return (
-                  <li key={key} className="grid gap-1 p-3 sm:grid-cols-[10rem_7rem_1fr] sm:items-start sm:gap-3">
-                    <span className="text-sm font-medium">{label}</span>
-                    <span><RiskBadge level={d.level} /></span>
-                    <span className="text-sm text-ink-secondary">{d.explanation}</span>
-                  </li>
-                );
-              })}
-            </ul>
-            {report.result.missing_information.length > 0 && (
-              <div className="space-y-2">
-                <h3 className="flex items-center gap-2 text-sm font-semibold"><CircleHelp className="size-4 text-ink-muted" aria-hidden /> Questions to ask the client</h3>
-                <ul className="list-disc space-y-1 pl-5 text-sm text-ink-secondary">
-                  {report.result.missing_information.map((q) => <li key={q}>{q}</li>)}
-                </ul>
-              </div>
-            )}
-            <footer className="space-y-1 border-t pt-4 text-xs text-ink-muted">
-              <p>Generated {formatDateTime(report.generated_at)} by {report.model.replace(/^googleai\//, '')} from the project’s {report.analyzed_fields.map((f) => fieldLabels[f] ?? f).join(', ')}.</p>
-              <p>This is an automated opinion based only on what the client wrote. It is not a verified fact, legal advice or a guarantee. Verified facts about the client are shown separately.</p>
-            </footer>
-          </>
-        )}
-      </div>
+          )}
+          <footer className="space-y-1 border-t pt-4 text-xs text-ink-muted">
+            <p>Generated {formatDateTime(report.generated_at)} by {report.model.replace(/^googleai\//, '')} from the project’s {report.analyzed_fields.map((f) => fieldLabels[f] ?? f).join(', ')}.</p>
+            <p>This is an automated opinion based only on what the client wrote. It is not a verified fact, legal advice or a guarantee. Verified facts about the client are shown separately.</p>
+          </footer>
+        </>
+      )}
     </section>
   );
 }

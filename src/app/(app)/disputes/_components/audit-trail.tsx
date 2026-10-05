@@ -1,7 +1,8 @@
-import { History, Lock } from 'lucide-react';
-import { EmptyState } from '@/components/common/states';
+import { Lock } from 'lucide-react';
+import { Ledger } from '@/components/common/ledger';
+import { DateBlock } from '@/components/contracts/activity-feed';
 import type { MemberSummary } from '@/lib/data/disputes';
-import { explorerTxUrl, formatDateTime, shortHash } from '@/lib/format';
+import { explorerTxUrl, shortHash } from '@/lib/format';
 import { formatAmount } from '@/lib/money';
 import { disputeReasonLabel } from '@/lib/status';
 import type { DisputeEvent } from '@/lib/types';
@@ -39,29 +40,36 @@ function detail(e: DisputeEvent, members: Record<string, MemberSummary>): React.
   }
 }
 
-/** Append-only case history from dispute_events. The database forbids edits and deletions. */
-export function AuditTrail({ events, members }: { events: DisputeEvent[]; members: Record<string, MemberSummary> }) {
-  if (!events.length) return <EmptyState compact icon={History} title="No events yet" />;
+/** Append-only case history from dispute_events, as a ledger. The database forbids edits and deletions. */
+export function AuditTrail({ events, members, id = 'audit', title = 'Audit trail' }: {
+  events: DisputeEvent[];
+  members: Record<string, MemberSummary>;
+  id?: string;
+  title?: React.ReactNode;
+}) {
   return (
-    <div className="space-y-3">
-      <p className="flex items-center gap-2 text-xs text-ink-muted"><Lock className="size-3.5" aria-hidden /> Recorded by TrustLance. Entries cannot be edited or removed.</p>
-      <ol className="panel relative space-y-0 p-4">
-        {events.map((e, i) => {
-          const actor = e.actor_id ? members[e.actor_id]?.display_name ?? 'A participant' : 'TrustLance';
-          const extra = detail(e, members);
-          return (
-            <li key={e.id} className="relative flex gap-3 pb-5 last:pb-0">
-              {i < events.length - 1 && <span className="absolute left-[5px] top-4 h-full w-px bg-line" aria-hidden />}
-              <span className="mt-1.5 size-2.5 shrink-0 rounded-full border-2 border-brand bg-surface" aria-hidden />
-              <div className="min-w-0 space-y-0.5">
-                <p className="text-sm font-medium">{eventLabel(e.type)}</p>
-                {extra && <p className="break-words text-sm text-ink-secondary">{extra}</p>}
-                <p className="t-meta">{actor} · <time dateTime={e.created_at}>{formatDateTime(e.created_at)}</time></p>
-              </div>
-            </li>
-          );
-        })}
-      </ol>
-    </div>
+    <Ledger
+      id={id}
+      className="scroll-mt-24"
+      title={title}
+      description={<span className="inline-flex items-center gap-1.5"><Lock className="size-3.5 shrink-0" aria-hidden /> Recorded by TrustLance. Entries cannot be edited or removed.</span>}
+      empty={<p className="border-y py-5 text-sm text-ink-secondary">No events yet.</p>}
+    >
+      {events.map((e) => {
+        const actor = e.actor_id ? members[e.actor_id]?.display_name ?? 'A participant' : 'TrustLance';
+        const extra = detail(e, members);
+        return (
+          <li key={e.id} className="flex items-start gap-4 py-3.5 sm:gap-6">
+            <DateBlock iso={e.created_at} />
+            <div className="min-w-0 flex-1 space-y-0.5">
+              <p className="text-sm font-medium">{eventLabel(e.type)}</p>
+              <p className="break-words text-sm text-ink-secondary">
+                {extra ? <>{extra} <span className="text-ink-muted">· {actor}</span></> : <span className="text-ink-muted">{actor}</span>}
+              </p>
+            </div>
+          </li>
+        );
+      })}
+    </Ledger>
   );
 }

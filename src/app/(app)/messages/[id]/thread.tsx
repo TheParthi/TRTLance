@@ -14,12 +14,9 @@ const NEAR_BOTTOM_PX = 120;
 
 function PrivacyNote() {
   return (
-    <p className="mx-auto flex max-w-xl items-start gap-2 rounded-lg bg-surface-subtle px-3 py-2 text-xs text-ink-secondary">
-      <ShieldCheck className="mt-0.5 size-4 shrink-0 text-ink-muted" aria-hidden />
-      <span>
-        Messages are stored by TrustLance and visible only to the two of you (and to an arbitrator if a dispute is opened on
-        this contract). They are not end-to-end encrypted.
-      </span>
+    <p className="flex items-start justify-center gap-1.5 text-center text-xs text-ink-muted">
+      <ShieldCheck className="mt-px size-3.5 shrink-0" aria-hidden />
+      <span>Visible only to you two and, in a dispute, the arbitrator · not end-to-end encrypted</span>
     </p>
   );
 }
@@ -88,7 +85,7 @@ export function Thread({ conversationId, viewerId, counterpartName, initialMessa
   return (
     <>
       <div className="relative min-h-0 flex-1">
-        <div ref={scrollRef} onScroll={onScroll} className="h-full space-y-4 overflow-y-auto overscroll-contain px-3 py-4 sm:px-5">
+        <div ref={scrollRef} onScroll={onScroll} className="h-full space-y-4 overflow-y-auto overscroll-contain px-1 py-4">
           <PrivacyNote />
           {hasEarlier && (
             <div className="flex flex-col items-center gap-1">

@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { Scale } from 'lucide-react';
 import { PageHeader } from '@/components/common/page-header';
 import { EmptyState } from '@/components/common/states';
 import { requireViewer } from '@/lib/auth';
@@ -26,13 +25,12 @@ export default async function NewDisputePage({ searchParams }: Props) {
   return (
     <>
       <PageHeader
-        breadcrumbs={[{ label: 'Disputes', href: '/disputes' }, { label: 'Open a dispute' }]}
+        breadcrumbs={[{ label: 'Contracts', href: '/contracts' }, { label: 'Disputes', href: '/disputes' }, { label: 'Open a dispute' }]}
         title="Open a dispute"
         description="An independent arbitrator reviews both sides and decides how the milestone’s escrowed funds are split. Try resolving it in messages first — a dispute freezes the milestone."
       />
       {contracts.length === 0 ? (
         <EmptyState
-          icon={Scale}
           title="Nothing can be disputed right now"
           description="Disputes can be opened on funded contracts, for milestones that are secured, submitted, in revision or approved but not yet released."
           action={{ label: 'View contracts', href: '/contracts' }}

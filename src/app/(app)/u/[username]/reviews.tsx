@@ -1,13 +1,9 @@
 import Link from 'next/link';
-import { BadgeCheck, MessageSquareQuote } from 'lucide-react';
-import { Avatar } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Section } from '@/components/common/page-header';
-import { EmptyState } from '@/components/common/states';
 import { Stars } from '@/components/common/trust-signals';
 import type { PublicMember } from '@/lib/data/projects';
 import { formatDate } from '@/lib/format';
 import type { ProfileStats, Review } from '@/lib/types';
+import { ProfileSection, VerifiedContractMark } from './sections';
 
 const label = (key: string) => key.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
 
@@ -40,71 +36,67 @@ export function ReviewsSection({ name, stats, reviews, reviewers, limit }: {
   ].filter((g) => g.items.length > 0);
 
   return (
-    <Section id="reviews" title="Reviews" description="Written by the other party after a contract on TrustLance.">
+    <ProfileSection id="reviews" title="Reviews" note="Written by the other party after a contract on TrustLance">
       {count === 0 || reviews.length === 0 ? (
-        <EmptyState compact icon={MessageSquareQuote} title="No reviews yet" description={`Reviews appear here after ${name} completes a contract and the other party leaves feedback.`} />
+        <div className="space-y-1">
+          <p className="font-medium">No reviews yet</p>
+          <p className="text-sm text-ink-secondary">Reviews appear here after {name} completes a contract and the other party leaves feedback.</p>
+        </div>
       ) : (
-        <div className="space-y-4">
-          <div className="panel grid gap-6 p-5 sm:grid-cols-[10rem_1fr]">
-            <div className="space-y-1">
-              <p className="t-eyebrow">Overall</p>
-              <p className="t-money text-3xl">{avg !== null ? avg.toFixed(1) : '—'}</p>
+        <div className="space-y-6">
+          <div className="flex flex-col gap-6 sm:flex-row sm:gap-12">
+            <div className="shrink-0 space-y-1">
+              <p className="flex items-baseline gap-2">
+                <span className="t-money text-3xl">{avg !== null ? avg.toFixed(1) : '—'}</span>
+                <span className="text-sm text-ink-muted">out of 5</span>
+              </p>
               {avg !== null && <Stars rating={avg} label={`Average ${avg.toFixed(1)} out of 5 stars`} />}
               <p className="t-meta">{count} review{count === 1 ? '' : 's'}</p>
             </div>
-            {groups.length > 0 && (
-              <div className="grid gap-5 sm:grid-cols-2">
-                {groups.map((g) => (
-                  <div key={g.role} className="space-y-2">
-                    <p className="t-eyebrow">{g.title}</p>
-                    <dl className="space-y-2">
-                      {g.items.map((item) => (
-                        <div key={item.key} className="flex items-center justify-between gap-3 text-sm">
-                          <dt className="text-ink-secondary">{label(item.key)}</dt>
-                          <dd className="flex items-center gap-2">
-                            <Stars rating={item.avg} label={`${label(item.key)}: ${item.avg.toFixed(1)} out of 5`} />
-                            <span className="t-mono text-ink-secondary">{item.avg.toFixed(1)}</span>
-                          </dd>
-                        </div>
-                      ))}
-                    </dl>
-                  </div>
-                ))}
+            {groups.map((g) => (
+              <div key={g.role} className="min-w-0 max-w-xs flex-1 space-y-2">
+                <p className="t-label-caps">{g.title}</p>
+                <dl className="space-y-1.5">
+                  {g.items.map((item) => (
+                    <div key={item.key} className="flex items-center justify-between gap-3 text-sm">
+                      <dt className="text-ink-secondary">{label(item.key)}</dt>
+                      <dd className="flex items-center gap-2">
+                        <Stars rating={item.avg} label={`${label(item.key)}: ${item.avg.toFixed(1)} out of 5`} />
+                        <span className="w-7 text-right font-mono text-xs text-ink-secondary">{item.avg.toFixed(1)}</span>
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
               </div>
-            )}
+            ))}
           </div>
           {count > reviews.length && <p className="t-meta">Category scores and the list below cover the {limit} most recent reviews.</p>}
-          <ul className="space-y-3">
-            {reviews.map((r) => <ReviewItem key={r.id} review={r} reviewer={reviewers.get(r.reviewer_id)} />)}
+          <ul className="divide-y border-t">
+            {reviews.map((r) => <ReviewRow key={r.id} review={r} reviewer={reviewers.get(r.reviewer_id)} />)}
           </ul>
         </div>
       )}
-    </Section>
+    </ProfileSection>
   );
 }
 
-function ReviewItem({ review, reviewer }: { review: Review; reviewer: PublicMember | undefined }) {
+function ReviewRow({ review, reviewer }: { review: Review; reviewer: PublicMember | undefined }) {
   const name = reviewer?.display_name ?? 'Former member';
   return (
-    <li className="panel space-y-3 p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <Avatar name={name} path={reviewer?.avatar_path} size="sm" />
-          <div className="min-w-0">
-            {reviewer ? (
-              <Link href={`/u/${reviewer.username}`} className="block truncate text-sm font-semibold hover:text-brand">{name}</Link>
-            ) : (
-              <span className="block truncate text-sm font-semibold">{name}</span>
-            )}
-            <p className="t-meta">{review.reviewer_role === 'client' ? 'Client' : 'Freelancer'} · {formatDate(review.created_at)}</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Stars rating={review.rating} />
-          <Badge tone="success"><BadgeCheck aria-hidden /> Verified contract</Badge>
-        </div>
+    <li className="space-y-2 py-5 last:pb-0">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <Stars rating={review.rating} />
+        <p className="text-sm">
+          {reviewer ? (
+            <Link href={`/u/${reviewer.username}`} className="font-semibold hover:text-brand-strong hover:underline">{name}</Link>
+          ) : (
+            <span className="font-semibold">{name}</span>
+          )}
+          <span className="text-ink-muted"> · {review.reviewer_role === 'client' ? 'Client' : 'Freelancer'} · {formatDate(review.created_at)}</span>
+        </p>
+        <VerifiedContractMark />
       </div>
-      <p className="whitespace-pre-line text-sm leading-relaxed text-ink-secondary">{review.body}</p>
+      <p className="max-w-prose whitespace-pre-line text-sm leading-relaxed text-ink-secondary">{review.body}</p>
     </li>
   );
 }

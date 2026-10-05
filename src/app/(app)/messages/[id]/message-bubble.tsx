@@ -14,13 +14,14 @@ function Time({ iso, hydrated, className }: { iso: string; hydrated: boolean; cl
   );
 }
 
+/** A TrustLance event (hire, signature, funding…): a quiet centred line, not a message from a person. */
 export function SystemMessage({ message, hydrated }: { message: ThreadMessage; hydrated: boolean }) {
   return (
-    <li className="flex justify-center px-2">
-      <p className="max-w-md rounded-full bg-surface-sunken px-3 py-1 text-center text-xs text-ink-secondary">
+    <li className="flex justify-center px-4 py-1">
+      <p className="max-w-md text-center text-xs leading-relaxed text-ink-muted">
         <span className="sr-only">TrustLance update: </span>
         {message.body}
-        <Time iso={message.created_at} hydrated={hydrated} className="ml-2 text-ink-muted" />
+        <Time iso={message.created_at} hydrated={hydrated} className="ml-1.5 font-mono tabular-nums" />
       </p>
     </li>
   );

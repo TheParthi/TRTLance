@@ -5,22 +5,23 @@ import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
-  'inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded font-medium transition-colors ' +
+  'inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full font-medium transition-[background-color,border-color,color,box-shadow,transform,filter] duration-base ease-ledger active:scale-[0.98] ' +
     'disabled:pointer-events-none disabled:opacity-50 aria-busy:cursor-progress [&_svg]:size-4 [&_svg]:shrink-0',
   {
     variants: {
       variant: {
-        primary: 'bg-brand text-brand-foreground shadow-xs hover:bg-brand-strong',
-        secondary: 'border border-line-strong bg-surface text-ink shadow-xs hover:bg-surface-subtle',
+        primary: 'bg-ink text-canvas shadow-xs hover:bg-ink/85',
+        signal: 'bg-signal font-semibold text-signal-ink shadow-[0_10px_28px_-14px_hsl(var(--signal))] hover:brightness-95',
+        secondary: 'border border-ink/20 bg-transparent text-ink hover:border-ink/40 hover:bg-surface-subtle',
         ghost: 'text-ink-secondary hover:bg-surface-subtle hover:text-ink',
         danger: 'bg-danger text-white shadow-xs hover:bg-danger-strong',
         'danger-outline': 'border border-danger/40 bg-surface text-danger-strong hover:bg-danger-soft',
         link: 'h-auto px-0 text-brand underline-offset-4 hover:underline',
       },
       size: {
-        sm: 'h-8 px-3 text-sm',
-        md: 'h-10 px-4 text-sm',
-        lg: 'h-12 px-5 text-base',
+        sm: 'h-8 px-3.5 text-sm',
+        md: 'h-10 px-5 text-sm',
+        lg: 'h-12 px-6 text-base',
         icon: 'size-10',
         'icon-sm': 'size-8',
       },

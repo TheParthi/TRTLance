@@ -5,20 +5,22 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, ArrowRight, Check, CloudOff, FileText, Loader2, Lock, Plus, Trash2, Upload, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Callout } from '@/components/ui/callout';
 import { RadioCard, RadioGroup } from '@/components/ui/choice';
 import { Field, FieldGroup } from '@/components/ui/field';
 import { AmountInput, Input, Textarea } from '@/components/ui/input';
 import { toast } from '@/components/ui/toaster';
 import { ConfirmDialog } from '@/components/common/confirm-dialog';
+import { EscrowRail } from '@/components/common/escrow-rail';
 import { Money } from '@/components/common/money';
 import { StepList, StepProgress } from '@/components/forms/step-progress';
 import { TagInput } from '@/components/forms/tag-input';
+import { timelineText } from '@/components/projects/timeline';
 import {
   deleteDraftProject, publishProject, recordAttachment, removeAttachment, saveDraftProject,
 } from '@/lib/actions/projects';
 import { CURRENCY } from '@/lib/env';
-import { formatBytes, formatDate, shortAddress } from '@/lib/format';
+import { proposalSegments } from '@/lib/escrow-summary';
+import { formatBytes, shortAddress } from '@/lib/format';
 import { formatAmount, microToAmount, normalizeAmount, parseAmount } from '@/lib/money';
 import { experienceLabel } from '@/lib/status';
 import { BUCKETS, MAX_UPLOAD_BYTES, objectPath } from '@/lib/storage';
@@ -203,10 +205,10 @@ export function ProjectWizard({ project, attachments: initialFiles, categories, 
           <SaveIndicator state={save} onRetry={() => void persist(step)} />
         </div>
 
-        <section className="panel space-y-6 p-5 md:p-8" aria-labelledby="wizard-step-title">
+        <section className="statement space-y-6 md:p-8" aria-labelledby="wizard-step-title">
           <div className="space-y-1">
             <p className="t-eyebrow">Step {step + 1} of {STEPS.length}</p>
-            <h1 id="wizard-step-title" ref={heading} tabIndex={-1} className="t-page-title outline-none">{titles[title]}</h1>
+            <h1 id="wizard-step-title" ref={heading} tabIndex={-1} className="t-page-title outline-none focus-visible:ring-0 focus-visible:ring-offset-0">{titles[title]}</h1>
           </div>
 
           {title === 'Basics' && (
@@ -253,9 +255,10 @@ export function ProjectWizard({ project, attachments: initialFiles, categories, 
               <Field label={`Fixed budget (${CURRENCY})`} hint="The total you expect to pay. Freelancers can propose a different amount." error={errors.budget_amount}>
                 <AmountInput unit={CURRENCY} value={form.budget_amount} onChange={(e) => set('budget_amount', e.target.value)} placeholder="0.00" className="max-w-xs" />
               </Field>
-              <Callout tone="secure" title="You don’t pay anything now">
-                After you hire someone and you both sign, you deposit the agreed amount into the escrow contract. It is released milestone by milestone as you approve the work.
-              </Callout>
+              <p className="flex max-w-reading gap-2 text-sm text-ink-secondary">
+                <Lock className="mt-0.5 size-4 shrink-0 text-brand" aria-hidden />
+                <span><span className="font-medium text-ink">You don’t pay anything now.</span> After you hire someone and you both sign, you deposit the agreed amount into the escrow contract. It is released milestone by milestone as you approve the work.</span>
+              </p>
             </div>
           )}
 
@@ -290,11 +293,12 @@ export function ProjectWizard({ project, attachments: initialFiles, categories, 
               </FieldGroup>
 
               <FieldGroup legend="Suggested milestones" hint="Optional. Splitting payment into milestones lowers risk for both sides. Amounts must add up to your budget." error={errors.milestone_plan}>
-                <ol className="space-y-3">
+                {form.milestone_plan.length > 0 && <PlanRail plan={form.milestone_plan} className="my-3" />}
+                <ol className={form.milestone_plan.length ? 'ledger' : undefined}>
                   {form.milestone_plan.map((m, i) => (
-                    <li key={i} className="space-y-3 rounded-lg border p-4">
+                    <li key={i} className="space-y-3 py-5">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold">Milestone {i + 1}</span>
+                        <span className="t-label-caps">Milestone {i + 1}</span>
                         <Button type="button" variant="ghost" size="icon-sm" aria-label={`Remove milestone ${i + 1}`}
                           onClick={() => set('milestone_plan', form.milestone_plan.filter((_, j) => j !== i))}><Trash2 /></Button>
                       </div>
@@ -337,35 +341,51 @@ export function ProjectWizard({ project, attachments: initialFiles, categories, 
 
           {title === 'Review & publish' && (
             <div className="space-y-6">
-              <dl className="divide-y rounded-lg border">
+              <dl className="ledger">
                 {[
                   ['Title', form.title, 0],
                   ['Category', categoryLabel ?? '—', 2],
                   ['Skills', form.skills.join(', ') || '—', 3],
                   ['Experience', form.experience_level ? experienceLabel[form.experience_level] : '—', 3],
-                  ['Timeline', form.start_date || form.due_date ? `${formatDate(form.start_date)} → ${formatDate(form.due_date)}` : 'Flexible', 5],
+                  ['Budget', budgetMicro ? formatAmount(form.budget_amount) : '—', 4],
+                  ['Timeline', timelineText(form.start_date, form.due_date), 5],
                   ['Deliverables', `${form.deliverables.filter((d) => d.trim()).length} listed`, 6],
                   ['Suggested milestones', form.milestone_plan.length ? `${form.milestone_plan.length}` : 'None — freelancers will propose', 6],
                   ['Visibility', form.visibility === 'public' ? 'Public' : 'Unlisted', 7],
                   ['Attachments', `${files.length}`, 7],
                 ].map(([label, value, target]) => (
-                  <div key={label as string} className="grid grid-cols-[8rem_1fr_auto] items-start gap-3 p-3 text-sm sm:grid-cols-[11rem_1fr_auto]">
+                  <div key={label as string} className="grid grid-cols-[7rem_minmax(0,1fr)_auto] items-baseline gap-3 py-3 text-sm sm:grid-cols-[11rem_minmax(0,1fr)_auto]">
                     <dt className="text-ink-muted">{label}</dt>
                     <dd className="min-w-0 break-words">{value}</dd>
-                    <button type="button" className="text-xs link" onClick={() => setStep(target as number)}>Edit<span className="sr-only"> {label}</span></button>
+                    <button type="button" className="link inline-flex h-8 items-center text-xs" onClick={() => setStep(target as number)}>Edit<span className="sr-only"> {label}</span></button>
                   </div>
                 ))}
               </dl>
 
-              <section aria-labelledby="funding-title" className="space-y-4 rounded-lg border border-brand/25 bg-brand-soft/40 p-5">
+              {form.milestone_plan.length > 0 && (
+                <section aria-labelledby="plan-review-title" className="space-y-3">
+                  <h2 id="plan-review-title" className="t-label-caps">Milestone plan</h2>
+                  <PlanRail plan={form.milestone_plan} />
+                  <ol className="ledger text-sm">
+                    {form.milestone_plan.map((m, i) => (
+                      <li key={i} className="flex items-baseline justify-between gap-4 py-2.5">
+                        <span className="min-w-0"><span className="t-mono mr-2 text-ink-muted">{String(i + 1).padStart(2, '0')}</span>{m.title || `Milestone ${i + 1}`}</span>
+                        <Money amount={microToAmount(parseAmount(m.amount) ?? 0n)} size="sm" />
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              )}
+
+              <section aria-labelledby="funding-title" className="space-y-4 border-t pt-6">
                 <h2 id="funding-title" className="flex items-center gap-2 font-semibold"><Lock className="size-4 text-brand" aria-hidden /> How funding will work</h2>
-                <dl className="grid gap-3 text-sm sm:grid-cols-2">
-                  <div><dt className="t-eyebrow">Project budget</dt><dd><Money amount={form.budget_amount || '0'} size="lg" /></dd></div>
-                  <div><dt className="t-eyebrow">Platform fee</dt><dd><Money amount="0" size="lg" /> <span className="t-meta block">TrustLance charges no fee today.</span></dd></div>
-                  <div><dt className="t-eyebrow">Total required at hiring</dt><dd>The amount of the proposal you accept (your budget is a guide)</dd></div>
-                  <div><dt className="t-eyebrow">Network</dt><dd>{escrow.configured ? escrow.network : 'Escrow network not configured yet'} · network fees paid in {CURRENCY}</dd></div>
-                  <div><dt className="t-eyebrow">Your wallet</dt><dd className="flex items-center gap-1.5"><Wallet className="size-4 text-ink-muted" aria-hidden />{walletAddress ? `${shortAddress(walletAddress)} (verified)` : <span>Not verified yet — <Link className="link" href="/wallet">verify before you sign</Link></span>}</dd></div>
-                  <div><dt className="t-eyebrow">Transaction status</dt><dd>Nothing is charged when you publish.</dd></div>
+                <dl className="grid gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
+                  <div><dt className="t-label-caps">Project budget</dt><dd><Money amount={form.budget_amount || '0'} size="lg" /></dd></div>
+                  <div><dt className="t-label-caps">Platform fee</dt><dd><Money amount="0" size="lg" /> <span className="t-meta block">TrustLance charges no fee today.</span></dd></div>
+                  <div><dt className="t-label-caps">Total required at hiring</dt><dd>The amount of the proposal you accept (your budget is a guide)</dd></div>
+                  <div><dt className="t-label-caps">Network</dt><dd>{escrow.configured ? escrow.network : 'Escrow network not configured yet'} · network fees paid in {CURRENCY}</dd></div>
+                  <div><dt className="t-label-caps">Your wallet</dt><dd className="flex items-center gap-1.5"><Wallet className="size-4 shrink-0 text-ink-muted" aria-hidden />{walletAddress ? `${shortAddress(walletAddress)} (verified)` : <span>Not verified yet — <Link className="link" href="/wallet">verify before you sign</Link></span>}</dd></div>
+                  <div><dt className="t-label-caps">Transaction status</dt><dd>Nothing is charged when you publish.</dd></div>
                 </dl>
                 <p className="text-xs text-ink-secondary">When you hire, you’ll review the contract, sign it, and then confirm one deposit in your wallet. Work begins only after that deposit is confirmed on-chain.</p>
               </section>
@@ -421,6 +441,12 @@ const titles: Record<string, string> = {
   'Review & publish': 'Review and publish',
 };
 
+/** The suggested plan drawn as a neutral rail (amounts that are not valid yet count as zero). */
+function PlanRail({ plan, className }: { plan: PlanRow[]; className?: string }) {
+  const segments = proposalSegments(plan.map((m, i) => ({ position: i + 1, title: m.title.trim() || `Milestone ${i + 1}`, amount: microToAmount(parseAmount(m.amount) ?? 0n) })));
+  return <EscrowRail segments={segments} size="md" label="Suggested milestone plan" className={className} />;
+}
+
 function SaveIndicator({ state, onRetry }: { state: SaveState; onRetry: () => void }) {
   return (
     <p className="flex items-center gap-1.5 text-xs text-ink-muted" role="status" aria-live="polite">
@@ -471,9 +497,9 @@ function AttachmentManager({ projectId, files, onChange }: {
   return (
     <FieldGroup legend="Attachments" hint="Briefs, wireframes or reference files. Up to 25 MB each. Visible to anyone who can view the project.">
       {files.length > 0 && (
-        <ul className="divide-y rounded-lg border">
+        <ul className="ledger">
           {files.map((f) => (
-            <li key={f.id} className="flex items-center gap-3 p-3 text-sm">
+            <li key={f.id} className="flex items-center gap-3 py-2 text-sm">
               <FileText className="size-4 text-ink-muted" aria-hidden />
               <span className="min-w-0 flex-1 truncate">{f.file_name}</span>
               <span className="t-meta">{formatBytes(f.size_bytes)}</span>

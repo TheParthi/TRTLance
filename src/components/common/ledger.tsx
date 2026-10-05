@@ -18,8 +18,8 @@ export function Ledger({ title, description, action, children, className, id, em
     <section id={id} aria-labelledby={headingId} className={cn('space-y-3', className)}>
       {(title || action) && (
         <div className="flex items-end justify-between gap-4">
-          <div className="min-w-0 space-y-0.5">
-            {title && <h2 id={headingId} className="t-section-title">{title}</h2>}
+          <div className="min-w-0 space-y-1">
+            {title && <h2 id={headingId} className="t-label-caps">{title}</h2>}
             {description && <p className="text-sm text-ink-secondary">{description}</p>}
           </div>
           {action && <div className="shrink-0 text-sm">{action}</div>}
@@ -67,4 +67,9 @@ export function LedgerRow({ href, lead, children, meta, trail, className, tone }
       )}
     </li>
   );
+}
+
+/** A hairline rule between groups of content (instead of a box around them). */
+export function Rule({ className }: { className?: string }) {
+  return <hr className={cn('rule', className)} />;
 }
