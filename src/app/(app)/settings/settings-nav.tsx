@@ -15,7 +15,7 @@ const ITEMS = [
 export function SettingsNav() {
   const pathname = usePathname();
   return (
-    <nav aria-label="Settings sections" className="-mx-4 md:mx-0">
+    <nav aria-label="Settings sections" className="-mx-4 min-w-0 md:mx-0">
       <ul className="scrollbar-none flex gap-1 overflow-x-auto border-b px-4 md:flex-col md:border-b-0 md:px-0">
         {ITEMS.map(({ href, label, icon: Icon }) => {
           const active = pathname === href;

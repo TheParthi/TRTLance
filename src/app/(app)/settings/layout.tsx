@@ -8,7 +8,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
   return (
     <>
       <PageHeader title="Settings" description="Your public profile, credentials, account security and notifications." />
-      <div className="grid gap-6 md:grid-cols-[13rem_1fr] md:gap-8">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-[13rem_1fr] md:gap-8">
         <SettingsNav />
         <div className="min-w-0">{children}</div>
       </div>

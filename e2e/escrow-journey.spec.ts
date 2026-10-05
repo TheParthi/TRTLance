@@ -15,6 +15,8 @@ import { JsonRpcProvider, Wallet, getBytes, toUtf8String } from 'ethers';
  */
 test.skip(!process.env.E2E_LOCAL_STACK, 'Set E2E_LOCAL_STACK=1 with the local stack and Hardhat node running.');
 test.setTimeout(10 * 60 * 1000);
+// One run per database reset: the journey creates fixed arbitrator/admin roles.
+test.skip(({ isMobile }) => isMobile, 'Runs once, on the desktop project.');
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:9002';
 const DB = process.env.LOCAL_DB_NAME ?? 'trustlance_dev';

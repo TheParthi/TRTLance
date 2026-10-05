@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { FileText, MessagesSquare, Scale } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -47,7 +47,12 @@ export default async function ContractPage({ params, searchParams }: Props) {
   if (!ws) notFound();
   const { contract: c, milestones, submissions, transactions, events, disputes, reviews, members, files, conversationId } = ws;
   const role = c.client_id === viewer.id ? 'client' : c.freelancer_id === viewer.id ? 'freelancer' : null;
-  if (!role) notFound(); // arbitrators and admins use the case room
+  if (!role) {
+    // Arbitrators and admins read contracts through the case room of the dispute they handle.
+    const caseForViewer = disputes.find((d) => d.arbitrator_id === viewer.id) ?? (viewer.isAdmin ? disputes[0] : undefined);
+    if (caseForViewer) redirect(`/arbitration/cases/${caseForViewer.id}`);
+    notFound();
+  }
 
   const { tab: rawTab } = await searchParams;
   const tabs = TABS.filter((t) => t.key !== 'review' || c.status === 'completed');

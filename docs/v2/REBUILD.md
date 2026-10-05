@@ -68,6 +68,20 @@ Written for the TrustLance team. It records what changed from the v1 prototype (
 | L2 headers | CSP, frame-ancestors, HSTS, nosniff, referrer policy in `next.config.ts` | — |
 | L4/L5 validation, rate limits | zod in actions/routes; DB-backed rate limits | `security.test.ts` rate limits |
 
+## Verification (5 October 2026)
+
+| Check | Result |
+|---|---|
+| `npm run typecheck`, `npm run lint`, `npm run build` | Clean (type and lint checks are no longer skipped) |
+| Unit tests (money, receipt verification, SIWE, next-action, errors) | 25 passing |
+| Database tests on Postgres 16 (RLS, workflows, idempotency, races, disputes) | 32 passing |
+| Contract tests (Hardhat) | 12 passing |
+| Playwright public suite, desktop + phone | 14 passing |
+| Playwright escrow journey on the production build, local chain, injected wallets | Passing: the freelancer’s on-chain balance ends exactly 24 SHM higher (20 released + 40% of a 10 SHM disputed milestone) |
+| Console/hydration errors across 27 pages | None (local stack has no Realtime, so its websocket errors are excluded) |
+
+Not verified: Supabase Storage uploads and Realtime (not in the local stack), Google sign-in, email delivery, Gemini output (no API key — the honest "not available" path was checked), a real Shardeum network.
+
 ## Known limitations
 
 - The live v1 database was not available, so v2 starts from a fresh schema. Migrating v1 data needs `supabase db pull` and a one-off script.

@@ -68,6 +68,17 @@ npm run export-abi              # copies the ABI into src/lib/chain/escrow-abi.j
 
 Without escrow variables the app runs, and every money action says plainly that escrow is not configured.
 
+### Fully local, without Docker
+
+`scripts/local-stack/` runs Postgres (Homebrew), Supabase Auth (built with Go) and PostgREST behind a small gateway, so the whole app works offline against a local Hardhat chain. Storage and Realtime are not included (uploads fail clearly; pages refresh on focus). See `scripts/local-stack/README.md`.
+
+```bash
+node scripts/local-stack/setup.mjs && node scripts/local-stack/start.mjs   # terminal 1
+cd blockchain && npx hardhat node                                         # terminal 2
+cd blockchain && npm run deploy:local                                     # once per chain start
+npm run dev                                                               # terminal 3
+```
+
 ## Checks
 
 ```bash

@@ -14,7 +14,7 @@ import { requireViewer } from '@/lib/auth';
 import { getDisputeCase, getMilestoneSubmissions, toMemberRecord, type SubmissionWithFiles } from '@/lib/data/disputes';
 import type { PublicMember } from '@/lib/data/projects';
 import { disputeNumber, formatBytes, formatDate, formatDateTime } from '@/lib/format';
-import { milestoneStatus } from '@/lib/status';
+import { contractStatus, milestoneStatus } from '@/lib/status';
 import { AddEvidenceForm } from '../../../disputes/_components/add-evidence-form';
 import { AiRecommendationPanel } from '../../../disputes/_components/ai-recommendation';
 import { AuditTrail } from '../../../disputes/_components/audit-trail';
@@ -89,7 +89,7 @@ export default async function CaseRoomPage({ params }: Params) {
                     { label: 'Contract total', value: <Money amount={c.total_amount} size="sm" /> },
                     { label: 'Signed terms hash', value: <span className="t-mono break-all">{c.terms_hash}</span> },
                     { label: 'Payment terms', value: c.terms?.payment_terms || '—' },
-                    { label: 'Full contract', value: <Link className="link" href={`/contracts/${c.id}`}>Open contract</Link> },
+                    { label: 'Contract status', value: contractStatus[c.status].label },
                   ]} />
                   <div className="space-y-1">
                     <p className="t-eyebrow">Scope</p>
