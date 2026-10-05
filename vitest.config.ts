@@ -8,7 +8,7 @@ export default defineConfig({
     projects: [
       {
         resolve: { alias },
-        test: { name: 'unit', include: ['src/**/*.test.ts'], environment: 'node' },
+        test: { name: 'unit', include: ['src/**/*.test.ts'], environment: 'node', pool: 'forks' },
       },
       {
         resolve: { alias },
@@ -16,7 +16,8 @@ export default defineConfig({
           name: 'db',
           include: ['supabase/tests/db/**/*.test.ts'],
           globalSetup: ['supabase/tests/db/global-setup.ts'],
-          fileParallelism: false,
+          pool: 'forks',
+          poolOptions: { forks: { singleFork: true } },
           testTimeout: 60000,
           hookTimeout: 60000,
         },

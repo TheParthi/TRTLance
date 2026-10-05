@@ -15,7 +15,7 @@ export function ConfirmDialog({ open, onOpenChange, title, description, children
   description?: React.ReactNode;
   children?: React.ReactNode;
   confirmLabel: string;
-  onConfirm: () => void | Promise<void>;
+  onConfirm: () => unknown;
   tone?: 'primary' | 'danger';
   busy?: boolean;
 }) {
