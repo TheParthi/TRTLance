@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { Button } from '@/components/ui/button';
+import { publicEnv } from '@/lib/env';
 import { getBrowserClient } from '@/lib/supabase/client';
 
 function GoogleIcon() {
@@ -21,6 +22,16 @@ export function GoogleButton({ next, label = 'Continue with Google' }: { next: s
   const start = async () => {
     setBusy(true);
     setError(null);
+    // The auth server answers a disabled provider with a bare JSON error page, so ask first.
+    const enabled = await fetch(`${publicEnv.supabaseUrl}/auth/v1/settings`, { headers: { apikey: publicEnv.supabaseAnonKey } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { external?: Record<string, boolean> } | null) => d?.external?.google)
+      .catch(() => undefined);
+    if (enabled === false) {
+      setError('Google sign-in isn’t switched on for this TrustLance deployment yet. Use your email instead.');
+      setBusy(false);
+      return;
+    }
     const { error: e } = await getBrowserClient().auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
