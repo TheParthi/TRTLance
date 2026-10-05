@@ -1,208 +1,87 @@
-# 🚀 TrustLance – Trust_First Freelance Marketplace
+# TrustLance
 
-TrustLance is a **trust-driven freelance marketplace** that focuses on **secure payments, verified identities, and transparent communication**.  
-Instead of ratings and platform-controlled mediation, TrustLance uses **milestones, escrow-style payments, wallet-based identity, and encrypted messaging** to build trust between clients and freelancers.
+A freelance marketplace where every contract is funded in escrow before work begins, and every milestone is paid the moment it is approved.
 
----
+- **Clients** post projects, compare proposals, sign a contract and deposit the full amount into a non-custodial escrow smart contract. They approve each milestone, which releases it on-chain to the freelancer.
+- **Freelancers** see verified facts about each client and an AI risk review of the brief, propose their own milestones, and start only when escrow is funded.
+- **Disputes** freeze a milestone. An independent, conflict-checked arbitrator decides (AI may summarise the case, never decide) and the escrow contract settles the split.
 
-## 🧠 Problem Statement
+This is **v2**, a ground-up rebuild of the hackathon prototype. The v1 analysis lives in `docs/technical-reference/`.
 
-Traditional freelance platforms suffer from:
-- Lack of payment trust
-- Delayed or denied payments
-- Opaque dispute handling
-- Fake or unverifiable user identities
-- Platform-controlled messaging and moderation
-
-Both **clients** and **freelancers** operate with uncertainty.
-
----
-
-## 💡 Our Solution
-
-TrustLance introduces a **workflow-first approach** where:
-- Payments are locked before work begins
-- Funds are released only after milestone approval
-- User identity is tied to Google authentication and wallet ownership
-- Communication happens via encrypted wallet-to-wallet messaging (XMTP)
-- Disputes follow a clear, auditable process
-
-The platform prioritizes **clarity, security, and accountability** over social features.
-
----
-
-## 👥 User Roles
-
-### 👤 Client
-- Post jobs and define milestones
-- Hire freelancers with escrow-style payment protection
-- Approve or reject milestone submissions
-- Raise disputes when required
-
-### 👨‍💻 Freelancer
-- Submit proposals
-- Work on milestone-based projects
-- Get paid automatically on approval
-- Communicate securely with clients
-
-### 🛡️ Admin
-- Monitor disputes
-- Review evidence
-- Resolve conflicts fairly (off-chain)
-
----
-
-## 🔐 Authentication & Identity
-
-- **Google Authentication only**
-- Facebook login is completely removed
-- No email/password signup
-- Users are created uniquely in the backend
-- Username is auto-generated from Google account
-- Wallet linking is **one-time and irreversible**
-- A wallet cannot be reused by another account
-
-This ensures **clean identity mapping** and prevents impersonation.
-
----
-
-## 💬 Secure Messaging (XMTP)
-
-TrustLance uses **XMTP (wallet-to-wallet encrypted messaging)**:
-
-- End-to-end encrypted communication
-- Messages are tied to verified wallet identities
-- Platform cannot read message content
-- Messaging is enabled **only after hiring**
-- Builds trust when sharing sensitive details
-
-Privacy is preserved while accountability remains.
-
----
-
-## 💰 Payments & Escrow Logic
-
-- Milestone-based payment workflow
-- Funds are locked before work starts
-- Payments are released automatically after approval
-- Disputes pause fund release
-- Escrow is simulated using:
-  - Blockchain testnet OR
-  - PayPal sandbox (platform-managed escrow)
-
-This ensures **fairness for both sides**.
-
----
-
-## 🧱 Tech Stack
-
-### Frontend
-- Next.js (App Router)
-- React
-- Tailwind CSS
-
-### Backend
-- Supabase (PostgreSQL)
-- Row Level Security (RLS)
-- Supabase Auth (Google OAuth)
-
-### Web3 / Identity
-- MetaMask
-- Ethereum Sepolia Testnet
-- Custom ERC-20 Token (TrustToken – TRT)
-
-### Messaging
-- XMTP Protocol (wallet-based encrypted chat)
-
----
-
-## 📦 Features in Scope
-
-- Google authentication
-- Unique user creation
-- Wallet linking & enforcement
-- Job posting & proposals
-- Milestone-based projects
-- Escrow-style payments
-- Dispute handling
-- Secure messaging
-- Clean, demo-ready UI
-
----
-
-## 🚫 Out of Scope (Intentional)
-
-- Ratings & reviews
-- Social features
-- Multiple wallets per user
-- Wallet unlinking
-- Mobile app
-- Mainnet deployment
-- Advanced AI moderation
-
-Scope is intentionally limited to ensure **quality and completeness**.
-
----
-
-## 🧪 Demo & Testing
-
-- Uses seeded demo data
-- Testnet deployment (Sepolia)
-- Local development setup
-- Screenshots and workflows prepared for demo
-
----
-
-## 🏁 Project Status
-
-✅ Database schema completed  
-✅ Authentication implemented  
-✅ Wallet integration ready  
-✅ Messaging architecture defined  
-✅ Escrow logic designed  
-✅ Demo-ready  
-
----
-
-## 🗂️ Repository Structure
+## Repository layout
 
 ```
-TRTLance/
-├── src/                  Next.js app (App Router): pages, API routes, components
-│   ├── app/              routes and /api handlers
-│   ├── components/       UI, dashboard, disputes, wallet, payments
-│   ├── ai/               Genkit flows (risk analysis, recommendations)
-│   └── lib/              Supabase clients, contracts, payments, config
-├── backend/              smart contracts and AI agent (own package.json)
-│   ├── contracts/        Solidity: Escrow, ProjectEscrow, TrustToken
-│   ├── scripts/          Hardhat deploy scripts (Amoy, Shardeum, local)
-│   ├── deployments/      deployed contract addresses
-│   ├── ai/               dispute-resolution agent
-│   └── supabase/         schema, RLS policies, migrations, seed SQL
-├── blockchain/contracts/ earlier contract versions
-├── docs/                 product blueprint
-└── public/               static assets
+src/                 Next.js 15 app (App Router, React 19, Tailwind 3)
+  app/(marketing)    landing page
+  app/(auth)         sign in, sign up, password reset
+  app/(app)          product: dashboard, work, projects, contracts, messages, disputes, arbitration, wallet, settings, admin
+  app/api            escrow verification, wallet (SIWE) verification, AI routes
+  components/        ui primitives, shell, domain components
+  lib/               data access, server actions, chain helpers, money/format/status logic
+  ai/                Genkit flows (project risk review, dispute recommendation)
+supabase/
+  migrations/        the single, ordered database history (schema, RLS, workflow functions, storage, realtime)
+  tests/             local Postgres test harness and database tests
+blockchain/          Hardhat project: TrustLanceEscrow.sol, tests, deploy script
+docs/                technical reference (v1) and v2 notes
 ```
 
-`node_modules/` and Hardhat build output (`backend/artifacts/`, `backend/cache/`) are not committed —
-they are recreated by `npm install` and `npm run compile`.
+## How money works
 
----
+One money model: **on-chain escrow** (`blockchain/contracts/TrustLanceEscrow.sol`).
 
-## 📌 How to Run Locally
+1. Both parties sign the contract terms (typed-name signature bound to a SHA-256 of the terms) with a wallet they proved they own (Sign-In with Ethereum).
+2. The client calls `fund(ref, freelancer, amounts[])` with the full total. The server verifies the receipt (contract address, event, wallet, amounts, confirmations) before the contract becomes active.
+3. `release(key, i)` (client) pays a milestone to the freelancer; `refund(key, i)` (freelancer) returns it to the client.
+4. `raiseDispute(key, i)` (either party) freezes a milestone; only then can the arbiter call `resolveDispute(key, i, pct)`.
+5. Nobody, including the contract owner, can withdraw escrowed funds otherwise.
+
+The database mirrors the chain through idempotent, service-only functions (`apply_escrow_*`). Nothing is marked paid until the transaction is confirmed and verified.
+
+## Running locally
+
+Requirements: Node 20+, a Supabase project (or compatible stack), a browser wallet for escrow flows.
 
 ```bash
-# 1. Web app (http://localhost:9002)
 npm install
-cp .env.example .env.local   # then fill in the keys — see SETUP_STEPS.md
-npm run dev
-
-# 2. Smart contracts (optional)
-cd backend
-npm install
-npm run compile
-npm run deploy:amoy          # reads DEPLOYER_PRIVATE_KEY from the root .env.local
+cp .env.example .env.local      # fill in Supabase keys; escrow and AI are optional
+npm run dev                     # http://localhost:9002
 ```
 
-See `SETUP_STEPS.md` for Supabase and wallet setup, and `DISPUTE_RESOLUTION_SYSTEM.md` for the
-dispute flow.
+Apply the database:
+
+```bash
+supabase link --project-ref <ref>
+supabase db push                # applies supabase/migrations in order
+```
+
+Then in Supabase: enable Google sign-in (redirect `…/auth/callback`), set the email templates' confirm/recovery links to `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=…`, and add admins with `insert into platform_admins (user_id) values ('<uuid>');`.
+
+Escrow (optional): deploy the contract and set the `NEXT_PUBLIC_CHAIN_*` / `NEXT_PUBLIC_ESCROW_ADDRESS` variables.
+
+```bash
+cd blockchain && npm install
+npx hardhat test
+ESCROW_ARBITER_ADDRESS=0x… npm run deploy:shardeum-testnet
+npm run export-abi              # copies the ABI into src/lib/chain/escrow-abi.json
+```
+
+Without escrow variables the app runs, and every money action says plainly that escrow is not configured.
+
+## Checks
+
+```bash
+npm run typecheck
+npm run lint
+npm test                 # unit tests + database tests (needs local Postgres; see below)
+npm run build
+cd blockchain && npx hardhat test
+```
+
+Database tests run against plain Postgres with a small Supabase shim (`supabase/tests/shim.sql`): set `TEST_DATABASE_URL` (default `postgres://localhost:5432/trustlance_test`). They cover RLS, every workflow function, idempotency, concurrency and the dispute lifecycle.
+
+End-to-end tests (`npm run test:e2e`, Playwright) need a running app connected to a Supabase project with test credentials; see `e2e/README.md`.
+
+## Team
+
+Parthiban Gunasekaran (TheParthi) · Ponmadhan (PonmadhanD)

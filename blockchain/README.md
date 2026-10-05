@@ -1,120 +1,27 @@
-# TrustLance Backend
+# TrustLance escrow contract
 
-Complete blockchain-powered freelance marketplace backend with AI dispute resolution.
+`contracts/TrustLanceEscrow.sol` — non-custodial milestone escrow in the chain's native coin (SHM on Shardeum).
 
-## 🚀 Quick Start
+| Function | Caller | Effect |
+|---|---|---|
+| `fund(ref, freelancer, amounts[])` payable | client | Deposits every milestone; `msg.value` must equal the sum. Agreement key = `keccak256(abi.encode(client, ref))`. |
+| `release(key, i)` | client | Pays a funded milestone to the freelancer. |
+| `refund(key, i)` | freelancer | Returns a funded milestone to the client. |
+| `raiseDispute(key, i)` | either party | Freezes a funded milestone. |
+| `resolveDispute(key, i, pct)` | arbiter | Settles a *disputed* milestone: `pct`% to the freelancer (rounded down), the rest to the client. |
+| `setArbiter(addr)` | owner | Rotates the arbiter (use a multisig). Ownership cannot be renounced. |
 
-### 1. Install Dependencies
+There is no owner withdrawal and plain transfers are rejected. `ref` is the TrustLance contract UUID as 32 bytes (`src/lib/chain/escrow.ts`).
 
 ```bash
-cd backend
 npm install
+npx hardhat test                                  # 12 tests incl. reentrancy
+npx hardhat node                                  # local chain 31337
+npm run deploy:local
+ESCROW_ARBITER_ADDRESS=0x… npm run deploy:shardeum-testnet
+npm run export-abi                                # updates ../src/lib/chain/escrow-abi.json
 ```
 
-### 2. Setup Environment
+Use separate deployer keys per network (`TESTNET_DEPLOYER_PRIVATE_KEY`, `MAINNET_DEPLOYER_PRIVATE_KEY`). Check the Shardeum testnet chain id and RPC before deploying (`SHARDEUM_TESTNET_CHAIN_ID`, `SHARDEUM_TESTNET_RPC`). Get an independent audit before mainnet use.
 
-Copy `.env.example` to `.env.local` and fill in:
-- Supabase credentials
-- MetaMask wallet private key (testnet wallet)
-- Admin wallet address
-
-### 3. Deploy Smart Contract
-
-```bash
-# Deploy to Amoy Testnet (FREE)
-npm run deploy:amoy
-```
-
-### 4. Setup Database
-
-1. Go to Supabase SQL Editor
-2. Run `supabase/schema.sql`
-3. Run `supabase/rls_policies.sql`
-
-### 5. Start Development
-
-```bash
-cd ..
-npm run dev
-```
-
-## 📁 Structure
-
-```
-backend/
-├── contracts/          # Solidity smart contracts
-│   └── ProjectEscrow.sol
-├── scripts/           # Deployment scripts
-│   └── deploy.js
-├── ai/                # AI dispute agent
-│   └── dispute-agent.js
-├── supabase/          # Database schemas & policies
-│   ├── schema.sql
-│   └── rls_policies.sql
-└── deployments/       # Contract addresses (generated)
-```
-
-## 🛠 Available Scripts
-
-- `npm run compile` - Compile smart contracts
-- `npm run deploy:amoy` - Deploy to Amoy testnet
-- `npm run deploy:polygon` - Deploy to Polygon mainnet
-- `npm run node` - Start local Hardhat node
-- `npm run test` - Run contract tests
-
-## 💰 Cost
-
-**Development (Testnet):**
-- Everything FREE
-- Get test MATIC from faucets
-- Unlimited testing
-
-**Production (Mainnet):**
-- ~$0.10 per project
-- ~$5-10/month for gas
-- Much cheaper than PayPal (2.9%)
-
-## 🤖 AI Agent
-
-Three options:
-1. **Ollama (FREE)** - Run locally, no API costs
-2. **OpenAI** - $5 free credits, then $0.02/dispute
-3. **Mock** - Rule-based, for testing
-
-Configure in `.env.local`:
-```bash
-AI_PROVIDER=ollama  # or openai or mock
-```
-
-## 📊 Demo Data
-
-The schema includes demo data:
-- 4 demo users (client, freelancers)
-- 3 demo projects
-- 2 proposals
-- 1 active dispute
-- Sample transactions
-
-## 🔐 Security
-
-- All tables have Row Level Security (RLS)
-- Smart contract uses OpenZeppelin
-- Private keys never committed to git
-- Service role key only on server
-
-## 🌐 Networks
-
-**Amoy Testnet** (Development):
-- Chain ID: 80002
-- RPC: https://rpc-amoy.polygon.technology
-- Explorer: https://amoy.polygonscan.com
-- Faucet: https://faucet.polygon.technology
-
-**Polygon Mainnet** (Production):
-- Chain ID: 137
-- RPC: https://polygon-rpc.com
-- Explorer: https://polygonscan.com
-
-## 📝 License
-
-MIT
+`deployments/legacy/` keeps the v1 prototype deployments (Escrow on Shardeum 8118, ProjectEscrow on Polygon Amoy) for reference; the v2 app does not use them.

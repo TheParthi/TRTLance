@@ -29,11 +29,11 @@ export function ProposalBoard({ projectId, projectOpen, budget, projectSkillCoun
   projectSkillCount: number;
   items: Item[];
 }) {
-  const [filter, setFilter] = React.useState<'pending' | 'all'>('pending');
+  const pendingCount = items.filter((i) => i.proposal.status === 'pending').length;
+  const [filter, setFilter] = React.useState<'pending' | 'all'>(pendingCount ? 'pending' : 'all');
   const [hire, setHire] = React.useState<Item | null>(null);
   const [decline, setDecline] = React.useState<Item | null>(null);
   const shown = items.filter((i) => filter === 'all' || i.proposal.status === 'pending');
-  const pendingCount = items.filter((i) => i.proposal.status === 'pending').length;
 
   return (
     <div className="space-y-5">

@@ -189,7 +189,7 @@ export default function LandingPage() {
       {/* 12. CTA */}
       <section className="container py-16 md:py-24">
         <div className="rounded-lg bg-surface-inverse px-6 py-14 text-center text-ink-inverse md:px-16">
-          <h2 className="font-display text-3xl md:text-4xl">Start your next project on solid ground.</h2>
+          <h2 className="font-display text-3xl text-ink-inverse md:text-4xl">Start your next project on solid ground.</h2>
           <p className="mx-auto mt-3 max-w-xl opacity-80">Create an account in a minute. Post a project or send a proposal today — no wallet needed until you sign.</p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <Button asChild size="lg" className="bg-canvas text-ink hover:bg-surface-subtle"><Link href="/signup">Create a free account</Link></Button>

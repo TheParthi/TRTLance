@@ -42,6 +42,7 @@ export function MilestoneCard({ contract, milestone: m, submissions, role, hasPe
   const index = m.position - 1;
 
   const release = () => setDialog('release');
+  const hasActions = live && (open || (role === 'client' && (m.status === 'submitted' || m.status === 'approved')));
 
   return (
     <article id={`milestone-${m.position}`} className={cn('panel scroll-mt-24 overflow-hidden', highlighted && 'ring-2 ring-brand/40')} aria-labelledby={`ms-${m.id}-title`}>
@@ -115,7 +116,7 @@ export function MilestoneCard({ contract, milestone: m, submissions, role, hasPe
         </div>
       )}
 
-      {live && (
+      {hasActions && (
         <footer className="flex flex-col-reverse gap-2 border-t p-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
           {open && (
             <Button asChild variant="ghost" size="sm" className="sm:mr-auto">

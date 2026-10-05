@@ -67,7 +67,7 @@ export default async function DashboardPage() {
         actions={
           <>
             {work && <Button asChild variant="secondary"><Link href="/work"><Compass /> Find work</Link></Button>}
-            {hire && <Button asChild><Link href="/projects/new"><Plus /> Post a project</Link></Button>}
+            {hire && <Button asChild className="sm:hidden"><Link href="/projects/new"><Plus /> Post a project</Link></Button>}
           </>
         }
       />

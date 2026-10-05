@@ -45,7 +45,7 @@ export function FundingPanel({ contract, milestones, role, pendingFunding }: {
         <Money amount={contract.total_amount} size="xl" />
       </div>
 
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4">
         <MoneyStat label="Secured in escrow" amount={secured} tone="brand" />
         <MoneyStat label="Released to freelancer" amount={released} tone="success" />
         <MoneyStat label="Refunded to client" amount={refunded} tone="refund" />
@@ -78,7 +78,7 @@ export function FundingPanel({ contract, milestones, role, pendingFunding }: {
         <p className="rounded-lg bg-warning-soft p-3 text-sm text-warning-strong">Don’t start work yet — wait until escrow shows as funded.</p>
       )}
 
-      {contract.status === 'awaiting_funding' && role === 'client' && contract.freelancer_wallet && (
+      {(contract.status === 'awaiting_funding' || open) && role === 'client' && contract.freelancer_wallet && (
         <EscrowTxDialog
           open={open}
           onOpenChange={setOpen}

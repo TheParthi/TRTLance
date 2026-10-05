@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Callout } from '@/components/ui/callout';
 import { RadioCard, RadioGroup } from '@/components/ui/choice';
 import { Field, FieldGroup } from '@/components/ui/field';
-import { AmountInput, Input, Select, Textarea } from '@/components/ui/input';
+import { AmountInput, Input, Textarea } from '@/components/ui/input';
 import { toast } from '@/components/ui/toaster';
 import { ConfirmDialog } from '@/components/common/confirm-dialog';
 import { Money } from '@/components/common/money';
@@ -149,13 +149,17 @@ export function ProjectWizard({ project, attachments: initialFiles, categories, 
     return e;
   };
 
+  const [moving, setMoving] = React.useState(false);
   const go = async (target: number) => {
+    if (moving) return;
     if (target > step) {
       const e = validate(step);
       setErrors(e);
       if (Object.keys(e).length) return;
     } else setErrors({});
+    setMoving(true);
     await persist(target);
+    setMoving(false);
     setStep(target);
   };
 
@@ -375,8 +379,8 @@ export function ProjectWizard({ project, attachments: initialFiles, categories, 
 
           {title !== 'Review & publish' && (
             <div className="flex flex-col-reverse gap-2 border-t pt-5 sm:flex-row sm:justify-between">
-              {step > 0 ? <Button variant="ghost" onClick={() => void go(step - 1)}><ArrowLeft /> Back</Button> : <span />}
-              <Button onClick={() => void go(step + 1)}>Continue <ArrowRight /></Button>
+              {step > 0 ? <Button variant="ghost" onClick={() => void go(step - 1)} disabled={moving}><ArrowLeft /> Back</Button> : <span />}
+              <Button onClick={() => void go(step + 1)} loading={moving}>Continue {!moving && <ArrowRight />}</Button>
             </div>
           )}
         </section>

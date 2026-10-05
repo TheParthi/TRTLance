@@ -33,7 +33,7 @@ export async function resetLocalDatabase() {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  resetLocalDatabase().then(() => console.log(`Reset ${dbName}`)).catch((e) => {
+  resetLocalDatabase().then(() => process.stdout.write(`Reset ${dbName}\n`)).catch((e) => {
     console.error(e.message);
     process.exit(1);
   });
