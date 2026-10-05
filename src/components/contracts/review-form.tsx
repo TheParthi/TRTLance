@@ -53,7 +53,7 @@ export function ReviewForm({ contractId, role, counterpartName }: { contractId: 
   };
 
   return (
-    <form onSubmit={submit} className="panel space-y-5 p-5 md:p-6">
+    <form onSubmit={submit} className="statement space-y-5">
       <div>
         <h2 className="t-section-title">Review {counterpartName}</h2>
         <p className="text-sm text-ink-secondary">Reviews are public, tied to this verified contract, and can be written once.</p>

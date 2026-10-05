@@ -1,29 +1,30 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { FileText, MessagesSquare, Scale } from 'lucide-react';
+import { ExternalLink, FileText, MessagesSquare } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Callout } from '@/components/ui/callout';
-import { Money } from '@/components/common/money';
+import { Ledger, LedgerRow } from '@/components/common/ledger';
 import { Facts, PageHeader, Section } from '@/components/common/page-header';
-import { ContractStatusBadge, DisputeStatusBadge } from '@/components/common/status-badge';
-import { Stars, TrustSignals } from '@/components/common/trust-signals';
+import { ContractStatusBadge } from '@/components/common/status-badge';
+import { EscrowStatement } from '@/components/common/statement';
+import { Stars, TrustLine } from '@/components/common/trust-signals';
 import { ActivityFeed } from '@/components/contracts/activity-feed';
 import { AgreementPdfButton } from '@/components/contracts/agreement-pdf-button';
 import { CancelContractButton } from '@/components/contracts/cancel-contract-button';
-import { FundingPanel } from '@/components/contracts/funding-panel';
+import { FundEscrowButton } from '@/components/contracts/fund-escrow-button';
 import { MilestoneCard } from '@/components/contracts/milestone-card';
 import { NextActionBanner } from '@/components/contracts/next-action-banner';
 import { ContractLiveUpdates } from '@/components/contracts/pending-tx-watcher';
 import { ReviewForm } from '@/components/contracts/review-form';
 import { SignPanel } from '@/components/contracts/sign-panel';
 import { TransactionsList } from '@/components/contracts/transactions-list';
+import { SubNav } from '@/components/shell/sub-nav';
 import { requireViewer } from '@/lib/auth';
 import { getContractWorkspace } from '@/lib/data/contracts';
-import { disputeNumber, formatBytes, formatDate, formatDateTime } from '@/lib/format';
+import { publicEnv } from '@/lib/env';
+import { explorerAddressUrl, formatBytes, formatDate, formatDateTime, shortAddress } from '@/lib/format';
 import { nextAction } from '@/lib/next-action';
-import { cn } from '@/lib/utils';
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> };
 
@@ -31,14 +32,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const ws = await getContractWorkspace((await params).id);
   return { title: ws?.contract.title ?? 'Contract' };
 }
-
-const TABS = [
-  { key: 'overview', label: 'Milestones' },
-  { key: 'documents', label: 'Agreement & files' },
-  { key: 'funding', label: 'Transactions' },
-  { key: 'activity', label: 'Activity' },
-  { key: 'review', label: 'Review' },
-];
 
 export default async function ContractPage({ params, searchParams }: Props) {
   const { id } = await params;
@@ -55,19 +48,32 @@ export default async function ContractPage({ params, searchParams }: Props) {
   }
 
   const { tab: rawTab } = await searchParams;
-  const tabs = TABS.filter((t) => t.key !== 'review' || c.status === 'completed');
+  const tabs = [
+    { key: 'overview', label: 'Milestones' },
+    { key: 'documents', label: 'Agreement & files' },
+    { key: 'funding', label: 'Transactions', count: transactions.length },
+    { key: 'activity', label: 'Activity' },
+    ...(c.status === 'completed' ? [{ key: 'review', label: 'Review' }] : []),
+  ];
   const tab = tabs.some((t) => t.key === rawTab) ? rawTab! : 'overview';
-  const other = members.get(role === 'client' ? c.freelancer_id : c.client_id);
+  const client = members.get(c.client_id);
+  const freelancer = members.get(c.freelancer_id);
+  const other = role === 'client' ? freelancer : client;
   const action = nextAction(role, c, milestones, disputes, reviews);
   const pending = transactions.filter((t) => t.status === 'pending');
-  const openDisputes = disputes.filter((d) => d.status !== 'resolved' || d.settlement_status !== 'settled');
   const myReview = reviews.find((r) => r.reviewer_role === role);
   const theirReview = reviews.find((r) => r.reviewer_role !== role);
+  const current = action.milestoneId ?? milestones.find((m) => !['paid', 'refunded', 'settled', 'pending'].includes(m.status))?.id;
+  const escrowUrl = c.escrow_address ? explorerAddressUrl(c.escrow_address) : null;
+  const fundControl = role === 'client' && c.status === 'awaiting_funding'
+    ? <FundEscrowButton contract={c} milestones={milestones} pending={pending.some((t) => t.kind === 'fund')} />
+    : undefined;
 
   return (
-    <>
+    <div className="space-y-8">
       <ContractLiveUpdates contractId={c.id} pendingTxIds={pending.map((t) => t.id)} />
       <PageHeader
+        className="mb-0 md:mb-0"
         breadcrumbs={[{ label: 'Contracts', href: '/contracts' }, { label: c.title }]}
         eyebrow={`Contract · you are the ${role}`}
         title={c.title}
@@ -76,161 +82,159 @@ export default async function ContractPage({ params, searchParams }: Props) {
             <ContractStatusBadge status={c.status} />
             <span className="flex items-center gap-2">
               <Avatar name={other?.display_name ?? '?'} path={other?.avatar_path} size="xs" />
-              with <Link className="link" href={`/u/${other?.username ?? ''}`}>{other?.display_name ?? 'member'}</Link>
+              {role === 'client' ? 'Freelancer' : 'Client'} <Link className="link" href={`/u/${other?.username ?? ''}`}>{other?.display_name ?? 'member'}</Link>
             </span>
-            <span>Total <Money amount={c.total_amount} size="sm" /></span>
+            <span>Started {formatDate(c.created_at)}</span>
           </>
         }
         actions={
           <>
             {conversationId && <Button asChild variant="secondary"><Link href={`/messages/${conversationId}`}><MessagesSquare /> Messages</Link></Button>}
-            <Button asChild variant="ghost"><Link href={`/projects/${c.project_id}`}>View project</Link></Button>
+            <Button asChild variant="ghost"><Link href={`/projects/${c.project_id}`}>Project brief</Link></Button>
           </>
         }
       />
 
-      <div className="space-y-6">
-        <NextActionBanner action={action} />
+      <EscrowStatement
+        milestones={milestones}
+        title={c.funded_at ? 'Escrow' : 'Escrow — not funded yet'}
+        note={c.escrow_address ? (
+          <span className="inline-flex flex-wrap items-center gap-1">
+            Held by {escrowUrl ? <a className="link inline-flex items-center gap-1 font-mono" href={escrowUrl} target="_blank" rel="noreferrer">{shortAddress(c.escrow_address)} <ExternalLink className="size-3" aria-hidden /></a> : <span className="font-mono">{shortAddress(c.escrow_address)}</span>}
+            on {publicEnv.chain.name || `chain ${c.chain_id}`}, not by TrustLance
+          </span>
+        ) : c.status === 'cancelled' ? 'Cancelled before funding — no money moved.' : 'The client deposits the full amount after both parties sign.'}
+      />
 
-        {openDisputes.length > 0 && (
-          <ul className="space-y-2">
-            {openDisputes.map((d) => {
-              const ms = milestones.find((m) => m.id === d.milestone_id);
-              return (
-                <li key={d.id}>
-                  <Callout tone="danger" title={<span className="flex flex-wrap items-center gap-2"><Scale className="size-4" aria-hidden /> {disputeNumber(d.number)} on milestone {ms?.position} <DisputeStatusBadge status={d.status} /></span>}
-                    action={<Button asChild size="sm" variant="secondary"><Link href={`/disputes/${d.id}`}>Open dispute</Link></Button>}>
-                    The milestone is frozen until the dispute is decided and settled.
-                  </Callout>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+      <NextActionBanner action={action} control={fundControl} />
 
-        <nav aria-label="Contract sections" className="scrollbar-none -mb-px flex gap-1 overflow-x-auto border-b">
-          {tabs.map((t) => (
-            <Link key={t.key} href={`/contracts/${c.id}${t.key === 'overview' ? '' : `?tab=${t.key}`}`} aria-current={t.key === tab ? 'page' : undefined} scroll={false}
-              className={cn('-mb-px shrink-0 border-b-2 px-3 py-2 text-sm font-medium', t.key === tab ? 'border-brand text-ink' : 'border-transparent text-ink-muted hover:text-ink')}>
-              {t.label}{t.key === 'funding' && pending.length > 0 && <span className="ml-1.5 rounded-full bg-info-soft px-1.5 text-2xs text-info-strong">{pending.length} pending</span>}
-            </Link>
-          ))}
-        </nav>
+      <div>
+        <SubNav
+          label="Contract sections"
+          active={tab}
+          items={tabs.map((t) => ({ key: t.key, label: t.label, count: 'count' in t ? t.count : undefined, href: `/contracts/${c.id}${t.key === 'overview' ? '' : `?tab=${t.key}`}` }))}
+        />
 
         {tab === 'overview' && (
-          <div className="grid gap-6 xl:grid-cols-[1fr_22rem]">
-            <div className="min-w-0 space-y-6">
+          <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_17rem]">
+            <div className="min-w-0 space-y-10">
               {(c.status === 'pending_signatures' || c.status === 'awaiting_funding') && (
                 <SignPanel contract={c} role={role} myName={viewer.profile.display_name} walletAddress={viewer.wallet?.address ?? null} />
               )}
-              <Section title="Milestones" description="Each milestone is paid separately, from escrow, when the client approves it.">
-                <ol className="space-y-4">
-                  {milestones.map((m) => (
-                    <li key={m.id}>
-                      <MilestoneCard
-                        contract={c}
-                        milestone={m}
-                        submissions={submissions.filter((s) => s.milestone_id === m.id)}
-                        role={role}
-                        hasPendingTx={pending.some((t) => t.milestone_id === m.id)}
-                        highlighted={action.milestoneId === m.id}
-                      />
-                    </li>
-                  ))}
+              <section aria-label="Milestones">
+                <ol>
+                  {milestones.map((m, i) => {
+                    const d = disputes.find((x) => x.milestone_id === m.id && (x.status !== 'resolved' || x.settlement_status !== 'settled'));
+                    return (
+                      <li key={m.id}>
+                        <MilestoneCard
+                          contract={c}
+                          milestone={m}
+                          submissions={submissions.filter((s) => s.milestone_id === m.id)}
+                          role={role}
+                          hasPendingTx={pending.some((t) => t.milestone_id === m.id)}
+                          highlighted={current === m.id && c.status !== 'completed'}
+                          dispute={d ? { id: d.id, number: d.number } : null}
+                          last={i === milestones.length - 1}
+                        />
+                      </li>
+                    );
+                  })}
                 </ol>
-              </Section>
+              </section>
               {(c.status === 'pending_signatures' || c.status === 'awaiting_funding') && (
                 <div className="flex justify-end"><CancelContractButton contractId={c.id} /></div>
               )}
             </div>
-            <aside className="space-y-6">
-              <FundingPanel contract={c} milestones={milestones} role={role} pendingFunding={pending.some((t) => t.kind === 'fund')} />
-              {other?.stats && (
-                <section className="panel space-y-3 p-5" aria-label={`About ${other.display_name}`}>
-                  <p className="t-eyebrow">{role === 'client' ? 'Freelancer' : 'Client'}</p>
-                  <p className="font-semibold">{other.display_name}</p>
-                  <TrustSignals stats={other.stats} role={role === 'client' ? 'freelancer' : 'client'} />
-                </section>
-              )}
+
+            <aside className="space-y-8">
+              <Ledger title={<span className="t-label-caps">Parties</span>}>
+                {[{ m: client, r: 'client' as const }, { m: freelancer, r: 'freelancer' as const }].map(({ m, r }) => m && (
+                  <LedgerRow key={r} href={`/u/${m.username}`} lead={<Avatar name={m.display_name} path={m.avatar_path} size="sm" />}
+                    meta={m.stats ? <TrustLine stats={m.stats} role={r} /> : undefined}>
+                    <p className="text-sm font-medium">{m.display_name}{m.id === viewer.id && <span className="text-ink-muted"> (you)</span>}</p>
+                    <p className="text-xs capitalize text-ink-muted">{r}</p>
+                  </LedgerRow>
+                ))}
+              </Ledger>
+              <div className="space-y-3">
+                <p className="t-label-caps">Contract</p>
+                <Facts className="sm:grid-cols-1" items={[
+                  { label: 'Total', value: `${milestones.length} milestones · ${c.terms.duration_days} days` },
+                  { label: 'Funded', value: c.funded_at ? formatDateTime(c.funded_at) : 'Not yet' },
+                  { label: 'Terms fingerprint', value: <span className="t-mono break-all">{c.terms_hash.slice(0, 24)}…</span> },
+                ]} />
+              </div>
             </aside>
           </div>
         )}
 
         {tab === 'documents' && (
-          <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
-            <Section title="Agreement" description="The exact terms both parties sign." action={<AgreementPdfButton contract={c} milestones={milestones} transactions={transactions} />}>
-              <div className="panel space-y-5 p-5">
-                <Facts items={[
-                  { label: 'Client', value: c.terms.client.name },
-                  { label: 'Freelancer', value: c.terms.freelancer.name },
-                  { label: 'Total', value: <Money amount={c.terms.total_amount} /> },
-                  { label: 'Duration', value: `${c.terms.duration_days} days` },
-                  { label: 'Created', value: formatDateTime(c.created_at) },
-                  { label: 'Terms fingerprint', value: <span className="t-mono break-all">{c.terms_hash}</span> },
-                ]} />
-                <div className="space-y-1">
-                  <p className="t-eyebrow">Scope</p>
-                  <p className="whitespace-pre-line text-sm text-ink-secondary">{c.terms.scope}</p>
-                </div>
-                {c.terms.deliverables.length > 0 && (
+          <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_18rem]">
+            <div className="min-w-0 space-y-10">
+              <Section title="Agreement" description="The exact terms both parties sign." action={<AgreementPdfButton contract={c} milestones={milestones} transactions={transactions} />}>
+                <div className="space-y-6 border-t pt-6">
+                  <Facts items={[
+                    { label: 'Client', value: c.terms.client.name },
+                    { label: 'Freelancer', value: c.terms.freelancer.name },
+                    { label: 'Total', value: `${c.terms.total_amount} ${c.currency}` },
+                    { label: 'Duration', value: `${c.terms.duration_days} days` },
+                    { label: 'Created', value: formatDateTime(c.created_at) },
+                    { label: 'Terms fingerprint', value: <span className="t-mono break-all">{c.terms_hash}</span> },
+                  ]} />
                   <div className="space-y-1">
-                    <p className="t-eyebrow">Deliverables</p>
-                    <ul className="list-disc space-y-0.5 pl-5 text-sm text-ink-secondary">{c.terms.deliverables.map((d, i) => <li key={i}>{d}</li>)}</ul>
+                    <p className="t-label-caps">Scope</p>
+                    <p className="max-w-reading whitespace-pre-line text-sm text-ink-secondary">{c.terms.scope}</p>
                   </div>
-                )}
-                <div className="space-y-1">
-                  <p className="t-eyebrow">Payment terms</p>
-                  <p className="text-sm text-ink-secondary">{c.terms.payment_terms}</p>
+                  {c.terms.deliverables.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="t-label-caps">Deliverables</p>
+                      <ol className="list-decimal space-y-0.5 pl-5 text-sm text-ink-secondary">{c.terms.deliverables.map((d, i) => <li key={i}>{d}</li>)}</ol>
+                    </div>
+                  )}
+                  <div className="space-y-1">
+                    <p className="t-label-caps">Payment terms</p>
+                    <p className="max-w-reading text-sm text-ink-secondary">{c.terms.payment_terms}</p>
+                  </div>
                 </div>
-              </div>
+              </Section>
               <SignPanel contract={c} role={role} myName={viewer.profile.display_name} walletAddress={viewer.wallet?.address ?? null} />
-            </Section>
-            <Section title="Files" description="Everything delivered on this contract.">
-              {files.length ? (
-                <ul className="panel divide-y">
-                  {files.map((f) => (
-                    <li key={f.id} className="flex items-center gap-3 p-3 text-sm">
-                      <FileText className="size-4 shrink-0 text-ink-muted" aria-hidden />
-                      <span className="min-w-0 flex-1">
-                        {f.url ? <a href={f.url} className="link block truncate" target="_blank" rel="noreferrer">{f.file_name}</a> : <span className="block truncate">{f.file_name}</span>}
-                        <span className="t-meta">{formatBytes(f.size_bytes)} · {formatDate(f.created_at)}</span>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : <p className="text-sm text-ink-secondary">No files yet.</p>}
-            </Section>
+            </div>
+            <Ledger title={<span className="t-label-caps">Files</span>} empty={<p className="border-y py-4 text-sm text-ink-secondary">No files yet.</p>}>
+              {files.map((f) => (
+                <LedgerRow key={f.id} lead={<FileText className="size-4 text-ink-muted" aria-hidden />} meta={<span>{formatBytes(f.size_bytes)} · {formatDate(f.created_at)}</span>}>
+                  {f.url ? <a href={f.url} className="link block truncate text-sm" target="_blank" rel="noreferrer">{f.file_name}</a> : <span className="block truncate text-sm">{f.file_name}</span>}
+                </LedgerRow>
+              ))}
+            </Ledger>
           </div>
         )}
 
         {tab === 'funding' && (
-          <div className="space-y-6">
-            <FundingPanel contract={c} milestones={milestones} role={role} pendingFunding={pending.some((t) => t.kind === 'fund')} />
-            <Section title="Transactions" description="Every on-chain transaction for this contract. Status changes only after TrustLance verifies it on the network.">
-              <TransactionsList transactions={transactions} milestones={milestones} />
-            </Section>
-          </div>
+          <Section title="Transactions" description="Every on-chain transaction for this contract. A status changes only after TrustLance verifies it on the network.">
+            <TransactionsList transactions={transactions} milestones={milestones} />
+          </Section>
         )}
 
         {tab === 'activity' && (
           <Section title="Activity" description="A permanent record of every event on this contract. Entries cannot be edited or deleted.">
-            <div className="panel p-5"><ActivityFeed events={events} members={members} /></div>
+            <ActivityFeed events={events} members={members} />
           </Section>
         )}
 
         {tab === 'review' && (
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid gap-10 lg:grid-cols-2">
             {myReview ? (
-              <section className="panel space-y-2 p-5">
-                <p className="t-eyebrow">Your review</p>
+              <section className="space-y-2">
+                <p className="t-label-caps">Your review</p>
                 <Stars rating={myReview.rating} size="md" />
                 <p className="text-sm text-ink-secondary">{myReview.body}</p>
               </section>
             ) : (
               <ReviewForm contractId={c.id} role={role} counterpartName={other?.display_name ?? 'the other party'} />
             )}
-            <section className="panel space-y-2 p-5">
-              <p className="t-eyebrow">Their review of you</p>
+            <section className="space-y-2">
+              <p className="t-label-caps">Their review of you</p>
               {theirReview ? (
                 <><Stars rating={theirReview.rating} size="md" /><p className="text-sm text-ink-secondary">{theirReview.body}</p></>
               ) : <p className="text-sm text-ink-secondary">Not written yet.</p>}
@@ -238,6 +242,6 @@ export default async function ContractPage({ params, searchParams }: Props) {
           </div>
         )}
       </div>
-    </>
+    </div>
   );
 }

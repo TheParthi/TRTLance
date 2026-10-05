@@ -200,6 +200,38 @@
   .link {
     @apply font-medium text-brand underline-offset-4 hover:underline;
   }
+
+  /* Ledger: content organised by hairline rules instead of boxes. */
+  .ledger {
+    @apply border-y border-line;
+  }
+  .ledger > * + * {
+    @apply border-t border-line;
+  }
+  .ledger-row {
+    @apply relative flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:gap-6;
+  }
+  a.ledger-row, .ledger-row-link {
+    @apply transition-colors hover:bg-surface-subtle/70;
+  }
+
+  /* The escrow statement: the one boxed element on a page. */
+  .statement {
+    @apply rounded-lg border bg-surface p-5 shadow-sm md:p-6;
+  }
+
+  /* Small-caps section label. */
+  .t-label-caps {
+    @apply text-2xs font-semibold uppercase tracking-[0.12em] text-ink-muted;
+  }
+
+  /* Rail textures — colour is never the only signal: segments also carry pattern and a text legend. */
+  .rail-stripes {
+    background-image: repeating-linear-gradient(135deg, rgb(255 255 255 / 0.35) 0 4px, transparent 4px 8px);
+  }
+  .rail-hatch {
+    background-image: repeating-linear-gradient(45deg, rgb(255 255 255 / 0.45) 0 2px, transparent 2px 6px);
+  }
 }
 
 @layer utilities {

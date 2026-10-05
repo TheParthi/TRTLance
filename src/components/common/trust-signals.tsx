@@ -62,3 +62,33 @@ export function Stars({ rating, size = 'sm', label }: { rating: number; size?: '
     </span>
   );
 }
+
+/**
+ * One quiet line of verified, positive facts ("Wallet verified · 3 contracts funded · 5.0 from 2 reviews").
+ * The absence of facts collapses into a single "New to TrustLance" instead of a list of negatives.
+ */
+export function TrustLine({ stats, role, className }: { stats: TrustFacts; role: 'client' | 'freelancer'; className?: string }) {
+  const facts: React.ReactNode[] = [];
+  if (stats.wallet_verified) facts.push(<span key="w" className="inline-flex items-center gap-1"><Wallet className="size-3.5 text-success" aria-hidden />Wallet verified</span>);
+  else if (stats.email_verified) facts.push(<span key="e" className="inline-flex items-center gap-1"><Mail className="size-3.5 text-success" aria-hidden />Email verified</span>);
+  if (role === 'client' && stats.funded_as_client) facts.push(<span key="f">{stats.funded_as_client} contract{stats.funded_as_client === 1 ? '' : 's'} funded</span>);
+  if (role === 'freelancer' && stats.completed_as_freelancer) facts.push(<span key="c">{stats.completed_as_freelancer} completed</span>);
+  if (stats.review_count) {
+    facts.push(
+      <span key="r" className="inline-flex items-center gap-1">
+        <Star className="size-3.5 fill-brass text-brass" aria-hidden />
+        <span className="font-semibold text-ink">{Number(stats.rating_avg).toFixed(1)}</span>
+        <span>({stats.review_count})</span>
+      </span>,
+    );
+  }
+  const onlyContact = facts.length <= 1 && !stats.review_count && !(stats.funded_as_client || stats.completed_as_freelancer);
+  return (
+    <span className={cn('inline-flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-ink-secondary', className)}>
+      {facts.map((f, i) => (
+        <span key={i} className="inline-flex items-center gap-2">{i > 0 && <span aria-hidden className="text-line-strong">·</span>}{f}</span>
+      ))}
+      {onlyContact && <>{facts.length > 0 && <span aria-hidden className="text-line-strong">·</span>}<span className="text-ink-muted">New to TrustLance</span></>}
+    </span>
+  );
+}

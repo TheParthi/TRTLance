@@ -1,26 +1,35 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight, Bell, CalendarClock, CheckCircle2, Compass, FileSignature, Plus, Scale } from 'lucide-react';
+import { ArrowRight, Check, Circle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Callout } from '@/components/ui/callout';
-import { Money, MoneyStat } from '@/components/common/money';
-import { PageHeader, Section } from '@/components/common/page-header';
-import { ContractStatusBadge, DisputeStatusBadge, ProposalStatusBadge } from '@/components/common/status-badge';
-import { EmptyState } from '@/components/common/states';
-import { NextActionBanner } from '@/components/contracts/next-action-banner';
+import { EscrowRail } from '@/components/common/escrow-rail';
+import { Ledger, LedgerRow } from '@/components/common/ledger';
+import { Money } from '@/components/common/money';
+import { ContractStatusBadge } from '@/components/common/status-badge';
+import { EscrowStatement } from '@/components/common/statement';
 import { ProjectCard } from '@/components/projects/project-card';
 import { canHire, canWork, requireViewer } from '@/lib/auth';
-import { getCategories, searchProjects } from '@/lib/data/projects';
+import { getCategories, getMembers, searchProjects } from '@/lib/data/projects';
+import { milestoneSegments } from '@/lib/escrow-summary';
 import { daysUntil, disputeNumber, formatDate, formatRelative } from '@/lib/format';
-import { sumAmounts } from '@/lib/money';
-import { nextAction } from '@/lib/next-action';
+import { formatAmount, sumAmounts } from '@/lib/money';
+import { nextAction, type NextAction } from '@/lib/next-action';
 import { LOCKED_MILESTONE_STATES } from '@/lib/status';
 import { createClient } from '@/lib/supabase/server';
 import type { Contract, Dispute, Milestone, Notification, Project, Proposal, Review } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 export const metadata: Metadata = { title: 'Home' };
 
 type ContractRow = Contract & { milestones: Milestone[]; reviews: Pick<Review, 'reviewer_role'>[]; disputes: Pick<Dispute, 'id' | 'status'>[] };
+
+function greeting() {
+  const h = Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hour12: false, timeZone: 'Asia/Kolkata' }).format(new Date()));
+  return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+}
+
+const ctaFor = (a: NextAction) => (a.tone === 'alert' ? 'Open case' : a.tone === 'action' ? 'Go' : 'View');
 
 export default async function DashboardPage() {
   const viewer = await requireViewer('/dashboard');
@@ -33,212 +42,248 @@ export default async function DashboardPage() {
     hire ? supabase.from('projects').select('*').eq('client_id', viewer.id).in('status', ['draft', 'open']).order('updated_at', { ascending: false }).limit(6).returns<Project[]>() : Promise.resolve({ data: [] as Project[], error: null }),
     work ? supabase.from('proposals').select('*, project:projects(title)').eq('freelancer_id', viewer.id).eq('status', 'pending').order('created_at', { ascending: false }).limit(5).returns<(Proposal & { project: { title: string } | null })[]>() : Promise.resolve({ data: [], error: null }),
     supabase.from('disputes').select('*').neq('status', 'resolved').order('created_at', { ascending: false }).returns<Dispute[]>(),
-    supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(5).returns<Notification[]>(),
+    supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(12).returns<Notification[]>(),
     getCategories().catch(() => []),
   ]);
   const failed = [contractsRes, projectsRes, proposalsRes, disputesRes, notesRes].some((r) => r.error);
   const contracts = contractsRes.data ?? [];
-  const recommendations = work && viewer.profile.skills.length
-    ? await searchProjects({ skills: viewer.profile.skills, sort: 'newest' }).then((r) => r.rows.filter((p) => p.client_id !== viewer.id).slice(0, 3)).catch(() => null)
-    : null;
+  const projects = projectsRes.data ?? [];
+  const proposals = proposalsRes.data ?? [];
+  const isNew = !failed && contracts.length === 0 && projects.length === 0 && proposals.length === 0;
+  const catMap = new Map(categories.map((c) => [c.slug, c]));
 
+  const members = await getMembers(contracts.map((c) => (c.client_id === viewer.id ? c.freelancer_id : c.client_id)));
+
+  // What needs this member, most urgent first.
+  const queue: { key: string; href: string; title: string; context: string; detail: string; tone: 'brand' | 'danger' | 'warning'; cta: string }[] = [];
+  if (!viewer.wallet) {
+    queue.push({ key: 'wallet', href: '/wallet', title: 'Verify your wallet', context: 'Account', detail: 'Needed before you can sign or fund a contract. Free, takes a minute.', tone: 'warning', cta: 'Verify' });
+  }
   const actions = contracts
-    .map((c) => ({ c, role: (c.client_id === viewer.id ? 'client' : 'freelancer') as 'client' | 'freelancer' }))
-    .map(({ c, role }) => ({ c, role, a: nextAction(role, c, c.milestones, c.disputes, c.reviews) }))
-    .filter(({ a }) => a.tone === 'action' || a.tone === 'alert');
+    .map((c) => ({ c, a: nextAction(c.client_id === viewer.id ? 'client' : 'freelancer', c, c.milestones, c.disputes, c.reviews) }))
+    .filter(({ a }) => a.tone === 'action' || a.tone === 'alert')
+    .sort((x, y) => (x.a.tone === 'alert' ? -1 : 0) - (y.a.tone === 'alert' ? -1 : 0));
+  for (const { c, a } of actions) {
+    queue.push({
+      key: c.id,
+      href: a.target?.startsWith('/') ? a.target : `/contracts/${c.id}${a.target ?? ''}`,
+      title: a.title,
+      context: c.title,
+      detail: a.detail,
+      tone: a.tone === 'alert' ? 'danger' : 'brand',
+      cta: ctaFor(a),
+    });
+  }
+  for (const p of projects.filter((p) => p.status === 'open' && p.proposal_count > 0)) {
+    queue.push({ key: p.id, href: `/projects/${p.id}/proposals`, title: `${p.proposal_count} proposal${p.proposal_count === 1 ? '' : 's'} to compare`, context: p.title, detail: 'Compare price, timeline, milestones and verified track record.', tone: 'brand', cta: 'Compare' });
+  }
 
-  const myClient = contracts.filter((c) => c.client_id === viewer.id).flatMap((c) => c.milestones);
-  const myFreelance = contracts.filter((c) => c.freelancer_id === viewer.id).flatMap((c) => c.milestones);
+  const asClient = contracts.filter((c) => c.client_id === viewer.id).flatMap((c) => c.milestones);
+  const asFreelancer = contracts.filter((c) => c.freelancer_id === viewer.id).flatMap((c) => c.milestones);
   const locked = (ms: Milestone[]) => sumAmounts(ms.filter((m) => LOCKED_MILESTONE_STATES.includes(m.status)).map((m) => m.amount));
+  const active = contracts.filter((c) => ['pending_signatures', 'awaiting_funding', 'active', 'disputed'].includes(c.status));
   const deadlines = contracts
     .flatMap((c) => c.milestones.filter((m) => ['funded', 'revision_requested', 'submitted'].includes(m.status) && m.due_date).map((m) => ({ c, m, days: daysUntil(m.due_date) ?? 0 })))
     .filter((x) => x.days <= 14)
     .sort((a, b) => a.days - b.days)
     .slice(0, 5);
-  const active = contracts.filter((c) => ['pending_signatures', 'awaiting_funding', 'active', 'disputed'].includes(c.status));
-  const catMap = new Map(categories.map((c) => [c.slug, c]));
-  const pendingProposalsOnMine = (projectsRes.data ?? []).reduce((n, p) => n + (p.status === 'open' ? p.proposal_count : 0), 0);
+
+  const recommendations = work
+    ? await searchProjects({ skills: viewer.profile.skills.length && !isNew ? viewer.profile.skills : undefined, sort: 'newest' })
+        .then((r) => r.rows.filter((p) => p.client_id !== viewer.id).slice(0, isNew ? 5 : 3)).catch(() => null)
+    : null;
+
+  const stateLine = [
+    queue.length ? `${queue.length} thing${queue.length === 1 ? '' : 's'} need${queue.length === 1 ? 's' : ''} you` : 'Nothing needs you right now',
+    asClient.length ? `${formatAmount(locked(asClient))} of your money secured in escrow` : null,
+    asFreelancer.length ? `${formatAmount(locked(asFreelancer))} in escrow for your work` : null,
+  ].filter(Boolean).join(' · ');
 
   return (
-    <>
-      <PageHeader
-        eyebrow={new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
-        title={`Welcome back, ${viewer.profile.display_name.split(' ')[0]}`}
-        actions={
-          <>
-            {work && <Button asChild variant="secondary"><Link href="/work"><Compass /> Find work</Link></Button>}
-            {hire && <Button asChild className="sm:hidden"><Link href="/projects/new"><Plus /> Post a project</Link></Button>}
-          </>
-        }
-      />
+    <div className="space-y-12">
+      <header className="space-y-2">
+        <p className="t-label-caps">{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' })}</p>
+        <h1 className="t-page-title">{greeting()}, {viewer.profile.display_name.split(' ')[0]}</h1>
+        <p className="text-ink-secondary">{stateLine}</p>
+      </header>
 
-      {failed && <Callout tone="danger" className="mb-6" title="Some information could not be loaded">Refresh the page to try again. Nothing shown below is estimated.</Callout>}
-      {!viewer.wallet && (
-        <Callout tone="warning" className="mb-6" title="Verify a wallet before you sign a contract" action={<Button asChild size="sm" variant="secondary"><Link href="/wallet">Verify wallet</Link></Button>}>
-          Escrow is funded from, and pays out to, a wallet you prove you own. It takes a minute and costs nothing.
-        </Callout>
+      {failed && <Callout tone="danger" title="Some information could not be loaded">Refresh the page to try again. Nothing shown below is estimated.</Callout>}
+
+      {isNew ? (
+        <GettingStarted viewer={viewer} hire={hire} work={work} />
+      ) : (
+        <Ledger
+          id="next-up"
+          title="Next up"
+          description="Everything waiting on you, most urgent first."
+          empty={<p className="flex items-center gap-2 border-y py-5 text-sm text-ink-secondary"><Check className="size-4 text-success" aria-hidden /> You’re all caught up.</p>}
+        >
+          {queue.map((q, i) => (
+            <LedgerRow
+              key={q.key}
+              href={q.href}
+              tone={q.tone}
+              lead={<span className={cn('flex size-7 items-center justify-center rounded-full text-xs font-semibold tabular-nums', q.tone === 'danger' ? 'bg-danger-soft text-danger-strong' : q.tone === 'warning' ? 'bg-warning-soft text-warning-strong' : 'bg-brand-soft text-brand-strong')}>{i + 1}</span>}
+              meta={<span>{q.detail}</span>}
+              trail={<span className="inline-flex items-center gap-1 text-sm font-semibold text-brand">{q.cta} <ArrowRight className="size-4" aria-hidden /></span>}
+            >
+              <p className="font-semibold">{q.title}</p>
+              <p className="truncate text-sm text-ink-secondary">{q.context}</p>
+            </LedgerRow>
+          ))}
+        </Ledger>
       )}
 
-      <div className="grid gap-8 xl:grid-cols-[1fr_20rem]">
-        <div className="min-w-0 space-y-8">
-          <Section title="Action required" description="Things waiting on you, most important first.">
-            {actions.length ? (
-              <ul className="space-y-3">
-                {actions.map(({ c, a }) => (
-                  <li key={c.id} className="space-y-1">
-                    <p className="t-meta"><Link className="hover:text-ink hover:underline" href={`/contracts/${c.id}`}>{c.title}</Link></p>
-                    <NextActionBanner action={{ ...a, target: a.target?.startsWith('/') ? a.target : `/contracts/${c.id}${a.target ?? ''}` }} />
-                  </li>
+      {!isNew && (
+        <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className="min-w-0 space-y-12">
+            <Ledger
+              id="contracts"
+              title="Contracts"
+              action={<Link className="link" href="/contracts">All contracts</Link>}
+              empty={<p className="border-y py-5 text-sm text-ink-secondary">{hire ? 'Hire from your project’s proposals to start a contract.' : 'When a client hires you, the contract appears here.'}</p>}
+            >
+              {active.slice(0, 6).map((c) => {
+                const other = members.get(c.client_id === viewer.id ? c.freelancer_id : c.client_id);
+                const closed = c.milestones.filter((m) => ['paid', 'refunded', 'settled'].includes(m.status)).length;
+                return (
+                  <LedgerRow
+                    key={c.id}
+                    href={`/contracts/${c.id}`}
+                    meta={<><span>{c.client_id === viewer.id ? 'You hired' : 'Client'} {other?.display_name ?? 'member'}</span><span>{closed} of {c.milestones.length} milestones closed</span></>}
+                    trail={<div className="flex items-center gap-3 sm:flex-col sm:items-end sm:gap-1.5"><Money amount={c.total_amount} /><ContractStatusBadge status={c.status} /></div>}
+                  >
+                    <p className="truncate font-medium">{c.title}</p>
+                    <EscrowRail segments={milestoneSegments(c.milestones)} size="sm" className="mt-2 max-w-md" label={c.title} />
+                  </LedgerRow>
+                );
+              })}
+            </Ledger>
+
+            {hire && (
+              <Ledger
+                id="projects"
+                title="Your projects"
+                action={<Link className="link" href="/projects">All projects</Link>}
+                empty={<p className="border-y py-5 text-sm text-ink-secondary">No open projects. <Link className="link" href="/projects/new">Post one</Link>.</p>}
+              >
+                {projects.map((p) => (
+                  <LedgerRow
+                    key={p.id}
+                    href={p.status === 'draft' ? `/projects/${p.id}/edit` : `/projects/${p.id}`}
+                    meta={<span>{p.status === 'draft' ? `Draft · step ${p.draft_step} of 9 · saved ${formatRelative(p.updated_at)}` : `Open · ${p.proposal_count} proposal${p.proposal_count === 1 ? '' : 's'}`}</span>}
+                    trail={p.budget_amount ? <Money amount={p.budget_amount} /> : <span className="t-meta">No budget yet</span>}
+                  >
+                    <p className="truncate font-medium">{p.title || 'Untitled draft'}</p>
+                  </LedgerRow>
                 ))}
-                {hire && pendingProposalsOnMine > 0 && (
-                  <li>
-                    <NextActionBanner action={{ tone: 'action', title: `${pendingProposalsOnMine} proposal${pendingProposalsOnMine === 1 ? '' : 's'} to review`, detail: 'Compare freelancers on your open projects.', target: '/projects' }} />
-                  </li>
-                )}
-              </ul>
-            ) : hire && pendingProposalsOnMine > 0 ? (
-              <NextActionBanner action={{ tone: 'action', title: `${pendingProposalsOnMine} proposal${pendingProposalsOnMine === 1 ? '' : 's'} to review`, detail: 'Compare freelancers on your open projects.', target: '/projects' }} />
-            ) : (
-              <div className="panel flex items-center gap-3 p-5 text-sm text-ink-secondary"><CheckCircle2 className="size-5 text-success" aria-hidden /> You’re all caught up.</div>
+              </Ledger>
             )}
-          </Section>
 
-          <Section title="Active contracts" action={<Link className="text-sm link" href="/contracts">All contracts</Link>}>
-            {active.length ? (
-              <ul className="panel divide-y">
-                {active.slice(0, 6).map((c) => {
-                  const closed = c.milestones.filter((m) => ['paid', 'refunded', 'settled'].includes(m.status)).length;
-                  return (
-                    <li key={c.id}>
-                      <Link href={`/contracts/${c.id}`} className="grid gap-2 p-4 hover:bg-surface-subtle sm:grid-cols-[1fr_auto_auto] sm:items-center sm:gap-6">
-                        <span className="min-w-0">
-                          <span className="block truncate font-medium">{c.title}</span>
-                          <span className="t-meta">{c.client_id === viewer.id ? 'You hired' : 'You are working'} · {closed}/{c.milestones.length} milestones closed</span>
-                        </span>
-                        <Money amount={c.total_amount} size="sm" />
-                        <ContractStatusBadge status={c.status} />
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <EmptyState compact icon={FileSignature} title="No active contracts" description={hire ? 'Hire a freelancer from your project’s proposals to start one.' : 'When a client hires you, the contract appears here.'} />
+            {work && (
+              <Ledger
+                id="recommended"
+                title="Recommended for you"
+                description={viewer.profile.skills.length ? `Open projects that match ${viewer.profile.skills.slice(0, 4).join(', ')}` : 'Add skills to your profile for better matches.'}
+                action={<Link className="link" href="/work">Find work</Link>}
+                empty={<p className="border-y py-5 text-sm text-ink-secondary">{recommendations === null ? 'Recommendations could not be loaded.' : 'No matching open projects right now.'} <Link className="link" href="/work">Browse all projects</Link></p>}
+              >
+                {(recommendations ?? []).map((p) => <li key={p.id}><ProjectCard project={p} categories={catMap} /></li>)}
+              </Ledger>
             )}
-          </Section>
+          </div>
 
-          {hire && (
-            <Section title="Your open projects" action={<Link className="text-sm link" href="/projects">All projects</Link>}>
-              {projectsRes.data?.length ? (
-                <ul className="panel divide-y">
-                  {projectsRes.data.map((p) => (
-                    <li key={p.id}>
-                      <Link href={p.status === 'draft' ? `/projects/${p.id}/edit` : `/projects/${p.id}/proposals`} className="flex items-center justify-between gap-4 p-4 hover:bg-surface-subtle">
-                        <span className="min-w-0">
-                          <span className="block truncate font-medium">{p.title || 'Untitled draft'}</span>
-                          <span className="t-meta">{p.status === 'draft' ? `Draft · saved ${formatRelative(p.updated_at)}` : `${p.proposal_count} proposal${p.proposal_count === 1 ? '' : 's'}`}</span>
-                        </span>
-                        <ArrowRight className="size-4 text-ink-muted" aria-hidden />
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <EmptyState compact title="No open projects" description="Post a project to start receiving proposals." action={{ label: 'Post a project', href: '/projects/new' }} />
-              )}
-            </Section>
-          )}
+          <aside className="space-y-10">
+            {asClient.length > 0 && (
+              <EscrowStatement compact aggregate title="Your escrow as a client" milestones={asClient} note={<Link className="link" href="/wallet">Wallet</Link>} />
+            )}
+            {asFreelancer.length > 0 && (
+              <EscrowStatement compact aggregate title="Escrow for your work" milestones={asFreelancer} note={<Link className="link" href="/wallet">Wallet</Link>} />
+            )}
 
-          {work && (
-            <Section title="Recommended for you" description={viewer.profile.skills.length ? `Open projects matching your skills: ${viewer.profile.skills.slice(0, 4).join(', ')}` : undefined} action={<Link className="text-sm link" href="/work">Browse all</Link>}>
-              {!viewer.profile.skills.length ? (
-                <EmptyState compact title="Add skills to get recommendations" description="We match open projects to the skills on your profile." action={{ label: 'Add skills', href: '/settings' }} />
-              ) : recommendations === null ? (
-                <Callout tone="danger">Recommendations could not be loaded.</Callout>
-              ) : recommendations.length ? (
-                <ul className="space-y-3">{recommendations.map((p) => <li key={p.id}><ProjectCard project={p} categories={catMap} /></li>)}</ul>
-              ) : (
-                <EmptyState compact icon={Compass} title="No matching projects right now" description="We’ll show new ones as clients post them." action={{ label: 'Browse all projects', href: '/work' }} />
-              )}
-            </Section>
-          )}
-        </div>
+            <Ledger title={<span className="t-label-caps">Due in the next two weeks</span>} empty={<p className="border-y py-4 text-sm text-ink-secondary">Nothing due soon.</p>}>
+              {deadlines.map(({ c, m, days }) => (
+                <LedgerRow key={m.id} href={`/contracts/${c.id}#milestone-${m.position}`} meta={<span className={days < 0 ? 'text-danger-strong' : days <= 2 ? 'text-warning-strong' : undefined}>{days < 0 ? `${-days} days overdue` : days === 0 ? 'Due today' : `${formatDate(m.due_date)} · ${days} days`}</span>}>
+                  <p className="truncate text-sm font-medium">{m.title}</p>
+                  <p className="truncate text-xs text-ink-muted">{c.title}</p>
+                </LedgerRow>
+              ))}
+            </Ledger>
 
-        <aside className="space-y-6">
-          {(myClient.length > 0 || myFreelance.length > 0) && (
-            <section className="panel space-y-4 p-5" aria-labelledby="money-title">
-              <h2 id="money-title" className="t-section-title">Money</h2>
-              {myClient.length > 0 && <MoneyStat label="Your funds secured in escrow" amount={locked(myClient)} tone="brand" />}
-              {myFreelance.length > 0 && <MoneyStat label="In escrow for your work" amount={locked(myFreelance)} tone="brand" />}
-              {myFreelance.length > 0 && <MoneyStat label="Earned on TrustLance" amount={sumAmounts(myFreelance.map((m) => m.freelancer_payout ?? '0'))} tone="success" />}
-              <Link href="/wallet" className="text-sm link">Open wallet</Link>
-            </section>
-          )}
-
-          <section className="panel space-y-3 p-5" aria-labelledby="deadlines-title">
-            <h2 id="deadlines-title" className="t-section-title flex items-center gap-2"><CalendarClock className="size-4 text-ink-muted" aria-hidden /> Upcoming deadlines</h2>
-            {deadlines.length ? (
-              <ul className="space-y-3 text-sm">
-                {deadlines.map(({ c, m, days }) => (
-                  <li key={m.id}>
-                    <Link href={`/contracts/${c.id}#milestone-${m.position}`} className="block hover:text-brand">
-                      <span className="block truncate font-medium">{m.title}</span>
-                      <span className={days < 0 ? 'text-danger-strong' : days <= 2 ? 'text-warning-strong' : 't-meta'}>
-                        {days < 0 ? `${-days} days overdue` : days === 0 ? 'Due today' : `Due ${formatDate(m.due_date)} (${days} days)`}
-                      </span>
-                    </Link>
-                  </li>
+            {work && proposals.length > 0 && (
+              <Ledger title={<span className="t-label-caps">Proposals waiting</span>}>
+                {proposals.map((p) => (
+                  <LedgerRow key={p.id} href={`/projects/${p.project_id}`} meta={<span>Sent {formatRelative(p.created_at)}</span>} trail={<Money amount={p.amount} size="sm" />}>
+                    <p className="truncate text-sm font-medium">{p.project?.title ?? 'Project'}</p>
+                  </LedgerRow>
                 ))}
-              </ul>
-            ) : <p className="text-sm text-ink-secondary">Nothing due in the next two weeks.</p>}
-          </section>
+              </Ledger>
+            )}
 
-          {work && (
-            <section className="panel space-y-3 p-5" aria-labelledby="proposals-title">
-              <h2 id="proposals-title" className="t-section-title">Pending proposals</h2>
-              {proposalsRes.data?.length ? (
-                <ul className="space-y-3 text-sm">
-                  {proposalsRes.data.map((p) => (
-                    <li key={p.id} className="flex items-start justify-between gap-3">
-                      <Link href={`/projects/${p.project_id}`} className="min-w-0 truncate hover:text-brand">{p.project?.title ?? 'Project'}</Link>
-                      <ProposalStatusBadge status={p.status} />
-                    </li>
-                  ))}
-                </ul>
-              ) : <p className="text-sm text-ink-secondary">No proposals waiting for a decision.</p>}
-            </section>
-          )}
-
-          {(disputesRes.data?.length ?? 0) > 0 && (
-            <section className="panel space-y-3 p-5" aria-labelledby="disputes-title">
-              <h2 id="disputes-title" className="t-section-title flex items-center gap-2"><Scale className="size-4 text-danger" aria-hidden /> Open disputes</h2>
-              <ul className="space-y-2 text-sm">
+            {(disputesRes.data?.length ?? 0) > 0 && (
+              <Ledger title={<span className="t-label-caps">Open disputes</span>}>
                 {disputesRes.data!.map((d) => (
-                  <li key={d.id} className="flex items-center justify-between gap-2">
-                    <Link className="link" href={d.arbitrator_id === viewer.id ? `/arbitration/cases/${d.id}` : `/disputes/${d.id}`}>{disputeNumber(d.number)}</Link>
-                    <DisputeStatusBadge status={d.status} />
-                  </li>
+                  <LedgerRow key={d.id} tone="danger" href={d.arbitrator_id === viewer.id ? `/arbitration/cases/${d.id}` : `/disputes/${d.id}`} meta={<span>Opened {formatRelative(d.created_at)}</span>} trail={<Money amount={d.amount} size="sm" />}>
+                    <p className="text-sm font-medium">{disputeNumber(d.number)}</p>
+                  </LedgerRow>
                 ))}
-              </ul>
-            </section>
-          )}
+              </Ledger>
+            )}
 
-          <section className="panel space-y-3 p-5" aria-labelledby="recent-title">
-            <h2 id="recent-title" className="t-section-title flex items-center gap-2"><Bell className="size-4 text-ink-muted" aria-hidden /> Recent activity</h2>
-            {notesRes.data?.length ? (
-              <ul className="space-y-3 text-sm">
-                {notesRes.data.map((n) => (
-                  <li key={n.id}>
-                    {n.link ? <Link href={n.link} className="block font-medium hover:text-brand">{n.title}</Link> : <span className="block font-medium">{n.title}</span>}
-                    <span className="t-meta">{formatRelative(n.created_at)}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : <p className="text-sm text-ink-secondary">No activity yet.</p>}
-            <Link href="/notifications" className="text-sm link">All notifications</Link>
-          </section>
-        </aside>
-      </div>
-    </>
+            <Ledger title={<span className="t-label-caps">Recent activity</span>} action={<Link className="link text-xs" href="/notifications">All</Link>} empty={<p className="border-y py-4 text-sm text-ink-secondary">No activity yet.</p>}>
+              {groupNotifications(notesRes.data ?? []).map(({ n, count }) => (
+                <LedgerRow key={n.id} href={n.link ?? '/notifications'} meta={<span>{formatRelative(n.created_at)}</span>}>
+                  <p className={cn('text-sm', n.read_at ? 'text-ink-secondary' : 'font-medium')}>
+                    {n.title}{count > 1 && <span className="ml-1 text-ink-muted">×{count}</span>}
+                  </p>
+                </LedgerRow>
+              ))}
+            </Ledger>
+          </aside>
+        </div>
+      )}
+
+      {isNew && work && (
+        <Ledger id="open-work" title="Open projects right now" action={<Link className="link" href="/work">Browse all</Link>} empty={<p className="border-y py-5 text-sm text-ink-secondary">No open projects yet — check back soon.</p>}>
+          {(recommendations ?? []).map((p) => <li key={p.id}><ProjectCard project={p} categories={catMap} /></li>)}
+        </Ledger>
+      )}
+    </div>
+  );
+}
+
+/** Collapses consecutive notifications of the same kind about the same thing ("New proposal … ×3"). */
+function groupNotifications(list: Notification[]) {
+  const out: { n: Notification; count: number }[] = [];
+  for (const n of list) {
+    const last = out[out.length - 1];
+    if (last && last.n.type === n.type && last.n.link === n.link) last.count++;
+    else out.push({ n, count: 1 });
+  }
+  return out.slice(0, 5);
+}
+
+/** First-run checklist instead of empty boxes. Each step reflects real account state. */
+function GettingStarted({ viewer, hire, work }: { viewer: Awaited<ReturnType<typeof requireViewer>>; hire: boolean; work: boolean }) {
+  const steps = [
+    { done: Boolean(viewer.profile.headline && viewer.profile.skills.length), title: 'Complete your profile', detail: 'A headline and skills help the right people find you.', href: '/settings', cta: 'Edit profile' },
+    { done: Boolean(viewer.wallet), title: 'Verify your wallet', detail: 'Prove you own a wallet by signing a free message. Needed to sign or fund contracts.', href: '/wallet', cta: 'Verify wallet' },
+    ...(hire ? [{ done: false, title: 'Post your first project', detail: 'Describe the work and budget. You fund escrow only after you hire.', href: '/projects/new', cta: 'Post a project' }] : []),
+    ...(work ? [{ done: false, title: 'Send your first proposal', detail: 'Pick an open project below and propose your own milestones.', href: '/work', cta: 'Find work' }] : []),
+  ];
+  const done = steps.filter((s) => s.done).length;
+  return (
+    <Ledger id="start" title="Get started" description={`${done} of ${steps.length} done`}>
+      {steps.map((s) => (
+        <LedgerRow
+          key={s.title}
+          lead={s.done ? <Check className="size-5 text-success" aria-label="Done" /> : <Circle className="size-5 text-line-strong" aria-label="To do" />}
+          meta={<span>{s.detail}</span>}
+          trail={!s.done && <Button asChild size="sm" variant="secondary"><Link href={s.href}>{s.cta}</Link></Button>}
+        >
+          <p className={cn('font-medium', s.done && 'text-ink-muted line-through')}>{s.title}</p>
+        </LedgerRow>
+      ))}
+    </Ledger>
   );
 }

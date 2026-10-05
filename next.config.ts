@@ -41,6 +41,8 @@ const legacyRedirects: [string, string][] = [
 ];
 
 const nextConfig: NextConfig = {
+  // A second dev server (e.g. for audits) can use its own build folder: NEXT_DIST_DIR=.next-audit
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   poweredByHeader: false,
   // Genkit pulls optional OpenTelemetry exporters; load it from node_modules at runtime instead of bundling.
   serverExternalPackages: ['genkit', '@genkit-ai/core', '@genkit-ai/google-genai'],

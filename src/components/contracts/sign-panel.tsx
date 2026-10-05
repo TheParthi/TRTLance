@@ -51,7 +51,7 @@ export function SignPanel({ contract, role, myName, walletAddress }: {
   };
 
   return (
-    <section id="sign" aria-labelledby="sign-title" className="panel scroll-mt-24 space-y-5 p-5 md:p-6">
+    <section id="sign" aria-labelledby="sign-title" className="statement scroll-mt-24 space-y-5">
       <div className="space-y-1">
         <h2 id="sign-title" className="t-section-title flex items-center gap-2"><PenLine className="size-5 text-brand" aria-hidden /> Signatures</h2>
         <p className="text-sm text-ink-secondary">Both parties sign the same version of the terms (fingerprint <span className="t-mono">{contract.terms_hash.slice(0, 12)}…</span>). Signing does not move money.</p>

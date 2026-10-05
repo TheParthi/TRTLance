@@ -56,3 +56,8 @@ blockchain/typechain-types/
 # editor / Firebase Studio state
 .modified
 !.env.example
+
+# extra Next build folders and local deployment records
+/.next-*/
+blockchain/deployments/localhost.json
+blockchain/deployments/hardhat.json

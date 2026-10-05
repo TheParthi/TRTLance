@@ -144,7 +144,7 @@ async function Results({ q, type, page }: { q: string; type: SearchType; page: n
                 <EmptyState compact icon={SearchX} title="No open projects match" description="Try a skill or a broader keyword." />
               ) : (
                 <>
-                  <ul className="space-y-4">
+                  <ul className="ledger">
                     {(type === 'all' ? projects.v.rows.slice(0, 3) : projects.v.rows).map((p) => <li key={p.id}><ProjectCard project={p} categories={catMap} /></li>)}
                   </ul>
                   {type === 'projects' && <Pager q={q} type="projects" page={projects.v.page} pages={Math.ceil(projects.v.total / PAGE_SIZE)} />}

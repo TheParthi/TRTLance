@@ -82,7 +82,7 @@ export default async function WorkPage({ searchParams }: { searchParams: Promise
             />
           ) : (
             <>
-              <ul className="space-y-4">
+              <ul className="ledger">
                 {result.rows.map((p) => <li key={p.id}><ProjectCard project={p} categories={catMap} /></li>)}
               </ul>
               {pages > 1 && (

@@ -3,37 +3,63 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CalendarClock, Check, ExternalLink, FileText, MessageSquareWarning, Scale, Undo2, Upload } from 'lucide-react';
+import {
+  CalendarClock, Check, ChevronDown, ExternalLink, FileText, MessageSquareWarning, MoreHorizontal, Scale, Undo2, Upload,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Field } from '@/components/ui/field';
 import { Textarea } from '@/components/ui/input';
 import { toast } from '@/components/ui/toaster';
 import { ConfirmDialog } from '@/components/common/confirm-dialog';
 import { Money } from '@/components/common/money';
 import { MilestoneStatusBadge } from '@/components/common/status-badge';
+import { StatusIcon } from '@/components/common/status-icon';
 import { EscrowTxDialog } from '@/components/escrow/escrow-tx-dialog';
 import { approveMilestone, requestRevision } from '@/lib/actions/contracts';
 import type { SubmissionWithFiles } from '@/lib/data/contracts';
 import { isEscrowConfigured } from '@/lib/env';
-import { daysUntil, formatBytes, formatDate, formatDateTime, shortAddress } from '@/lib/format';
+import { daysUntil, disputeNumber, formatBytes, formatDate, formatDateTime, shortAddress } from '@/lib/format';
 import { formatAmount } from '@/lib/money';
 import { milestoneStatus } from '@/lib/status';
 import type { Contract, Milestone } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { SubmitWorkDialog } from './submit-work-dialog';
 
-export function MilestoneCard({ contract, milestone: m, submissions, role, hasPendingTx, highlighted }: {
+const nodeTone: Record<string, string> = {
+  neutral: 'border-line-strong bg-surface text-ink-muted',
+  brand: 'border-brand bg-brand text-brand-foreground',
+  info: 'border-info bg-info text-white',
+  warning: 'border-warning bg-warning text-white',
+  success: 'border-success bg-success text-white',
+  danger: 'border-danger bg-danger text-white',
+  refund: 'border-refund bg-refund text-white',
+  brass: 'border-brass bg-brass text-white',
+};
+
+/**
+ * One milestone on the contract's spine. Only the milestone that needs attention is expanded with
+ * its primary action; secondary and risky actions sit in a "More" menu.
+ */
+export function MilestoneCard({ contract, milestone: m, submissions, role, hasPendingTx, highlighted, dispute, last }: {
   contract: Contract;
   milestone: Milestone;
   submissions: SubmissionWithFiles[];
   role: 'client' | 'freelancer';
   hasPendingTx: boolean;
+  /** The milestone the next action points at. */
   highlighted: boolean;
+  dispute?: { id: string; number: number } | null;
+  last?: boolean;
 }) {
   const router = useRouter();
   const [dialog, setDialog] = React.useState<null | 'submit' | 'revise' | 'approve' | 'release' | 'refund'>(null);
   const [comment, setComment] = React.useState('');
   const [busy, setBusy] = React.useState(false);
+  const closed = ['paid', 'refunded', 'settled'].includes(m.status);
+  const [expanded, setExpanded] = React.useState(highlighted || (!closed && m.status !== 'pending' && submissions.length > 0));
   const meta = milestoneStatus[m.status];
   const latest = submissions[0];
   const live = contract.status === 'active' || contract.status === 'disputed';
@@ -41,107 +67,135 @@ export function MilestoneCard({ contract, milestone: m, submissions, role, hasPe
   const open = ['funded', 'submitted', 'revision_requested', 'approved'].includes(m.status);
   const index = m.position - 1;
 
-  const release = () => setDialog('release');
-  const hasActions = live && (open || (role === 'client' && (m.status === 'submitted' || m.status === 'approved')));
+  const primary: React.ReactNode[] = [];
+  if (live && role === 'freelancer' && (m.status === 'funded' || m.status === 'revision_requested')) {
+    primary.push(<Button key="submit" onClick={() => setDialog('submit')}><Upload /> {m.status === 'revision_requested' ? 'Submit update' : 'Submit work'}</Button>);
+  }
+  if (live && role === 'client' && m.status === 'submitted') {
+    primary.push(<Button key="revise" variant="secondary" onClick={() => setDialog('revise')}><MessageSquareWarning /> Request changes</Button>);
+    primary.push(<Button key="approve" onClick={() => setDialog('approve')}><Check /> Approve &amp; release</Button>);
+  }
+  if (live && role === 'client' && m.status === 'approved') {
+    primary.push(<Button key="release" onClick={() => setDialog('release')} disabled={hasPendingTx || !isEscrowConfigured()}>{hasPendingTx ? 'Release confirming…' : 'Release payment'}</Button>);
+  }
+  const canRefund = live && role === 'freelancer' && m.status === 'funded' && isEscrowConfigured() && !hasPendingTx;
+  const canDispute = live && open;
 
   return (
-    <article id={`milestone-${m.position}`} className={cn('panel scroll-mt-24 overflow-hidden', highlighted && 'ring-2 ring-brand/40')} aria-labelledby={`ms-${m.id}-title`}>
-      <header className="flex flex-col gap-3 p-5 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 space-y-1.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="t-eyebrow">Milestone {m.position}</span>
+    <article id={`milestone-${m.position}`} className="relative scroll-mt-24 pb-8 pl-12" aria-labelledby={`ms-${m.id}-title`}>
+      {!last && <span className="absolute bottom-0 left-4 top-9 w-px bg-line-strong" aria-hidden />}
+      <span className={cn('absolute left-0 top-0 flex size-8 items-center justify-center rounded-full border-2 text-xs font-semibold', nodeTone[meta.tone], m.status === 'pending' && 'border-dashed')} aria-hidden>
+        {m.status === 'pending' || m.status === 'funded' ? m.position : <StatusIcon name={meta.icon} className="size-4" />}
+      </span>
+
+      <div className={cn('space-y-3', highlighted && '-ml-3 -mt-2 rounded-lg bg-surface pb-3 pl-3 pr-3 pt-2 shadow-sm ring-1 ring-brand/25')}>
+        <header className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+          <div className="min-w-0 space-y-1">
+            <p className="t-label-caps">Milestone {m.position}</p>
+            <h3 id={`ms-${m.id}-title`} className="text-lg font-semibold leading-snug">{m.title}</h3>
+            <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-secondary">
+              <span className="inline-flex items-center gap-1.5">
+                <CalendarClock className="size-3.5 text-ink-muted" aria-hidden />
+                {m.due_date ? <>Due {formatDate(m.due_date)}{open && due !== null && <span className={cn(due < 0 ? 'text-danger-strong' : due <= 2 ? 'text-warning-strong' : '')}>&nbsp;· {due < 0 ? `${-due} days overdue` : due === 0 ? 'due today' : `${due} days left`}</span>}</> : `Due ${m.due_in_days} days after funding`}
+              </span>
+              {m.revision_count > 0 && <span>{m.revision_count} revision{m.revision_count === 1 ? '' : 's'}</span>}
+              {m.paid_at && m.status === 'paid' && <span>Released {formatDate(m.paid_at)}</span>}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-3 sm:flex-col sm:items-end sm:gap-1.5">
+            <Money amount={m.amount} size="lg" />
             <MilestoneStatusBadge status={m.status} />
-            {m.revision_count > 0 && <span className="t-meta">{m.revision_count} revision{m.revision_count === 1 ? '' : 's'}</span>}
           </div>
-          <h3 id={`ms-${m.id}-title`} className="font-semibold">{m.title}</h3>
-          {m.description && <p className="text-sm text-ink-secondary">{m.description}</p>}
-          <p className="flex items-center gap-1.5 text-xs text-ink-secondary">
-            <CalendarClock className="size-3.5 text-ink-muted" aria-hidden />
-            {m.due_date
-              ? <>Due {formatDate(m.due_date)}{open && due !== null && <span className={cn(due < 0 ? 'text-danger-strong' : due <= 2 ? 'text-warning-strong' : '')}> · {due < 0 ? `${-due} days overdue` : due === 0 ? 'due today' : `${due} days left`}</span>}</>
-              : `Due ${m.due_in_days} days after funding`}
+        </header>
+
+        {m.description && <p className="max-w-2xl text-sm text-ink-secondary">{m.description}</p>}
+
+        {m.status === 'settled' && (
+          <p className="text-sm text-ink-secondary">Split by the arbitrator: {formatAmount(m.freelancer_payout)} to the freelancer, {formatAmount(m.client_refund)} back to the client.</p>
+        )}
+        {dispute && m.status === 'disputed' && (
+          <p className="flex flex-wrap items-center gap-2 text-sm text-danger-strong">
+            <Scale className="size-4" aria-hidden /> Frozen by {disputeNumber(dispute.number)} until the dispute is decided and settled.
+            <Link className="font-semibold underline" href={`/disputes/${dispute.id}`}>Open dispute</Link>
           </p>
-        </div>
-        <div className="shrink-0 sm:text-right">
-          <Money amount={m.amount} size="lg" />
-          {m.freelancer_payout && m.status !== 'paid' && <p className="t-meta">Freelancer received {formatAmount(m.freelancer_payout)}</p>}
-          {m.client_refund && <p className="t-meta">Refunded {formatAmount(m.client_refund)}</p>}
-          {m.paid_at && m.status === 'paid' && <p className="t-meta">Released {formatDate(m.paid_at)}</p>}
-        </div>
-      </header>
+        )}
 
-      <p className="sr-only">{meta.description}</p>
-
-      {latest && (
-        <div className="space-y-3 border-t bg-surface-subtle px-5 py-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm font-semibold">Submission v{latest.version}</p>
-            <p className="t-meta">{formatDateTime(latest.created_at)}</p>
+        {latest && (
+          <div>
+            <button
+              type="button"
+              onClick={() => setExpanded((e) => !e)}
+              aria-expanded={expanded}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-secondary hover:text-ink"
+            >
+              <ChevronDown className={cn('size-4 transition-transform', expanded && 'rotate-180')} aria-hidden />
+              <span className="text-left">
+                Submission v{latest.version} · {formatDateTime(latest.created_at)}
+                {submissions.length > 1 && <span className="ml-1 text-xs text-ink-muted">({submissions.length} versions)</span>}
+              </span>
+            </button>
+            {expanded && (
+              <div className="mt-3 space-y-3 rounded-lg bg-surface-subtle p-4">
+                <p className="whitespace-pre-line text-sm">{latest.note}</p>
+                {(latest.links.length > 0 || latest.files.length > 0) && (
+                  <ul className="space-y-1 text-sm">
+                    {latest.links.map((l) => (
+                      <li key={l}><a href={l} target="_blank" rel="noreferrer noopener" className="link inline-flex max-w-full items-center gap-1 truncate"><ExternalLink className="size-3.5 shrink-0" aria-hidden /> {l}</a></li>
+                    ))}
+                    {latest.files.map((f) => (
+                      <li key={f.id} className="flex items-center gap-1.5">
+                        <FileText className="size-3.5 text-ink-muted" aria-hidden />
+                        {f.url ? <a href={f.url} className="link truncate" target="_blank" rel="noreferrer">{f.file_name}</a> : f.file_name}
+                        <span className="t-meta">{formatBytes(f.size_bytes)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {latest.review_status === 'revision_requested' && latest.review_comment && (
+                  <div className="border-l-2 border-warning pl-3 text-sm">
+                    <p className="font-medium text-warning-strong">Changes requested</p>
+                    <p className="whitespace-pre-line text-ink-secondary">{latest.review_comment}</p>
+                  </div>
+                )}
+                {submissions.length > 1 && (
+                  <ol className="space-y-2 border-t pt-3 text-sm">
+                    {submissions.slice(1).map((s) => (
+                      <li key={s.id}>
+                        <p className="t-meta">v{s.version} · {formatDateTime(s.created_at)}</p>
+                        <p className="whitespace-pre-line text-ink-secondary">{s.note}</p>
+                        {s.review_comment && <p className="text-warning-strong">Feedback: {s.review_comment}</p>}
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+            )}
           </div>
-          <p className="whitespace-pre-line text-sm text-ink-secondary">{latest.note}</p>
-          {(latest.links.length > 0 || latest.files.length > 0) && (
-            <ul className="space-y-1 text-sm">
-              {latest.links.map((l) => (
-                <li key={l}><a href={l} target="_blank" rel="noreferrer noopener" className="link inline-flex max-w-full items-center gap-1 truncate"><ExternalLink className="size-3.5 shrink-0" aria-hidden /> {l}</a></li>
-              ))}
-              {latest.files.map((f) => (
-                <li key={f.id} className="flex items-center gap-1.5">
-                  <FileText className="size-3.5 text-ink-muted" aria-hidden />
-                  {f.url ? <a href={f.url} className="link truncate" target="_blank" rel="noreferrer">{f.file_name}</a> : f.file_name}
-                  <span className="t-meta">{formatBytes(f.size_bytes)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-          {latest.review_status === 'revision_requested' && latest.review_comment && (
-            <div className="rounded border-l-2 border-warning bg-warning-soft p-3 text-sm">
-              <p className="font-medium text-warning-strong">Changes requested</p>
-              <p className="whitespace-pre-line text-ink-secondary">{latest.review_comment}</p>
-            </div>
-          )}
-          {submissions.length > 1 && (
-            <details className="text-sm">
-              <summary className="cursor-pointer text-ink-muted hover:text-ink">Earlier versions ({submissions.length - 1})</summary>
-              <ol className="mt-2 space-y-2">
-                {submissions.slice(1).map((s) => (
-                  <li key={s.id} className="rounded border bg-surface p-3">
-                    <p className="t-meta">v{s.version} · {formatDateTime(s.created_at)}</p>
-                    <p className="mt-1 whitespace-pre-line text-ink-secondary">{s.note}</p>
-                    {s.review_comment && <p className="mt-1 text-warning-strong">Feedback: {s.review_comment}</p>}
-                  </li>
-                ))}
-              </ol>
-            </details>
-          )}
-        </div>
-      )}
+        )}
 
-      {hasActions && (
-        <footer className="flex flex-col-reverse gap-2 border-t p-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-          {open && (
-            <Button asChild variant="ghost" size="sm" className="sm:mr-auto">
-              <Link href={`/disputes/new?contract=${contract.id}&milestone=${m.id}`}><Scale /> Raise a dispute</Link>
-            </Button>
-          )}
-          {role === 'freelancer' && (m.status === 'funded' || m.status === 'revision_requested') && (
-            <>
-              {m.status === 'funded' && (
-                <Button variant="secondary" size="sm" onClick={() => setDialog('refund')} disabled={hasPendingTx || !isEscrowConfigured()}><Undo2 /> Return funds</Button>
-              )}
-              <Button onClick={() => setDialog('submit')}><Upload /> {m.status === 'revision_requested' ? 'Submit update' : 'Submit work'}</Button>
-            </>
-          )}
-          {role === 'client' && m.status === 'submitted' && (
-            <>
-              <Button variant="secondary" onClick={() => setDialog('revise')}><MessageSquareWarning /> Request changes</Button>
-              <Button onClick={() => setDialog('approve')}><Check /> Approve & release</Button>
-            </>
-          )}
-          {role === 'client' && m.status === 'approved' && (
-            <Button onClick={release} disabled={hasPendingTx || !isEscrowConfigured()}>{hasPendingTx ? 'Release confirming…' : 'Release payment'}</Button>
-          )}
-        </footer>
-      )}
+        {(primary.length > 0 || canRefund || canDispute) && (
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            {primary}
+            {(canRefund || canDispute) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size={primary.length ? 'icon' : 'sm'} aria-label="More actions for this milestone">
+                    <MoreHorizontal />{!primary.length && 'More actions'}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  {canRefund && <DropdownMenuItem onSelect={() => setDialog('refund')}><Undo2 /> Return funds to the client</DropdownMenuItem>}
+                  {canDispute && (
+                    <DropdownMenuItem asChild>
+                      <Link href={`/disputes/new?contract=${contract.id}&milestone=${m.id}`}><Scale /> Raise a dispute</Link>
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
+        )}
+      </div>
 
       <SubmitWorkDialog open={dialog === 'submit'} onOpenChange={(o) => setDialog(o ? 'submit' : null)} contractId={contract.id} milestone={m} isRevision={m.status === 'revision_requested'} />
 
