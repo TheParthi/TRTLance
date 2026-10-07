@@ -74,9 +74,6 @@ export default async function DashboardPage() {
 
   // What needs this member, most urgent first.
   const queue: QueueItem[] = [];
-  if (!viewer.wallet) {
-    queue.push({ key: 'wallet', href: '/wallet', subject: 'Your account', title: 'Verify your wallet', detail: 'Needed before you can sign or fund a contract. Free, takes a minute.', tone: 'warning', cta: 'Verify wallet' });
-  }
   const actions = contracts
     .map((c) => ({ c, a: nextAction(c.client_id === viewer.id ? 'client' : 'freelancer', c, c.milestones, c.disputes, c.reviews) }))
     .filter(({ a }) => a.tone === 'action' || a.tone === 'alert')
@@ -335,7 +332,7 @@ export default async function DashboardPage() {
       )}
 
       {isNew && work && (
-        <Ledger id="open-work" title={<span className="t-label-caps">Live projects</span>} description="Open work on TrustLance right now. Every payment is held in on-chain escrow." action={<Link className="link" href="/work">Browse all</Link>} empty={<EmptyLine>No open projects yet — new work appears here as soon as it is posted.</EmptyLine>}>
+        <Ledger id="open-work" title={<span className="t-label-caps">Live projects</span>} description="Open work on TrustLance right now. Every payment is locked in TrustLance escrow before work starts." action={<Link className="link" href="/work">Browse all</Link>} empty={<EmptyLine>No open projects yet — new work appears here as soon as it is posted.</EmptyLine>}>
           {(recommendations ?? []).map((p) => <li key={p.id}><ProjectCard project={p} categories={catMap} plan={plans.get(p.id)} /></li>)}
         </Ledger>
       )}
@@ -367,8 +364,11 @@ function groupNotifications(list: Notification[]) {
 function GettingStarted({ viewer, hire, work }: { viewer: Awaited<ReturnType<typeof requireViewer>>; hire: boolean; work: boolean }) {
   const steps = [
     { done: Boolean(viewer.profile.headline && viewer.profile.skills.length), title: 'Complete your profile', detail: 'A headline and skills help the right people find you.', href: '/settings', cta: 'Edit profile' },
-    { done: Boolean(viewer.wallet), title: 'Verify your wallet', detail: 'Prove you own a wallet by signing a free message. Needed to sign or fund contracts.', href: '/wallet', cta: 'Verify wallet' },
-    ...(hire ? [{ done: false, title: 'Post your first project', detail: 'Describe the work and budget. You fund escrow only after you hire.', href: '/projects/new', cta: 'Post a project' }] : []),
+    ...(hire ? [
+      { done: viewer.coins.wallet !== '0', title: 'Buy coins', detail: 'You post projects with TrustLance Coins (1 coin = ₹1). Pay with UPI, cards or net banking.', href: '/wallet#buy', cta: 'Buy coins' },
+      { done: false, title: 'Post your first project', detail: 'Describe the work and split the budget into milestones. Coins are locked in escrow only after you hire.', href: '/projects/new', cta: 'Post a project' },
+    ] : []),
+    ...(work ? [{ done: viewer.stats.identity_verified, title: 'Add your bank account', detail: 'Verify your PAN and bank account so you can withdraw your earnings.', href: '/wallet#withdraw', cta: 'Add bank account' }] : []),
     ...(work ? [{ done: false, title: 'Send your first proposal', detail: 'Pick an open project below and propose your own milestones.', href: '/work', cta: 'Find work' }] : []),
   ];
   const done = steps.filter((s) => s.done).length;

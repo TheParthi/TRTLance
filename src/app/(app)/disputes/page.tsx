@@ -18,7 +18,6 @@ export const metadata: Metadata = { title: 'Disputes' };
 
 /** What the case needs from a party right now, if anything. */
 function needsYou(d: DisputeListItem): { tone: 'warning' | 'brand'; text: string } | null {
-  if (d.settlement_status === 'awaiting_flag') return { tone: 'warning', text: `Flag milestone ${d.milestone?.position ?? ''} on-chain so the decision can be settled` };
   if (d.status === 'awaiting_evidence') {
     const days = daysUntil(d.evidence_due_at);
     return { tone: 'brand', text: days !== null && days > 0 ? `Add your evidence · ${days} day${days === 1 ? '' : 's'} left` : 'Add your evidence' };
@@ -48,7 +47,7 @@ export default async function DisputesPage() {
     <>
       <PageHeader
         title="Disputes"
-        description="Disagreements about a milestone, decided by an independent arbitrator. The disputed amount stays locked in escrow until the decision is settled on-chain."
+        description="Disagreements about a milestone, decided by an independent arbitrator. The disputed coins stay frozen in escrow until the decision, then move immediately."
       />
       <SubNav
         label="Contracts"
@@ -94,7 +93,7 @@ function DisputeRow({ d, members, viewerId }: {
   const raisedBy = d.raised_by === viewerId ? 'you' : members.get(d.raised_by)?.display_name ?? 'the other party';
   const need = needsYou(d);
   const settled = d.status === 'resolved' && d.settlement_status === 'settled';
-  const waiting = !need && !settled ? (d.status === 'resolved' ? 'Decided · waiting for the on-chain settlement' : waitingText[d.status]) : null;
+  const waiting = !need && !settled ? (d.status === 'resolved' ? 'Decided · settled' : waitingText[d.status]) : null;
   return (
     <LedgerRow
       href={`/disputes/${d.id}`}
@@ -118,7 +117,7 @@ function DisputeRow({ d, members, viewerId }: {
         </p>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <DisputeStatusMark status={d.status} />
-          {(d.status === 'resolved' || d.settlement_status === 'awaiting_flag') && <SettlementStatusMark status={d.settlement_status} />}
+          {d.status === 'resolved' && <SettlementStatusMark status={d.settlement_status} />}
           <span className="t-meta">Opened {formatDate(d.created_at)} by {raisedBy}</span>
         </div>
         {need && (

@@ -2,10 +2,9 @@ import { expect, test, type Page } from '@playwright/test';
 
 /**
  * Core client ↔ freelancer journey up to "awaiting funding". Runs only against a configured
- * environment with two confirmed test accounts that already have verified wallets:
+ * environment with two confirmed test accounts; the client needs at least 1,000 coins:
  *   E2E_CLIENT_EMAIL / E2E_CLIENT_PASSWORD, E2E_FREELANCER_EMAIL / E2E_FREELANCER_PASSWORD
- * Funding, release and disputes need a wallet extension and are covered by the database and
- * contract tests instead.
+ * Funding, release, withdrawals and disputes are covered by escrow-journey.spec.ts and the database tests.
  */
 const env = (k: string) => process.env[k] ?? '';
 const configured = ['E2E_CLIENT_EMAIL', 'E2E_CLIENT_PASSWORD', 'E2E_FREELANCER_EMAIL', 'E2E_FREELANCER_PASSWORD'].every(env);
@@ -40,7 +39,7 @@ test.describe('core journey', () => {
     await page.keyboard.press('Enter');
     await page.getByRole('radio', { name: /Intermediate/ }).click();
     await page.getByRole('button', { name: 'Continue' }).click();
-    await page.getByLabel(/Fixed budget/).fill('10');
+    await page.getByLabel(/Fixed budget/).fill('1000');
     for (let i = 0; i < 4; i++) await page.getByRole('button', { name: 'Continue' }).click();
     await page.getByRole('button', { name: 'Publish project' }).click();
     await page.waitForURL(/\/projects\/[0-9a-f-]{36}$/);

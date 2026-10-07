@@ -1,26 +1,18 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
-  activeContract, as, createUser, deliverAndApprove, expectError, pool, randomTxHash, releaseMilestone, root, service,
-  verifyWallet,
+  activeContract, as, balances, createUser, deliverAndApprove, escrowBalance, expectError, makeAdmin, pool, releaseMilestone, root,
 } from './helpers';
 
 afterAll(() => pool.end());
 
 async function approvedArbitrator(name = 'Arbiter') {
   const uid = await createUser(name);
-  await verifyWallet(uid);
   await root(
     `insert into public.arbitrators (user_id, status, specializations, statement, capacity, is_available)
      values ($1, 'approved', '{web-development}', $2, 3, true)`,
     [uid, 'Ten years of software delivery and code review experience across many teams.'],
   );
-  return uid;
-}
-
-async function makeAdmin(name = 'Platform Admin') {
-  const uid = await createUser(name);
-  await root('insert into public.platform_admins (user_id) values ($1)', [uid]);
   return uid;
 }
 
@@ -36,13 +28,6 @@ async function openDispute(ctx: { contractId: string; client: string }, mileston
     p_requested_freelancer_pct: 40,
     p_idempotency_key: key ?? null,
   });
-}
-
-async function flag(ctx: { contractId: string; client: string; clientWallet: string }, milestoneId: string, position: number) {
-  const txId = await as(ctx.client).rpc<string>('report_escrow_tx', {
-    p_contract_id: ctx.contractId, p_kind: 'dispute', p_milestone_id: milestoneId, p_chain_id: 31337, p_tx_hash: randomTxHash(),
-  });
-  await service().rpc('apply_escrow_dispute_flag', { p_tx_id: txId, p_block: 5, p_from: ctx.clientWallet, p_position: position });
 }
 
 describe('opening a dispute', () => {
@@ -66,9 +51,8 @@ describe('opening a dispute', () => {
 
     // Disputed work cannot be approved or released.
     await expectError(as(ctx.client).rpc('approve_milestone', { p_milestone_id: m1.id }), 'invalid_state');
-    const tx = await releaseMilestone(ctx.contractId, ctx.client, ctx.clientWallet, m1.id);
-    const [t] = await root<{ status: string }>('select status from public.escrow_transactions where id = $1', [tx]);
-    expect(t.status).toBe('failed');
+    await expectError(releaseMilestone(ctx.client, m1.id), 'invalid_state');
+    await expectError(as(ctx.freelancer).rpc('refund_milestone', { p_milestone_id: m1.id }), 'invalid_state');
 
     // The arbitrator can read the contract; a stranger cannot read the dispute.
     expect(await as(arbiter).query('select id from public.contracts where id = $1', [ctx.contractId])).toHaveLength(1);
@@ -92,7 +76,7 @@ describe('opening a dispute', () => {
     // Make the only available arbitrator someone who previously contracted with this client.
     await root(`update public.arbitrators set is_available = false`);
     const conflicted = await approvedArbitrator('Conflicted Arbiter');
-    const earlier = await activeContract([10]);
+    const earlier = await activeContract([100]);
     await root('update public.contracts set freelancer_id = $1 where id = $2', [conflicted, earlier.contractId]);
     await root('update public.contracts set client_id = $1 where id = $2', [ctx.client, earlier.contractId]);
     const id = await openDispute(ctx, ctx.milestones[0].id);
@@ -120,33 +104,18 @@ describe('deciding and settling', () => {
     });
     await expectError(as(arbiter).rpc('decide_dispute', { p_dispute_id: id, p_decision: 'client', p_freelancer_pct: null, p_reason: 'x'.repeat(60) }), 'invalid_state');
 
-    let [d] = await root<{ settlement_status: string }>('select settlement_status from public.disputes where id = $1', [id]);
-    expect(d.settlement_status).toBe('awaiting_flag');
-    await flag(ctx, m1.id, 1);
-    [d] = await root<{ settlement_status: string }>('select settlement_status from public.disputes where id = $1', [id]);
-    expect(d.settlement_status).toBe('ready');
-
-    const admin = await makeAdmin();
-    const resolve = () => as(admin).rpc<string>('report_escrow_tx', {
-      p_contract_id: ctx.contractId, p_kind: 'resolve', p_milestone_id: m1.id, p_chain_id: 31337, p_tx_hash: randomTxHash(),
-    });
-    await expectError(as(ctx.client).rpc('report_escrow_tx', {
-      p_contract_id: ctx.contractId, p_kind: 'resolve', p_milestone_id: m1.id, p_chain_id: 31337, p_tx_hash: randomTxHash(),
-    }), 'forbidden');
-
-    const wrong = await resolve();
-    await service().rpc('apply_escrow_resolution', { p_tx_id: wrong, p_block: 9, p_from: ctx.clientWallet, p_position: 1, p_freelancer_amount: '50', p_client_amount: '50' });
-    const [w] = await root<{ status: string }>('select status from public.escrow_transactions where id = $1', [wrong]);
-    expect(w.status).toBe('failed');
-
-    const right = await resolve();
-    await service().rpc('apply_escrow_resolution', { p_tx_id: right, p_block: 9, p_from: ctx.clientWallet, p_position: 1, p_freelancer_amount: '40', p_client_amount: '60' });
-    await service().rpc('apply_escrow_resolution', { p_tx_id: right, p_block: 9, p_from: ctx.clientWallet, p_position: 1, p_freelancer_amount: '40', p_client_amount: '60' });
-    const [m] = await root<{ status: string; freelancer_payout: string; client_refund: string }>(
-      'select status, freelancer_payout, client_refund from public.milestones where id = $1', [m1.id]);
+    // The decision settles immediately: 40 to the freelancer (less the 10% fee), 60 back to the client.
+    const [d] = await root<{ settlement_status: string }>('select settlement_status from public.disputes where id = $1', [id]);
+    expect(d.settlement_status).toBe('settled');
+    const [m] = await root<{ status: string; freelancer_payout: string; client_refund: string; platform_fee: string }>(
+      'select status, freelancer_payout, client_refund, platform_fee from public.milestones where id = $1', [m1.id]);
     expect(m.status).toBe('settled');
     expect(Number(m.freelancer_payout)).toBe(40);
     expect(Number(m.client_refund)).toBe(60);
+    expect(Number(m.platform_fee)).toBe(4);
+    expect((await balances(ctx.freelancer)).pending).toBe(36);
+    expect((await balances(ctx.client)).wallet).toBe(60);
+    expect(await escrowBalance(ctx.contractId)).toBe(200);
     const [c] = await root<{ status: string }>('select status from public.contracts where id = $1', [ctx.contractId]);
     expect(c.status).toBe('active');
 
@@ -155,7 +124,6 @@ describe('deciding and settling', () => {
     await expectError(root('update public.dispute_events set type = $1 where dispute_id = $2', ['tampered', id]), 'immutable');
 
     await deliverAndApprove(ctx, m2.id);
-    await releaseMilestone(ctx.contractId, ctx.client, ctx.clientWallet, m2.id);
     const [done] = await root<{ status: string }>('select status from public.contracts where id = $1', [ctx.contractId]);
     expect(done.status).toBe('completed');
   });
@@ -184,7 +152,7 @@ describe('arbitrator programme', () => {
     const uid = await createUser('Hopeful');
     const result = await as(uid).rpc<{ eligible: boolean; checks: { key: string; met: boolean }[] }>('arbitrator_eligibility');
     expect(result.eligible).toBe(false);
-    expect(result.checks.map((c) => c.key)).toEqual(['contracts', 'rating', 'disputes', 'wallet', 'age']);
+    expect(result.checks.map((c) => c.key)).toEqual(['contracts', 'rating', 'disputes', 'identity', 'age']);
     await expectError(as(uid).rpc('apply_as_arbitrator', {
       p_specializations: ['design'], p_statement: 'x'.repeat(60), p_capacity: 2,
     }), 'not_eligible');

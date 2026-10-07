@@ -30,7 +30,7 @@ const intentLabel: Record<Intent, string> = {
 };
 
 const EMPTY_STATS: ProfileStats = {
-  id: '', email_verified: false, wallet_verified: false, rating_avg: null, review_count: 0,
+  id: '', email_verified: false, identity_verified: false, rating_avg: null, review_count: 0,
   completed_as_freelancer: 0, completed_as_client: 0, funded_as_client: 0, disputes_lost: 0, trust_credits: 0,
 };
 

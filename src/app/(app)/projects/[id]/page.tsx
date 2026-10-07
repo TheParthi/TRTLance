@@ -85,11 +85,11 @@ export default async function ProjectPage({ params }: Params) {
   const { summary, scope } = splitBrief(project.description);
   const proposalShown = myProposal && myProposal.status !== 'withdrawn' ? myProposal : null;
   const funding = contract
-    ? ({ pending_signatures: 'Awaiting signatures', awaiting_funding: 'Awaiting the deposit', active: 'Secured in escrow', disputed: 'Secured — in dispute', completed: 'Released', cancelled: 'No money moved' } as Record<string, string>)[contract.status] ?? 'In the contract'
+    ? ({ pending_signatures: 'Awaiting signatures', awaiting_funding: 'Awaiting funding', active: 'Secured in escrow', disputed: 'Secured — in dispute', completed: 'Released', cancelled: 'No money moved' } as Record<string, string>)[contract.status] ?? 'In the contract'
     : project.status === 'in_contract' ? 'Handled in the contract'
     : project.status === 'completed' ? 'Completed'
     : project.status === 'cancelled' ? 'No money moved'
-    : 'Deposited after hiring';
+    : 'Locked in escrow after hiring';
 
   return (
     <>
@@ -148,7 +148,7 @@ export default async function ProjectPage({ params }: Params) {
               <Money amount={project.budget_amount} size="xl" />
               <p className="flex items-start gap-2 text-xs text-ink-secondary">
                 <Lock className="mt-0.5 size-3.5 shrink-0 text-brand" aria-hidden />
-                Fixed price. The client deposits the agreed amount into escrow before work starts.
+                Fixed price. The client locks the agreed amount in TrustLance escrow before work starts.
               </p>
             </div>
 

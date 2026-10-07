@@ -1,28 +1,27 @@
 import type { PublicMember } from '@/lib/data/projects';
-import { formatDate, formatDateTime, shortHash } from '@/lib/format';
+import { formatDate, formatDateTime } from '@/lib/format';
 import { formatAmount } from '@/lib/money';
 import type { ContractEvent } from '@/lib/types';
 
-const txLabel = (k: string) => ({ fund: 'Deposit', release: 'Release', refund: 'Refund', dispute: 'Dispute flag', resolve: 'Settlement' }[k] ?? 'Escrow');
+const released = (d: Record<string, string | number | undefined>) =>
+  `${formatAmount(String(d.amount))} to the freelancer${d.fee ? ` (platform fee ${formatAmount(String(d.fee))})` : ''}${d.available_on ? `, withdrawable from ${formatDate(String(d.available_on))}` : ''}.`;
 
 /** A title and one detail sentence for each event. */
 const describe = (e: ContractEvent): { title: string; detail?: string } => {
   const d = e.data as Record<string, string | number | undefined>;
   switch (e.type) {
     case 'contract.created': return { title: 'Contract created', detail: `From the accepted proposal, for ${formatAmount(String(d.total_amount ?? '0'))}.` };
-    case 'contract.signed': return { title: `Signed by the ${d.role}`, detail: `${d.name} signed with wallet ${shortHash(String(d.wallet ?? ''))}.` };
-    case 'contract.awaiting_funding': return { title: 'Both parties signed', detail: 'Waiting for the escrow deposit.' };
+    case 'contract.signed': return { title: `Signed by the ${d.role}`, detail: `${d.name} signed the terms.` };
+    case 'contract.awaiting_funding': return { title: 'Both parties signed', detail: 'Waiting for the client to lock the coins.' };
     case 'contract.cancelled': return { title: 'Contract cancelled', detail: String(d.reason ?? '') || undefined };
     case 'contract.completed': return { title: 'Contract completed', detail: 'All milestones are closed.' };
-    case 'escrow.tx_submitted': return { title: `${txLabel(String(d.kind))} transaction broadcast`, detail: `Transaction ${shortHash(String(d.tx_hash))}, waiting for confirmation.` };
-    case 'escrow.tx_failed': return { title: `${txLabel(String(d.kind))} transaction not accepted`, detail: String(d.reason ?? '') || undefined };
-    case 'escrow.funded': return { title: 'Escrow funded', detail: `${formatAmount(String(d.amount))} deposited, verified on-chain.` };
-    case 'escrow.dispute_flagged': return { title: `Milestone ${d.position} flagged on-chain`, detail: 'Marked as disputed in the escrow contract.' };
+    case 'escrow.funded': return { title: 'Escrow funded', detail: `${formatAmount(String(d.amount))} locked in TrustLance escrow.` };
     case 'milestone.submitted': return { title: `Milestone ${d.position} submitted`, detail: `Version ${d.version} sent for review.` };
     case 'milestone.revision_requested': return { title: `Changes requested on milestone ${d.position}` };
     case 'milestone.approved': return { title: `Milestone ${d.position} approved` };
-    case 'milestone.paid': return { title: `Milestone ${d.position} released`, detail: `${formatAmount(String(d.amount))} to the freelancer, verified on-chain.` };
-    case 'milestone.refunded': return { title: `Milestone ${d.position} refunded`, detail: `${formatAmount(String(d.amount))} to the client, verified on-chain.` };
+    case 'milestone.paid': return { title: `Milestone ${d.position} released`, detail: released(d) };
+    case 'milestone.auto_released': return { title: `Milestone ${d.position} released automatically`, detail: `The client did not respond to the submission in time. ${released(d)}` };
+    case 'milestone.refunded': return { title: `Milestone ${d.position} refunded`, detail: `${formatAmount(String(d.amount))} returned to the client’s coin wallet.` };
     case 'milestone.settled': return { title: `Milestone ${d.position} settled`, detail: `${formatAmount(String(d.freelancer_amount))} to the freelancer, ${formatAmount(String(d.client_amount))} to the client.` };
     case 'dispute.opened': return { title: `Dispute opened on milestone ${d.position}` };
     case 'dispute.decided': return { title: 'Dispute decided', detail: d.decision === 'partial' ? `${d.freelancer_pct}% to the freelancer.` : d.decision === 'freelancer' ? 'In favour of the freelancer.' : 'In favour of the client.' };
@@ -48,7 +47,7 @@ export function ActivityFeed({ events, members }: { events: ContractEvent[]; mem
     <ol className="ledger">
       {events.map((e) => {
         const { title, detail } = describe(e);
-        const who = e.actor_id ? members.get(e.actor_id)?.display_name ?? 'Member' : 'TrustLance (verified)';
+        const who = e.actor_id ? members.get(e.actor_id)?.display_name ?? 'Member' : 'TrustLance';
         return (
           <li key={e.id} className="flex items-start gap-4 py-3.5 sm:gap-6">
             <DateBlock iso={e.created_at} />

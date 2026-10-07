@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowLeftRight, ExternalLink, FileText, MessagesSquare } from 'lucide-react';
+import { ArrowLeftRight, FileText, MessagesSquare } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Ledger, LedgerRow } from '@/components/common/ledger';
@@ -18,19 +18,18 @@ import { ContractRing } from '@/components/contracts/contract-ring';
 import { FundEscrowButton, FundEscrowTrigger } from '@/components/contracts/fund-escrow-button';
 import { MilestoneCard } from '@/components/contracts/milestone-card';
 import { NextActionBanner } from '@/components/contracts/next-action-banner';
-import { ContractLiveUpdates } from '@/components/contracts/pending-tx-watcher';
+import { ContractLiveUpdates } from '@/components/contracts/live-updates';
 import { ReviewForm } from '@/components/contracts/review-form';
 import { SignPanel } from '@/components/contracts/sign-panel';
-import { TransactionsList } from '@/components/contracts/transactions-list';
+import { EscrowMovements } from '@/components/contracts/escrow-movements';
 import { LedgerField } from '@/components/marketing/ledger-field';
 import { Reveal, SplitWords } from '@/components/marketing/reveal';
 import { SubNav } from '@/components/shell/sub-nav';
 import { requireViewer } from '@/lib/auth';
 import { getContractWorkspace } from '@/lib/data/contracts';
-import { publicEnv } from '@/lib/env';
-import { explorerAddressUrl, formatBytes, formatDate, formatDateTime, shortAddress } from '@/lib/format';
+import { formatBytes, formatDate, formatDateTime } from '@/lib/format';
 import { escrowStatement, milestoneSegments } from '@/lib/escrow-summary';
-import { formatAmount } from '@/lib/money';
+import { feePercent, formatAmount } from '@/lib/money';
 import { nextAction } from '@/lib/next-action';
 import { contractStatus, milestoneStatus } from '@/lib/status';
 import { cn } from '@/lib/utils';
@@ -47,7 +46,7 @@ export default async function ContractPage({ params, searchParams }: Props) {
   const viewer = await requireViewer(`/contracts/${id}`);
   const ws = await getContractWorkspace(id);
   if (!ws) notFound();
-  const { contract: c, milestones, submissions, transactions, events, disputes, reviews, members, files, conversationId } = ws;
+  const { contract: c, milestones, submissions, escrow, events, disputes, reviews, members, files, conversationId, settings } = ws;
   const role = c.client_id === viewer.id ? 'client' : c.freelancer_id === viewer.id ? 'freelancer' : null;
   if (!role) {
     // Arbitrators and admins read contracts through the case room of the dispute they handle.
@@ -60,7 +59,7 @@ export default async function ContractPage({ params, searchParams }: Props) {
   // The contract's state (money, next step, milestones) is always on the page; these tabs hold the records.
   const tabs = [
     { key: 'agreement', label: 'Agreement' },
-    { key: 'funding', label: 'Transactions', count: transactions.length },
+    { key: 'funding', label: 'Escrow movements', count: escrow.length },
     { key: 'activity', label: 'Activity' },
   ];
   const tab = tabs.some((t) => t.key === rawTab) ? rawTab! : 'agreement';
@@ -68,14 +67,11 @@ export default async function ContractPage({ params, searchParams }: Props) {
   const freelancer = members.get(c.freelancer_id);
   const other = role === 'client' ? freelancer : client;
   const action = nextAction(role, c, milestones, disputes, reviews);
-  const pending = transactions.filter((t) => t.status === 'pending');
   const myReview = reviews.find((r) => r.reviewer_role === role);
   const theirReview = reviews.find((r) => r.reviewer_role !== role);
   const current = action.milestoneId ?? milestones.find((m) => !['paid', 'refunded', 'settled', 'pending'].includes(m.status))?.id;
-  const escrowUrl = c.escrow_address ? explorerAddressUrl(c.escrow_address) : null;
-  const fundPending = pending.some((t) => t.kind === 'fund');
   const fundControl = role === 'client' && c.status === 'awaiting_funding'
-    ? <FundEscrowTrigger pending={fundPending} variant="signal" size="lg" />
+    ? <FundEscrowTrigger variant="signal" size="lg" />
     : undefined;
 
   const signing = c.status === 'pending_signatures';
@@ -94,9 +90,9 @@ export default async function ContractPage({ params, searchParams }: Props) {
 
   return (
     <div className="space-y-10 md:space-y-14">
-      <ContractLiveUpdates contractId={c.id} pendingTxIds={pending.map((t) => t.id)} />
-      {/* The deposit dialog lives here, not in the next-step band, so it survives the refresh after funding. */}
-      {role === 'client' && <FundEscrowButton contract={c} milestones={milestones} pending={fundPending} trigger={false} />}
+      <ContractLiveUpdates contractId={c.id} />
+      {/* The funding dialog lives here, not in the next-step band, so it survives the refresh after funding. */}
+      {role === 'client' && c.status === 'awaiting_funding' && <FundEscrowButton contract={c} milestones={milestones} walletBalance={viewer.coins.wallet} trigger={false} />}
 
       {/* The stage: who, what state, and where every coin is — with this contract's escrow as the 3D ring. */}
       <section aria-labelledby="contract-title" className="relative mx-[calc(50%-50vw)] -mt-6 overflow-hidden border-b md:-mt-10">
@@ -137,12 +133,9 @@ export default async function ContractPage({ params, searchParams }: Props) {
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2 className="t-label-caps">{c.funded_at ? 'Escrow statement' : 'Escrow statement — not funded yet'}</h2>
               <p className="t-meta">
-                {c.escrow_address ? (
-                  <span className="inline-flex flex-wrap items-center gap-1">
-                    Held by {escrowUrl ? <a className="link inline-flex items-center gap-1 font-mono" href={escrowUrl} target="_blank" rel="noreferrer">{shortAddress(c.escrow_address)} <ExternalLink className="size-3" aria-hidden /></a> : <span className="font-mono">{shortAddress(c.escrow_address)}</span>}
-                    on {publicEnv.chain.name || `chain ${c.chain_id}`}, not by TrustLance
-                  </span>
-                ) : c.status === 'cancelled' ? 'Cancelled before funding — no money moved.' : 'The client deposits the full amount after both parties sign.'}
+                {c.funded_at
+                  ? `Held in TrustLance escrow since ${formatDate(c.funded_at)} · ${feePercent(c.fee_bps)} platform fee on each payment`
+                  : c.status === 'cancelled' ? 'Cancelled before funding — no coins moved.' : 'The client locks the full amount after both parties sign.'}
               </p>
             </div>
             <dl className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3 lg:grid-cols-[1.5fr_repeat(5,minmax(0,1fr))]">
@@ -184,7 +177,7 @@ export default async function ContractPage({ params, searchParams }: Props) {
 
       <div className="grid gap-10 xl:grid-cols-[minmax(0,1fr)_17rem] xl:gap-14">
         <div className="min-w-0 space-y-10">
-          {signing && <SignPanel contract={c} role={role} myName={viewer.profile.display_name} walletAddress={viewer.wallet?.address ?? null} />}
+          {signing && <SignPanel contract={c} role={role} myName={viewer.profile.display_name} />}
           <section aria-labelledby="milestones-title" className="space-y-5">
             <div className="flex items-baseline justify-between gap-4 border-b pb-3">
               <h2 id="milestones-title" className="t-label-caps">Milestones</h2>
@@ -192,7 +185,7 @@ export default async function ContractPage({ params, searchParams }: Props) {
             </div>
             <ol>
               {milestones.map((m, i) => {
-                const d = disputes.find((x) => x.milestone_id === m.id && (x.status !== 'resolved' || x.settlement_status !== 'settled'));
+                const d = disputes.find((x) => x.milestone_id === m.id && x.status !== 'resolved');
                 return (
                   <Reveal as="li" key={m.id} delay={i * 60}>
                     <MilestoneCard
@@ -200,7 +193,8 @@ export default async function ContractPage({ params, searchParams }: Props) {
                       milestone={m}
                       submissions={submissions.filter((s) => s.milestone_id === m.id)}
                       role={role}
-                      hasPendingTx={pending.some((t) => t.milestone_id === m.id)}
+                      holdDays={settings.hold_working_days}
+                      autoReleaseDays={settings.auto_release_days}
                       highlighted={current === m.id && c.status !== 'completed'}
                       dispute={d ? { id: d.id, number: d.number } : null}
                       last={i === milestones.length - 1}
@@ -230,6 +224,7 @@ export default async function ContractPage({ params, searchParams }: Props) {
             <Facts className="sm:grid-cols-1" items={[
               { label: 'Length', value: `${milestones.length} milestones · ${c.terms.duration_days} days` },
               { label: 'Funded', value: c.funded_at ? formatDateTime(c.funded_at) : 'Not yet' },
+              { label: 'Platform fee', value: `${feePercent(c.fee_bps)} of each payment` },
               { label: 'Terms fingerprint', value: <span className="t-mono break-all">{c.terms_hash.slice(0, 24)}…</span> },
             ]} />
           </div>
@@ -248,7 +243,7 @@ export default async function ContractPage({ params, searchParams }: Props) {
             <div className="min-w-0 space-y-8">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <p className="max-w-reading text-sm text-ink-secondary">The exact terms both parties sign. Changing them is not possible after signing.</p>
-                <AgreementPdfButton contract={c} milestones={milestones} transactions={transactions} />
+                <AgreementPdfButton contract={c} milestones={milestones} escrow={escrow} />
               </div>
               <Facts items={[
                 { label: 'Client', value: c.terms.client.name },
@@ -279,7 +274,7 @@ export default async function ContractPage({ params, searchParams }: Props) {
                 <p className="t-label-caps">Payment terms</p>
                 <p className="max-w-reading text-sm text-ink-secondary">{c.terms.payment_terms}</p>
               </div>
-              {!signing && <SignPanel contract={c} role={role} myName={viewer.profile.display_name} walletAddress={viewer.wallet?.address ?? null} />}
+              {!signing && <SignPanel contract={c} role={role} myName={viewer.profile.display_name} />}
             </div>
             <Ledger title={<span className="t-label-caps">Files</span>} empty={<p className="border-y py-4 text-sm text-ink-secondary">No files yet. Files attached to submissions appear here.</p>}>
               {files.map((f) => (
@@ -293,8 +288,8 @@ export default async function ContractPage({ params, searchParams }: Props) {
 
         {tab === 'funding' && (
           <div className="space-y-4">
-            <p className="max-w-reading text-sm text-ink-secondary">Every on-chain transaction for this contract. A status changes only after TrustLance verifies it on the network.</p>
-            <TransactionsList transactions={transactions} milestones={milestones} />
+            <p className="max-w-reading text-sm text-ink-secondary">Every movement of coins into and out of this contract’s escrow, straight from the TrustLance ledger. Entries cannot be edited or deleted.</p>
+            <EscrowMovements entries={escrow} milestones={milestones} />
           </div>
         )}
 

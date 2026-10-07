@@ -39,7 +39,7 @@ export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttrib
 );
 Select.displayName = 'Select';
 
-/** Input with a fixed unit suffix, e.g. an amount in SHM. */
+/** Input with a fixed unit suffix, e.g. an amount in coins. */
 export const AmountInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & { unit: string }>(
   ({ className, unit, ...props }, ref) => (
     <div className="relative">

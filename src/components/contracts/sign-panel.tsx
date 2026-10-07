@@ -1,28 +1,25 @@
 'use client';
 
 import * as React from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CheckCircle2, Clock, PenLine } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Callout } from '@/components/ui/callout';
 import { Checkbox } from '@/components/ui/choice';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/components/ui/toaster';
 import { signContract } from '@/lib/actions/contracts';
-import { formatDateTime, shortAddress } from '@/lib/format';
+import { formatDateTime } from '@/lib/format';
 import type { Contract } from '@/lib/types';
 
 /**
  * Typed-name signature (keyboard and screen-reader friendly). The signature binds to the exact
- * terms hash shown here and records the signer's verified wallet.
+ * terms hash shown here.
  */
-export function SignPanel({ contract, role, myName, walletAddress }: {
+export function SignPanel({ contract, role, myName }: {
   contract: Contract;
   role: 'client' | 'freelancer';
   myName: string;
-  walletAddress: string | null;
 }) {
   const router = useRouter();
   const [name, setName] = React.useState('');
@@ -31,8 +28,8 @@ export function SignPanel({ contract, role, myName, walletAddress }: {
   const signedAt = role === 'client' ? contract.client_signed_at : contract.freelancer_signed_at;
 
   const parties = [
-    { label: 'Client', at: contract.client_signed_at, name: contract.client_signature_name, wallet: contract.client_wallet },
-    { label: 'Freelancer', at: contract.freelancer_signed_at, name: contract.freelancer_signature_name, wallet: contract.freelancer_wallet },
+    { label: 'Client', at: contract.client_signed_at, name: contract.client_signature_name },
+    { label: 'Freelancer', at: contract.freelancer_signed_at, name: contract.freelancer_signature_name },
   ];
 
   const sign = async (e: React.FormEvent) => {
@@ -46,7 +43,7 @@ export function SignPanel({ contract, role, myName, walletAddress }: {
       if (r.error.code === 'terms_changed') router.refresh();
       return;
     }
-    toast.success(r.data === 'awaiting_funding' ? 'Signed by both parties. Escrow can now be funded.' : 'Signed. Waiting for the other party.');
+    toast.success(r.data === 'awaiting_funding' ? 'Signed by both parties. The client can now lock the coins in escrow.' : 'Signed. Waiting for the other party.');
     router.refresh();
   };
 
@@ -67,7 +64,7 @@ export function SignPanel({ contract, role, myName, walletAddress }: {
               {p.at ? (
                 <>
                   <p className="font-medium text-success-strong">Signed by {p.name}</p>
-                  <p className="t-meta">{formatDateTime(p.at)} · wallet <span className="font-mono">{shortAddress(p.wallet)}</span></p>
+                  <p className="t-meta">{formatDateTime(p.at)}</p>
                 </>
               ) : (
                 <p className="text-ink-secondary">Not signed yet</p>
@@ -78,26 +75,20 @@ export function SignPanel({ contract, role, myName, walletAddress }: {
       </ul>
 
       {contract.status === 'pending_signatures' && !signedAt && (
-        walletAddress ? (
-          <form onSubmit={sign} className="statement space-y-4">
-            <div className="flex items-center gap-2">
-              <PenLine className="size-4 text-brand" aria-hidden />
-              <p className="font-medium">Sign as the {role}</p>
-            </div>
-            <Field label="Type your full name to sign" hint={`Your verified wallet ${shortAddress(walletAddress)} will ${role === 'client' ? 'fund' : 'receive'} the escrow payments.`}>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={myName} autoComplete="name" maxLength={100} />
-            </Field>
-            <label className="flex items-start gap-3 text-sm">
-              <Checkbox checked={agree} onCheckedChange={(v) => setAgree(v === true)} className="mt-0.5" />
-              <span>I have read the scope, deliverables, milestones and payment terms on this page and agree to them.</span>
-            </label>
-            <Button type="submit" loading={busy} disabled={!agree || name.trim().length < 2}>Sign contract</Button>
-          </form>
-        ) : (
-          <Callout tone="warning" title="Verify your wallet before signing" action={<Button asChild size="sm" variant="secondary"><Link href="/wallet">Verify wallet</Link></Button>}>
-            Escrow payments are {role === 'client' ? 'funded from' : 'paid to'} the wallet you verify. It is recorded with your signature.
-          </Callout>
-        )
+        <form onSubmit={sign} className="statement space-y-4">
+          <div className="flex items-center gap-2">
+            <PenLine className="size-4 text-brand" aria-hidden />
+            <p className="font-medium">Sign as the {role}</p>
+          </div>
+          <Field label="Type your full name to sign" hint={role === 'client' ? 'After both of you sign, you lock the total from your coin wallet.' : 'Milestone payments go to your TrustLance earnings, then to your verified bank account.'}>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={myName} autoComplete="name" maxLength={100} />
+          </Field>
+          <label className="flex items-start gap-3 text-sm">
+            <Checkbox checked={agree} onCheckedChange={(v) => setAgree(v === true)} className="mt-0.5" />
+            <span>I have read the scope, deliverables, milestones and payment terms on this page and agree to them.</span>
+          </label>
+          <Button type="submit" loading={busy} disabled={!agree || name.trim().length < 2}>Sign contract</Button>
+        </form>
       )}
     </section>
   );

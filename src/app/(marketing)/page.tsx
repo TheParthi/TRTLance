@@ -24,15 +24,15 @@ const doors = [
     href: '/work',
     eyebrow: 'For freelancers',
     title: 'Work knowing the money is there.',
-    steps: ['See every client’s funding history first.', 'Propose your own milestones and price.', 'Start only once escrow is funded.', 'Get paid on each approval, to your wallet.'],
+    steps: ['See every client’s funding history first.', 'Propose your own milestones and price.', 'Start only once escrow is funded.', 'Get paid on each approval, then withdraw to your bank.'],
     cta: 'Find work',
   },
 ];
 
 const principles = [
-  { title: 'Non-custodial escrow', body: 'Funds sit in a smart contract with no withdraw function for TrustLance. Only the parties — or an arbitrator’s decision — can move them.' },
-  { title: 'One verified wallet', body: 'You prove a wallet is yours once, by signing a free message. Payments go only to that wallet, and every transaction shows its hash.' },
-  { title: 'Disputes decided, not argued', body: 'Either side can freeze a milestone. A conflict-checked arbitrator reads the evidence and the escrow contract pays out the decision.' },
+  { title: 'Escrow before work starts', body: 'The client locks the whole contract in TrustLance escrow before any work begins. Coins move only when the client releases a milestone, the freelancer refunds it, or an arbitrator decides.' },
+  { title: 'Coins you can trust', body: 'Pay in TrustLance Coins (1 coin = ₹1) with UPI, cards or net banking. Earnings go to a bank account verified with your PAN, and every movement is on a permanent ledger.' },
+  { title: 'Disputes decided, not argued', body: 'Either side can freeze a milestone. A conflict-checked arbitrator reads the evidence, and the coins are paid out exactly as decided.' },
   { title: 'AI that advises, never decides', body: 'AI reviews point out vague scope and risky budgets. They are labelled, dated and kept apart from verified facts — never a verdict.' },
   { title: 'Reviews from paid work only', body: 'A review can only follow a completed, escrow-funded contract, once per side. Ratings are counted by the platform, not typed in.' },
 ];
@@ -229,7 +229,7 @@ export default async function LandingPage() {
       <section data-header="dark" aria-labelledby="close-title" className="relative overflow-hidden bg-surface-inverse text-ink-inverse">
         <LedgerField tone="signal" density={18} pulses={6} />
         <div className="container relative flex min-h-[85svh] flex-col justify-center py-24">
-          <p className="text-2xs font-semibold uppercase tracking-[0.18em] text-signal">Free to join · no wallet until you sign</p>
+          <p className="text-2xs font-semibold uppercase tracking-[0.18em] text-signal">Free to join · buy coins only when you post work</p>
           <h2 id="close-title" className="mt-6 max-w-5xl font-display text-[clamp(3rem,9vw,9rem)] font-medium leading-[0.9] tracking-[-0.045em]">
             <SplitWords text="Start on solid ground." />
           </h2>

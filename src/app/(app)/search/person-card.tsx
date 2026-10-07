@@ -20,7 +20,7 @@ export function PersonRow({ person }: { person: PersonSearchRow }) {
             role="freelancer"
             stats={{
               email_verified: person.email_verified,
-              wallet_verified: person.wallet_verified,
+              identity_verified: person.identity_verified,
               completed_as_freelancer: person.completed_as_freelancer,
               rating_avg: person.rating_avg,
               review_count: person.review_count,

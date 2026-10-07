@@ -27,7 +27,7 @@ export default async function OnboardingPage() {
           userId={viewer.id}
           email={viewer.email}
           emailVerified={viewer.stats.email_verified || viewer.emailConfirmed}
-          walletAddress={viewer.wallet?.address ?? null}
+          identityVerified={viewer.stats.identity_verified}
           profile={viewer.profile}
         />
       </main>

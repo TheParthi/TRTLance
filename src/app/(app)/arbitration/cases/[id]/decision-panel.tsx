@@ -136,7 +136,7 @@ function DecideDialog({ disputeId, amount, open, onOpenChange }: { disputeId: st
       open={open}
       onOpenChange={onOpenChange}
       title="Record your decision"
-      description="Decisions are final on TrustLance. Both parties read your reasoning, and the escrow contract pays out exactly this split when settled."
+      description="Decisions are final on TrustLance. Both parties read your reasoning, and the coins are paid out exactly this way as soon as you decide."
       confirmLabel="Record final decision"
       busy={busy}
       onConfirm={async () => {
@@ -150,7 +150,7 @@ function DecideDialog({ disputeId, amount, open, onOpenChange }: { disputeId: st
         const r = await decideDispute(disputeId, { decision, freelancerPct: decision === 'partial' ? pct : null, reason: reason.trim() });
         setBusy(false);
         if (!r.ok) return setErrors({ form: r.error.message });
-        toast.success('Decision recorded. Funds move when the escrow contract settles it.');
+        toast.success('Decision recorded and the coins were settled.');
         onOpenChange(false);
         router.refresh();
       }}

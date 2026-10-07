@@ -53,8 +53,54 @@ export async function requestRevision(contractId: string, milestoneId: string, c
   });
 }
 
-export async function approveMilestone(contractId: string, milestoneId: string): Promise<ActionResult<{ position: number; amount: string; escrow_key: string | null }>> {
-  return attempt(() => rpc('approve_milestone', { p_milestone_id: milestoneId }, contractId));
+/** What a payment out of escrow did: the freelancer's share, the fee and when it can be withdrawn. */
+export interface ReleaseResult {
+  position: number;
+  fee?: number;
+  net?: number;
+  available_on?: string | null;
+  already_paid?: boolean;
+}
+
+function revalidateMoney() {
+  revalidatePath('/wallet');
+  revalidatePath('/', 'layout');
+}
+
+/** Approving submitted work pays it from escrow. */
+export async function approveMilestone(contractId: string, milestoneId: string): Promise<ActionResult<ReleaseResult>> {
+  return attempt(async () => {
+    const result = await rpc<ReleaseResult>('approve_milestone', { p_milestone_id: milestoneId }, contractId);
+    revalidateMoney();
+    return result;
+  });
+}
+
+/** Pays a funded milestone in full, with or without a submission. */
+export async function releaseMilestone(contractId: string, milestoneId: string): Promise<ActionResult<ReleaseResult>> {
+  return attempt(async () => {
+    const result = await rpc<ReleaseResult>('release_milestone', { p_milestone_id: milestoneId }, contractId);
+    revalidateMoney();
+    return result;
+  });
+}
+
+/** The freelancer returns a milestone's coins to the client. */
+export async function refundMilestone(contractId: string, milestoneId: string): Promise<ActionResult<null>> {
+  return attempt(async () => {
+    await rpc('refund_milestone', { p_milestone_id: milestoneId }, contractId);
+    revalidateMoney();
+    return null;
+  });
+}
+
+/** The client locks the full contract total from their coin wallet. */
+export async function fundContract(contractId: string): Promise<ActionResult<string>> {
+  return attempt(async () => {
+    const status = await rpc<string>('fund_contract', { p_contract_id: contractId }, contractId);
+    revalidateMoney();
+    return status;
+  });
 }
 
 export async function submitReview(contractId: string, input: { rating: number; ratings: Record<string, number>; body: string }): Promise<ActionResult<string>> {

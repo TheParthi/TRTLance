@@ -1,4 +1,4 @@
-import { toWei, weiToAmount } from '@/lib/money';
+import { coinsToString, toCoins } from '@/lib/money';
 import type { MilestoneStatus } from '@/lib/types';
 
 /** Money state of a milestone as drawn on the escrow rail. */
@@ -49,7 +49,7 @@ export function milestoneSegments(milestones: MilestoneLike[]): RailSegment[] {
           parts: [
             { state: 'released' as const, amount: m.freelancer_payout ?? '0' },
             { state: 'refunded' as const, amount: m.client_refund ?? '0' },
-          ].filter((p) => toWei(p.amount) > 0n),
+          ].filter((p) => toCoins(p.amount) > 0n),
         };
       }
       return { key: m.id, label: `${m.position}. ${m.title}`, parts: [{ state: stateOf[m.status], amount: m.amount }] };
@@ -72,32 +72,32 @@ export interface EscrowStatement {
   unfunded: string;
 }
 
-/** Exact totals in SHM (wei arithmetic, never floats). */
+/** Exact totals in coins (bigint arithmetic, never floats). */
 export function escrowStatement(milestones: MilestoneLike[]): EscrowStatement {
   const sums: Record<RailState, bigint> = { released: 0n, approved: 0n, review: 0n, changes: 0n, secured: 0n, disputed: 0n, refunded: 0n, unfunded: 0n, proposed: 0n };
   let total = 0n;
   for (const seg of milestoneSegments(milestones)) {
     for (const p of seg.parts) {
-      const wei = toWei(p.amount);
-      sums[p.state] += wei;
-      total += wei;
+      const coins = toCoins(p.amount);
+      sums[p.state] += coins;
+      total += coins;
     }
   }
   return {
-    total: weiToAmount(total),
-    secured: weiToAmount(sums.secured + sums.review + sums.changes + sums.approved),
-    released: weiToAmount(sums.released),
-    refunded: weiToAmount(sums.refunded),
-    disputed: weiToAmount(sums.disputed),
-    unfunded: weiToAmount(sums.unfunded),
+    total: coinsToString(total),
+    secured: coinsToString(sums.secured + sums.review + sums.changes + sums.approved),
+    released: coinsToString(sums.released),
+    refunded: coinsToString(sums.refunded),
+    disputed: coinsToString(sums.disputed),
+    unfunded: coinsToString(sums.unfunded),
   };
 }
 
 /** Width of each part as a percentage of the whole rail (sums to 100, minimum visible width kept). */
 export function partWidths(segments: RailSegment[]): number[][] {
-  const total = segments.reduce((t, s) => t + s.parts.reduce((u, p) => u + toWei(p.amount), 0n), 0n);
+  const total = segments.reduce((t, s) => t + s.parts.reduce((u, p) => u + toCoins(p.amount), 0n), 0n);
   if (total === 0n) return segments.map((s) => s.parts.map(() => 100 / Math.max(1, segments.length * s.parts.length)));
-  return segments.map((s) => s.parts.map((p) => Number((toWei(p.amount) * 1_000_000n) / total) / 10_000));
+  return segments.map((s) => s.parts.map((p) => Number((toCoins(p.amount) * 1_000_000n) / total) / 10_000));
 }
 
 const STATE_ORDER: RailState[] = ['released', 'approved', 'review', 'changes', 'secured', 'disputed', 'refunded', 'unfunded'];
@@ -106,9 +106,9 @@ const STATE_ORDER: RailState[] = ['released', 'approved', 'review', 'changes', '
 export function stateSegments(milestones: MilestoneLike[]): RailSegment[] {
   const sums = new Map<RailState, bigint>();
   for (const seg of milestoneSegments(milestones)) {
-    for (const p of seg.parts) sums.set(p.state, (sums.get(p.state) ?? 0n) + toWei(p.amount));
+    for (const p of seg.parts) sums.set(p.state, (sums.get(p.state) ?? 0n) + toCoins(p.amount));
   }
-  return STATE_ORDER.filter((s) => (sums.get(s) ?? 0n) > 0n).map((s) => ({ key: s, label: s, parts: [{ state: s, amount: weiToAmount(sums.get(s)!) }] }));
+  return STATE_ORDER.filter((s) => (sums.get(s) ?? 0n) > 0n).map((s) => ({ key: s, label: s, parts: [{ state: s, amount: coinsToString(sums.get(s)!) }] }));
 }
 
 /** Money by state as ring arcs (amount as a number for drawing only; figures are always shown from strings). */

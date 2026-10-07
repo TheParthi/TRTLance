@@ -9,7 +9,7 @@ import { EscrowRing, type RingMoment } from './escrow-ring';
  * the ring plays it (and is announced politely to screen readers once, not on every change).
  */
 export function HeroRing({ className }: { className?: string }) {
-  const [moment, setMoment] = React.useState<RingMoment>({ milestone: 0, state: 'Signed by both sides', amount: 600 });
+  const [moment, setMoment] = React.useState<RingMoment>({ milestone: 0, state: 'Signed by both sides', amount: 6000 });
   const [tick, setTick] = React.useState(0);
   const onMoment = React.useCallback((m: RingMoment) => {
     setMoment(m);
@@ -30,7 +30,7 @@ export function HeroRing({ className }: { className?: string }) {
         <div key={tick} className="inline-block animate-rise space-y-0.5 rounded-lg bg-canvas/75 px-3 py-2 backdrop-blur-sm">
           <p className="t-mono text-xs text-ink-muted">{moment.milestone ? `MILESTONE 0${moment.milestone}` : 'CONTRACT · 3 MILESTONES'}</p>
           <p className="text-sm font-semibold">{moment.state}</p>
-          <p className="t-money text-2xl">{moment.amount} <span className="text-xs uppercase tracking-[0.08em] text-ink-muted">SHM</span></p>
+          <p className="t-money text-2xl">{moment.amount.toLocaleString('en-IN')} <span className="text-xs uppercase tracking-[0.08em] text-ink-muted">coins</span></p>
         </div>
       </div>
     </div>

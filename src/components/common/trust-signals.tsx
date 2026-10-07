@@ -1,8 +1,8 @@
-import { BadgeCheck, Mail, ShieldCheck, Star, Wallet } from 'lucide-react';
+import { BadgeCheck, Landmark, Mail, ShieldCheck, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ProfileStats } from '@/lib/types';
 
-type TrustFacts = Pick<ProfileStats, 'email_verified' | 'wallet_verified' | 'rating_avg' | 'review_count'> &
+type TrustFacts = Pick<ProfileStats, 'email_verified' | 'identity_verified' | 'rating_avg' | 'review_count'> &
   Partial<Pick<ProfileStats, 'funded_as_client' | 'completed_as_freelancer' | 'completed_as_client'>>;
 
 /** Verified facts about a member. Only shows what the platform actually knows. */
@@ -14,7 +14,7 @@ export function TrustSignals({ stats, role, className, compact }: {
 }) {
   const items: { icon: typeof Mail; label: string; ok: boolean }[] = [
     { icon: Mail, label: stats.email_verified ? 'Email verified' : 'Email not verified', ok: stats.email_verified },
-    { icon: Wallet, label: stats.wallet_verified ? 'Wallet verified' : 'No verified wallet', ok: stats.wallet_verified },
+    { icon: Landmark, label: stats.identity_verified ? 'Identity verified (PAN and bank)' : 'Identity not verified', ok: stats.identity_verified },
   ];
   if (role === 'client' && stats.funded_as_client !== undefined) {
     items.push({
@@ -64,12 +64,12 @@ export function Stars({ rating, size = 'sm', label }: { rating: number; size?: '
 }
 
 /**
- * One quiet line of verified, positive facts ("Wallet verified · 3 contracts funded · 5.0 from 2 reviews").
+ * One quiet line of verified, positive facts ("Identity verified · 3 contracts funded · 5.0 from 2 reviews").
  * The absence of facts collapses into a single "New to TrustLance" instead of a list of negatives.
  */
 export function TrustLine({ stats, role, className }: { stats: TrustFacts; role: 'client' | 'freelancer'; className?: string }) {
   const facts: React.ReactNode[] = [];
-  if (stats.wallet_verified) facts.push(<span key="w" className="inline-flex items-center gap-1"><Wallet className="size-3.5 text-success" aria-hidden />Wallet verified</span>);
+  if (stats.identity_verified) facts.push(<span key="w" className="inline-flex items-center gap-1"><Landmark className="size-3.5 text-success" aria-hidden />Identity verified</span>);
   else if (stats.email_verified) facts.push(<span key="e" className="inline-flex items-center gap-1"><Mail className="size-3.5 text-success" aria-hidden />Email verified</span>);
   if (role === 'client' && stats.funded_as_client) facts.push(<span key="f">{stats.funded_as_client} contract{stats.funded_as_client === 1 ? '' : 's'} funded</span>);
   if (role === 'freelancer' && stats.completed_as_freelancer) facts.push(<span key="c">{stats.completed_as_freelancer} completed</span>);

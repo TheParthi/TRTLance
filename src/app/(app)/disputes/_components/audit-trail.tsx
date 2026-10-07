@@ -2,7 +2,6 @@ import { Lock } from 'lucide-react';
 import { Ledger } from '@/components/common/ledger';
 import { DateBlock } from '@/components/contracts/activity-feed';
 import type { MemberSummary } from '@/lib/data/disputes';
-import { explorerTxUrl, shortHash } from '@/lib/format';
 import { formatAmount } from '@/lib/money';
 import { disputeReasonLabel } from '@/lib/status';
 import type { DisputeEvent } from '@/lib/types';
@@ -23,16 +22,8 @@ function detail(e: DisputeEvent, members: Record<string, MemberSummary>): React.
       return typeof d.reason === 'string' ? d.reason : null;
     case 'dispute.decided':
       return `${d.decision === 'partial' ? `${String(d.freelancer_pct)}% to the freelancer` : d.decision === 'freelancer' ? 'Freelancer receives 100%' : 'Client refunded 100%'}${d.by_admin ? ' · decided by the platform team' : ''}`;
-    case 'dispute.settled': {
-      const hash = typeof d.tx_hash === 'string' ? d.tx_hash : null;
-      const url = hash ? explorerTxUrl(hash) : null;
-      return (
-        <>
-          {formatAmount(String(d.freelancer_amount ?? '0'))} to the freelancer, {formatAmount(String(d.client_amount ?? '0'))} to the client
-          {hash && <> · {url ? <a className="link font-mono" href={url} target="_blank" rel="noreferrer">{shortHash(hash)}</a> : <span className="font-mono">{shortHash(hash)}</span>}</>}
-        </>
-      );
-    }
+    case 'dispute.settled':
+      return `${formatAmount(String(d.freelancer_amount ?? '0'))} to the freelancer${d.fee ? ` (platform fee ${formatAmount(String(d.fee))})` : ''}, ${formatAmount(String(d.client_amount ?? '0'))} back to the client`;
     case 'evidence.added':
       return typeof d.title === 'string' ? `${String(d.kind)}: ${d.title}` : null;
     default:

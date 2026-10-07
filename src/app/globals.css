@@ -302,7 +302,7 @@ html[data-intro='seen'] .intro {
 }
 @keyframes intro-count {
   from { --n: 0; }
-  to { --n: 600; }
+  to { --n: 6000; }
 }
 @media (prefers-reduced-motion: reduce) {
   .intro { display: none; }

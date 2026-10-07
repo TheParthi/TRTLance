@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ArrowRight, Briefcase, CheckCircle2, Compass, Handshake, Mail, Wallet } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Briefcase, CheckCircle2, Compass, Handshake, Landmark, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Callout } from '@/components/ui/callout';
 import { RadioCard, RadioGroup } from '@/components/ui/choice';
@@ -14,18 +14,17 @@ import { AvatarUpload } from '@/components/forms/avatar-upload';
 import { StepProgress } from '@/components/forms/step-progress';
 import { TagInput } from '@/components/forms/tag-input';
 import { completeOnboarding, updateProfile } from '@/lib/actions/profile';
-import { shortAddress } from '@/lib/format';
 import type { Intent, Profile } from '@/lib/types';
 import type { ProfileUpdate } from '@/lib/validation';
 
-const STEPS = ['Welcome', 'Your goal', 'About you', 'Skills', 'Photo', 'Professional details', 'Trust & wallet', 'Done'] as const;
+const STEPS = ['Welcome', 'Your goal', 'About you', 'Skills', 'Photo', 'Professional details', 'Trust & payments', 'Done'] as const;
 const SKILL_SUGGESTIONS = ['react', 'typescript', 'node.js', 'python', 'figma', 'solidity', 'copywriting', 'seo', 'data analysis'];
 
-export function OnboardingWizard({ userId, email, emailVerified, walletAddress, profile }: {
+export function OnboardingWizard({ userId, email, emailVerified, identityVerified, profile }: {
   userId: string;
   email: string | null;
   emailVerified: boolean;
-  walletAddress: string | null;
+  identityVerified: boolean;
   profile: Profile;
 }) {
   const router = useRouter();
@@ -88,7 +87,7 @@ export function OnboardingWizard({ userId, email, emailVerified, walletAddress, 
   };
 
   const title = STEPS[step];
-  const optional = ['Photo', 'Professional details', 'Trust & wallet'].includes(title);
+  const optional = ['Photo', 'Professional details', 'Trust & payments'].includes(title);
   const workerLike = form.intent !== 'hire';
 
   return (
@@ -104,7 +103,7 @@ export function OnboardingWizard({ userId, email, emailVerified, walletAddress, 
             <ul className="space-y-2 text-sm text-ink-secondary">
               <li>• We only ask for what other members need to trust you.</li>
               <li>• Your email and phone are never shown publicly.</li>
-              <li>• A wallet is only needed when you sign or fund a contract.</li>
+              <li>• Payments use TrustLance Coins (1 coin = ₹1), held in escrow until work is approved.</li>
             </ul>
           </div>
         )}
@@ -193,7 +192,7 @@ export function OnboardingWizard({ userId, email, emailVerified, walletAddress, 
           </div>
         )}
 
-        {title === 'Trust & wallet' && (
+        {title === 'Trust & payments' && (
           <div className="space-y-5">
             <h1 id="step-title" ref={heading} tabIndex={-1} className="t-page-title outline-none">How trust works on TrustLance</h1>
             <p className="text-sm text-ink-secondary">Other members see only verified facts about you — never claims we cannot check.</p>
@@ -207,20 +206,16 @@ export function OnboardingWizard({ userId, email, emailVerified, walletAddress, 
                 {emailVerified && <CheckCircle2 className="size-5 text-success" aria-label="Verified" />}
               </li>
               <li className="flex items-start gap-3 py-4">
-                <Wallet className="mt-0.5 size-5 text-brand" aria-hidden />
+                <Landmark className="mt-0.5 size-5 text-brand" aria-hidden />
                 <div className="flex-1 space-y-2 text-sm">
-                  <p className="font-semibold">Wallet</p>
-                  {walletAddress ? (
-                    <p className="text-ink-secondary">Wallet {shortAddress(walletAddress)} is verified.</p>
-                  ) : (
-                    <p className="text-ink-secondary">
-                      Escrow is funded from — and pays out to — a wallet you prove you own by signing a free message.
-                      You need one before you sign a contract. You can do it now or later.
-                    </p>
-                  )}
-                  {!walletAddress && <Link href="/wallet" className="link">Verify a wallet now</Link>}
+                  <p className="font-semibold">Coins and payouts</p>
+                  <p className="text-ink-secondary">
+                    Clients buy TrustLance Coins (1 coin = ₹1) and lock each contract’s total in escrow before work starts.
+                    Freelancers withdraw their earnings to a bank account verified with their PAN. You can set this up now or later.
+                  </p>
+                  {!identityVerified && <Link href="/wallet" className="link">Open your wallet</Link>}
                 </div>
-                {walletAddress && <CheckCircle2 className="size-5 text-success" aria-label="Verified" />}
+                {identityVerified && <CheckCircle2 className="size-5 text-success" aria-label="Verified" />}
               </li>
             </ul>
           </div>

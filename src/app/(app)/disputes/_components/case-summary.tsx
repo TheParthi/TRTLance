@@ -1,22 +1,13 @@
-import { Check, ExternalLink } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { EscrowRail } from '@/components/common/escrow-rail';
 import { Money } from '@/components/common/money';
-import { SettlementStatusMark, StatusMark } from '@/components/common/status-mark';
-import { explorerTxUrl, formatDate, formatDateTime, shortHash } from '@/lib/format';
-import { splitByPct } from '@/lib/money';
-import { settlementStatus } from '@/lib/status';
-import type { Dispute, EscrowTransaction, Milestone } from '@/lib/types';
+import { SettlementStatusMark } from '@/components/common/status-mark';
+import { formatDate, formatDateTime } from '@/lib/format';
+import { feeSplit, splitByPct } from '@/lib/money';
+import type { Dispute, Milestone } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { flagState, requestedPct } from './labels';
-import { splitSegments } from './split';
-
-/** A transaction hash: short, mono, linked to the explorer when one is configured. */
-export function TxHash({ hash, className }: { hash: string; className?: string }) {
-  const url = explorerTxUrl(hash);
-  return url
-    ? <a href={url} target="_blank" rel="noreferrer" className={cn('inline-flex items-center gap-1 font-mono text-xs text-ink-secondary underline-offset-4 hover:text-brand hover:underline', className)}>{shortHash(hash)} <ExternalLink className="size-3" aria-hidden /></a>
-    : <span className={cn('font-mono text-xs text-ink-secondary', className)}>{shortHash(hash)}</span>;
-}
+import { requestedPct } from './labels';
+import { formatFee, splitSegments } from './split';
 
 function SplitFigure({ amount, pct }: { amount: string; pct: number }) {
   const s = splitByPct(amount, pct);
@@ -30,12 +21,13 @@ function SplitFigure({ amount, pct }: { amount: string; pct: number }) {
 
 /**
  * The one boxed money summary of a case: what is frozen, what was asked for, what was decided and
- * whether the escrow contract has paid it out. The rail draws the split that currently matters.
+ * whether it has been paid out. The rail draws the split that currently matters.
  */
-export function CaseMoney({ dispute: d, milestone: m, transactions, raisedBy }: {
+export function CaseMoney({ dispute: d, milestone: m, feeBps, raisedBy }: {
   dispute: Dispute;
   milestone: Pick<Milestone, 'position' | 'title'>;
-  transactions: EscrowTransaction[];
+  /** The contract's platform fee, charged on the freelancer's share. */
+  feeBps: number;
   /** "you" or the raising party's name. */
   raisedBy: string;
 }) {
@@ -43,25 +35,17 @@ export function CaseMoney({ dispute: d, milestone: m, transactions, raisedBy }: 
   const settled = d.settlement_status === 'settled';
   const asked = requestedPct(d);
   const railPct = decided ? d.freelancer_pct! : asked;
-  const flag = flagState(d.settlement_status, transactions);
-  const resolveTx = transactions.find((t) => t.kind === 'resolve' && t.status === 'confirmed')
-    ?? transactions.find((t) => t.kind === 'resolve' && t.status === 'pending');
+  const freelancerFee = decided && d.freelancer_pct! > 0 ? feeSplit(splitByPct(d.amount, d.freelancer_pct!).freelancer, feeBps) : null;
 
   const settlementDetail = settled
-    ? <>Verified on-chain{d.settled_at ? ` ${formatDate(d.settled_at)}` : ''}{resolveTx && <> · <TxHash hash={resolveTx.tx_hash} /></>}</>
-    : resolveTx
-      ? <>Transaction confirming · <TxHash hash={resolveTx.tx_hash} /></>
-      : flag.flagged
-        ? <>{decided ? 'Milestone flagged on-chain' : 'Frozen on-chain, waiting for the decision'}{d.onchain_flagged_at ? ` · ${formatDate(d.onchain_flagged_at)}` : ''}{flag.flagTx && <> · <TxHash hash={flag.flagTx.tx_hash} /></>}</>
-        : flag.pendingFlag
-          ? <>Flag confirming · <TxHash hash={flag.pendingFlag.tx_hash} /></>
-          : 'Milestone not flagged on-chain yet. No funds have moved.';
+    ? <>Paid out{d.settled_at ? ` ${formatDate(d.settled_at)}` : ''} from TrustLance escrow{freelancerFee && <> · freelancer receives {formatFee(freelancerFee, feeBps)}</>}</>
+    : 'The coins stay frozen in escrow until the decision. They move the moment it is made.';
 
   return (
     <section className="statement space-y-5" aria-labelledby="case-money-title">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h2 id="case-money-title" className="t-label-caps">Money in this case</h2>
-        <p className="t-meta">Held by the escrow contract, not by TrustLance</p>
+        <p className="t-meta">Frozen in TrustLance escrow</p>
       </div>
       <div className="space-y-2">
         <EscrowRail segments={splitSegments(d.amount, railPct)} size="lg" label={decided ? 'Decided split' : 'Requested split'} />
@@ -87,9 +71,7 @@ export function CaseMoney({ dispute: d, milestone: m, transactions, raisedBy }: 
         <div className="min-w-0 space-y-1">
           <dt className="text-xs text-ink-muted">Settlement</dt>
           <dd className="space-y-1">
-            {!decided && d.settlement_status === 'ready'
-              ? <StatusMark meta={{ ...settlementStatus.ready, label: 'Flagged on-chain', description: 'The milestone is frozen in the escrow contract and can be settled once the case is decided.' }} />
-              : <SettlementStatusMark status={d.settlement_status} />}
+            <SettlementStatusMark status={d.settlement_status} />
             <span className="block text-xs text-ink-secondary">{settlementDetail}</span>
           </dd>
         </div>
@@ -120,7 +102,7 @@ function timeline(d: Dispute, arbitratorName: string | null): { label: string; s
     resolved ? { label: 'Decision', state: 'done', detail: formatDate(d.decided_at) } : { label: 'Decision', state: 'upcoming' },
     d.settlement_status === 'settled'
       ? { label: 'Settlement', state: 'done', detail: formatDate(d.settled_at) }
-      : resolved ? { label: 'Settlement', state: 'current', detail: d.settlement_status === 'awaiting_flag' ? 'Needs on-chain flag' : d.settlement_status === 'failed' ? 'Needs a retry' : 'On-chain payout' } : { label: 'Settlement', state: 'upcoming' },
+      : { label: 'Settlement', state: 'upcoming', detail: 'Immediately after the decision' },
   ];
 }
 

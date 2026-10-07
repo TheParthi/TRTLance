@@ -9,9 +9,12 @@ export type ContractStatus = 'pending_signatures' | 'awaiting_funding' | 'active
 export type MilestoneStatus =
   | 'pending' | 'funded' | 'submitted' | 'revision_requested' | 'approved' | 'paid' | 'disputed' | 'refunded' | 'settled';
 export type DisputeStatus = 'open' | 'awaiting_evidence' | 'under_review' | 'resolved' | 'escalated';
-export type SettlementStatus = 'awaiting_flag' | 'ready' | 'pending' | 'settled' | 'failed';
-export type EscrowTxKind = 'fund' | 'release' | 'refund' | 'dispute' | 'resolve';
-export type EscrowTxStatus = 'pending' | 'confirmed' | 'failed';
+export type SettlementStatus = 'pending' | 'settled';
+export type CoinAccountKind = 'wallet' | 'pending' | 'earnings';
+export type CoinTxKind =
+  | 'purchase' | 'fund' | 'release' | 'refund' | 'settlement' | 'hold_release' | 'withdrawal' | 'withdrawal_paid' | 'withdrawal_returned';
+export type WithdrawalStatus = 'requested' | 'paid' | 'failed' | 'cancelled';
+export type PayoutAccountStatus = 'pending' | 'verified' | 'rejected';
 export type NotificationCategory =
   | 'projects' | 'contracts' | 'milestones' | 'payments' | 'messages' | 'disputes' | 'security' | 'system';
 export type Severity = 'info' | 'success' | 'warning' | 'critical';
@@ -38,7 +41,7 @@ export interface Profile {
 export interface ProfileStats {
   id: string;
   email_verified: boolean;
-  wallet_verified: boolean;
+  identity_verified: boolean;
   rating_avg: string | null;
   review_count: number;
   completed_as_freelancer: number;
@@ -114,7 +117,7 @@ export interface ProjectSearchRow {
   client_name: string;
   client_avatar: string | null;
   client_email_verified: boolean;
-  client_wallet_verified: boolean;
+  client_identity_verified: boolean;
   client_funded: number;
   client_rating: string | null;
   client_reviews: number;
@@ -155,6 +158,8 @@ export interface ContractTerms {
   currency: string;
   total_amount: string;
   duration_days: number;
+  /** Present on terms version 2 (coins). */
+  platform_fee_pct?: string;
   milestones: { position: number; title: string; description: string; amount: string; due_in_days: number }[];
   payment_terms: string;
 }
@@ -175,13 +180,9 @@ export interface Contract {
   terms_hash: string;
   client_signed_at: string | null;
   client_signature_name: string | null;
-  client_wallet: string | null;
   freelancer_signed_at: string | null;
   freelancer_signature_name: string | null;
-  freelancer_wallet: string | null;
-  chain_id: number | null;
-  escrow_address: string | null;
-  escrow_key: string | null;
+  fee_bps: number;
   funded_at: string | null;
   completed_at: string | null;
   cancelled_at: string | null;
@@ -205,6 +206,7 @@ export interface Milestone {
   paid_at: string | null;
   freelancer_payout: string | null;
   client_refund: string | null;
+  platform_fee: string | null;
 }
 
 export interface MilestoneSubmission {
@@ -233,21 +235,83 @@ export interface ContractFile {
   created_at: string;
 }
 
-export interface EscrowTransaction {
-  id: string;
-  contract_id: string;
-  milestone_id: string | null;
-  kind: EscrowTxKind;
-  chain_id: number;
-  tx_hash: string;
-  from_address: string | null;
-  amount: string | null;
-  status: EscrowTxStatus;
-  block_number: number | null;
-  failure_reason: string | null;
-  reported_by: string | null;
+/** One line of a member's coin history (public.my_coin_history). */
+export interface CoinHistoryEntry {
+  entry_id: number;
   created_at: string;
-  confirmed_at: string | null;
+  account: CoinAccountKind;
+  amount: string;
+  balance_after: string;
+  kind: CoinTxKind;
+  memo: string;
+  contract_id: string | null;
+}
+
+/** One movement in a contract's escrow (public.contract_coin_history). */
+export interface EscrowEntry {
+  entry_id: number;
+  created_at: string;
+  amount: string;
+  balance_after: string;
+  kind: CoinTxKind;
+  memo: string;
+  milestone_id: string | null;
+}
+
+export interface CoinHold {
+  coins: number;
+  available_on: string;
+  contract_id: string;
+  contract_title: string;
+}
+
+/** public.my_wallet() */
+export interface WalletSummary {
+  wallet: number;
+  pending: number;
+  earnings: number;
+  locked: number;
+  holds: CoinHold[];
+  settings: Record<string, number>;
+}
+
+export interface PayoutAccount {
+  user_id: string;
+  account_holder: string;
+  account_last4: string;
+  ifsc: string;
+  pan_last4: string;
+  status: PayoutAccountStatus;
+  review_note: string | null;
+  verified_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Withdrawal {
+  id: string;
+  number: number;
+  user_id: string;
+  coins: number;
+  amount_paise: number;
+  account_holder: string;
+  account_last4: string;
+  ifsc: string;
+  status: WithdrawalStatus;
+  reference: string | null;
+  failure_reason: string | null;
+  requested_at: string;
+  decided_at: string | null;
+}
+
+export interface CoinPurchase {
+  id: string;
+  coins: number;
+  amount_paise: number;
+  provider: 'mock' | 'razorpay';
+  status: 'created' | 'paid' | 'failed';
+  created_at: string;
+  paid_at: string | null;
 }
 
 export interface ContractEvent {
@@ -318,7 +382,6 @@ export interface Dispute {
   decision_reason: string | null;
   decided_by: string | null;
   decided_at: string | null;
-  onchain_flagged_at: string | null;
   settlement_status: SettlementStatus;
   settled_at: string | null;
   created_at: string;

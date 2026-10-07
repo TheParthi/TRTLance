@@ -1,71 +1,45 @@
 import { execSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import { expect, test, type Browser, type Page } from '@playwright/test';
-import { JsonRpcProvider, Wallet, getBytes, toUtf8String } from 'ethers';
 
 /**
- * The whole money lifecycle through the real UI, on a local chain:
- * sign up → onboarding → SIWE wallet verification → post → propose → hire → sign → fund escrow →
- * submit → approve → release → dispute → on-chain flag → arbitrator decision → arbiter settlement.
+ * The whole money lifecycle through the real UI, with test payments (no real money):
+ * sign up → onboarding → buy coins → post → propose → hire → sign → lock coins in escrow →
+ * submit → approve and pay → 7-working-day hold → bank account → withdrawal paid by an admin →
+ * dispute → arbitrator decision (settles immediately).
  *
- * Wallets are injected (EIP-1193) and backed by Hardhat accounts, so no extension is needed.
- * Requires: `npx hardhat node` + `npm run deploy:local` (blockchain/), the local stack
- * (scripts/local-stack, freshly set up), and the app running with .env.local pointing at both.
+ * Requires the local stack (scripts/local-stack, freshly set up) and the app running against it with
+ * PAYMENTS_PROVIDER unset (test payments).
  * Run with: E2E_LOCAL_STACK=1 npm run test:e2e -- escrow-journey
  */
-test.skip(!process.env.E2E_LOCAL_STACK, 'Set E2E_LOCAL_STACK=1 with the local stack and Hardhat node running.');
-test.setTimeout(10 * 60 * 1000);
+test.skip(!process.env.E2E_LOCAL_STACK, 'Set E2E_LOCAL_STACK=1 with the local stack running.');
+test.setTimeout(20 * 60 * 1000);
 // One run per database reset: the journey creates fixed arbitrator/admin roles.
 test.skip(({ isMobile }) => isMobile, 'Runs once, on the desktop project.');
 
 const BASE = process.env.E2E_BASE_URL ?? 'http://localhost:9002';
 const DB = process.env.LOCAL_DB_NAME ?? 'trustlance_dev';
 const SHOTS = 'test-results/escrow-journey';
-const rpc = new JsonRpcProvider(process.env.E2E_RPC_URL ?? 'http://127.0.0.1:8545', 31337, { staticNetwork: true, cacheTimeout: -1 });
 const stamp = Date.now().toString(36);
 const errors: string[] = [];
-const pages: Page[] = [];
 let browser: Browser;
 
-const funder = new Wallet('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80', rpc);
-async function persona(name: string, key?: string) {
-  const wallet = key ? new Wallet(key, rpc) : Wallet.createRandom().connect(rpc);
-  if (!key) await (await funder.sendTransaction({ to: wallet.address, value: 100n * 10n ** 18n, nonce: await rpc.getTransactionCount(funder.address, 'pending') })).wait();
+const sql = (q: string) => execSync(`psql -d ${DB} -Atc "${q}"`).toString().trim();
+
+async function persona(name: string) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-  await ctx.exposeFunction('__ethRequest', async (method: string, params: unknown[] = []) => {
-    switch (method) {
-      case 'eth_accounts':
-      case 'eth_requestAccounts': return [wallet.address];
-      case 'eth_chainId': return '0x7a69';
-      case 'net_version': return '31337';
-      case 'personal_sign': return wallet.signMessage(toUtf8String(getBytes(params[0] as string)));
-      case 'eth_sendTransaction': {
-        const t = params[0] as { to: string; data: string; value?: string };
-        const tx = await wallet.sendTransaction({ to: t.to, data: t.data, value: t.value ?? 0 });
-        return tx.hash;
-      }
-      default: return rpc.send(method, params);
-    }
-  });
-  await ctx.addInitScript(() => {
-    const w = window as unknown as { __ethRequest: (m: string, p?: unknown[]) => Promise<unknown>; ethereum: unknown };
-    w.ethereum = {
-      isMetaMask: true,
-      request: ({ method, params }: { method: string; params?: unknown[] }) => w.__ethRequest(method, params),
-      on() {}, removeListener() {},
-    };
-  });
   const page = await ctx.newPage();
-  pages.push(page);
   page.on('response', (r) => { if (r.status() >= 400) errors.push(`${name}: HTTP ${r.status()} ${r.url().replace(BASE, '')}`); });
   page.on('pageerror', (e) => errors.push(`${name}: ${e}`));
   page.on('console', (m) => m.type() === 'error' && !m.text().includes('realtime') && !m.text().includes('WebSocket') && !m.text().startsWith('Failed to load resource') && errors.push(`${name}: ${m.text()}`));
-  return { page, wallet, name };
+  return { page, name };
 }
 
-const shot = async (p: Page, n: string) => { await p.waitForLoadState('networkidle'); await p.screenshot({ path: `${SHOTS}/${n}.png`, fullPage: true }); };
+const shot = async (p: Page, n: string) => { await p.waitForLoadState('load'); await p.screenshot({ path: `${SHOTS}/${n}.png`, fullPage: true }); };
 const step = (s: string) => test.info().annotations.push({ type: 'step', description: s });
 const next = async (p: Page, n: number) => { await p.getByRole('button', { name: 'Continue' }).click(); await p.getByText(`Step ${n} of 9`, { exact: true }).waitFor(); };
+const userId = (displayName: string) => sql(`select id from profiles where display_name = '${displayName}' order by created_at desc limit 1`);
+const balance = (uid: string, kind: string) => Number(sql(`select coalesce((select balance from coin_accounts where user_id = '${uid}' and kind = '${kind}'), 0)`));
 
 async function signupAndOnboard(p: Page, fullName: string, intent: string) {
   await p.goto(`${BASE}/signup`);
@@ -88,19 +62,12 @@ async function signupAndOnboard(p: Page, fullName: string, intent: string) {
   await p.getByRole('button', { name: 'Skip' }).click(); // photo (storage not in local stack)
   await p.getByRole('button', { name: 'Skip' }).click(); // professional
   await shot(p, `onboarding-trust-${fullName.split(' ')[0].toLowerCase()}`);
-  await p.getByRole('button', { name: 'Skip' }).click(); // trust & wallet
+  await p.getByRole('button', { name: 'Skip' }).click(); // trust & payments
   await p.getByRole('button', { name: /Post a project|Find work|Go to dashboard/ }).click();
   await p.waitForURL(/projects\/new|work|dashboard/);
 }
 
-async function verifyWallet(p: Page) {
-  await p.goto(`${BASE}/wallet`);
-  await p.getByRole('button', { name: 'Verify this wallet' }).click();
-  await p.getByText('Verified', { exact: true }).first().waitFor({ timeout: 20000 });
-}
-
-
-test('escrow lifecycle with dispute settlement', async ({ browser: b }) => {
+test('coin escrow lifecycle with withdrawal and dispute', async ({ browser: b }) => {
   browser = b;
   mkdirSync(SHOTS, { recursive: true });
   const client = await persona('client');
@@ -109,17 +76,21 @@ test('escrow lifecycle with dispute settlement', async ({ browser: b }) => {
   step('sign up + onboarding');
   await signupAndOnboard(client.page, 'Asha Client', 'Hire talent');
   await signupAndOnboard(free.page, 'Ravi Freelancer', 'Find work');
-  await shot(free.page, 'work-empty');
+  const clientId = userId('Asha Client');
+  const freeId = userId('Ravi Freelancer');
 
-  step('wallet verification');
-  await verifyWallet(client.page);
-  await shot(client.page, 'wallet-verified');
-  await verifyWallet(free.page);
-
-  step('post project');
+  step('client buys coins (test payment)');
   const c = client.page;
+  await c.goto(`${BASE}/wallet`);
+  await shot(c, 'wallet-empty');
+  await c.getByLabel('Or enter an amount').fill('3000');
+  await c.getByRole('button', { name: 'Buy coins' }).click();
+  await c.getByRole('button', { name: 'Confirm test payment' }).click();
+  await c.getByText('3,000 coins added to your wallet.').waitFor();
+  expect(balance(clientId, 'wallet')).toBe(3000);
+
+  step('post project with custom milestones');
   await c.goto(`${BASE}/projects/new`);
-  await shot(c, 'projects-new');
   await c.getByRole('button', { name: /Start a new project/ }).click();
   await c.waitForURL(/edit/);
   await c.getByLabel('Project title').fill('Marketing site for a design studio');
@@ -132,16 +103,16 @@ test('escrow lifecycle with dispute settlement', async ({ browser: b }) => {
   await c.keyboard.press('Enter');
   await c.getByRole('radio', { name: /Intermediate/ }).click();
   await next(c, 5);
-  await c.getByLabel(/Fixed budget/).fill('30');
+  await c.getByLabel(/Fixed budget/).fill('3000');
   await next(c, 6);
   await next(c, 7); // timeline
   await c.getByLabel('Deliverable 1', { exact: true }).fill('Responsive site deployed to production');
   await c.getByRole('button', { name: 'Add milestone' }).click();
   await c.getByLabel('Title', { exact: true }).nth(0).fill('Design and build');
-  await c.getByLabel('Amount', { exact: true }).nth(0).fill('20');
+  await c.getByLabel('Amount', { exact: true }).nth(0).fill('2000');
   await c.getByRole('button', { name: 'Add milestone' }).click();
   await c.getByLabel('Title', { exact: true }).nth(1).fill('Launch and handover');
-  await c.getByLabel('Amount', { exact: true }).nth(1).fill('10');
+  await c.getByLabel('Amount', { exact: true }).nth(1).fill('1000');
   await shot(c, 'wizard-milestones');
   await next(c, 8);
   await next(c, 9); // visibility
@@ -149,30 +120,23 @@ test('escrow lifecycle with dispute settlement', async ({ browser: b }) => {
   await c.getByRole('button', { name: 'Publish project' }).click();
   await c.waitForURL(/\/projects\/[0-9a-f-]{36}$/);
   const projectUrl = c.url();
-  await shot(c, 'project-owner');
 
   step('freelancer applies');
   const f = free.page;
-  await f.goto(`${BASE}/work`);
-  await shot(f, 'work-list');
   await f.goto(projectUrl);
-  await shot(f, 'project-freelancer');
   await f.getByRole('link', { name: /Submit a proposal/ }).click();
   await f.getByLabel('Cover letter').fill('I have built a dozen studio sites with React and a headless CMS. I will start with a design pass, then build and launch.');
   await shot(f, 'proposal-composer');
   await f.getByRole('button', { name: 'Send proposal' }).click();
   await f.waitForURL(projectUrl);
 
-  step('client compares and hires');
+  step('client hires; both sign');
   await c.goto(`${projectUrl}/proposals`);
-  await shot(c, 'proposals');
   await c.getByRole('button', { name: /^Hire/ }).first().click();
-  await shot(c, 'hire-dialog');
   await c.getByRole('button', { name: 'Hire and create contract' }).click();
   await c.waitForURL(/\/contracts\/[0-9a-f-]{36}/);
   const contractUrl = c.url();
-
-  step('both sign');
+  const contractId = contractUrl.split('/').pop()!.split('?')[0];
   await c.getByLabel('Type your full name to sign').fill('Asha Client');
   await c.getByRole('checkbox').check();
   await c.getByRole('button', { name: 'Sign contract' }).click();
@@ -183,63 +147,67 @@ test('escrow lifecycle with dispute settlement', async ({ browser: b }) => {
   await f.getByRole('button', { name: 'Sign contract' }).click();
   await f.getByText('Waiting for the client to fund escrow').first().waitFor();
 
-  step('client funds escrow');
-  for (let i = 0; i < 5; i++) {
-    await c.goto(contractUrl);
-    if (await c.getByRole('button', { name: 'Fund escrow' }).isVisible()) break;
-    
-    await c.waitForTimeout(1000);
-  }
-  await c.getByRole('button', { name: 'Fund escrow' }).click();
+  step('client locks the coins');
+  await c.goto(contractUrl);
+  await c.getByRole('button', { name: 'Fund escrow' }).first().click();
   await shot(c, 'fund-dialog');
-  await c.getByRole('button', { name: 'Deposit in wallet' }).click();
-  await c.getByText('Confirmed on-chain').waitFor({ timeout: 60000 });
-  await shot(c, 'fund-confirmed');
-  await c.getByRole('button', { name: 'Done' }).click();
-  await c.reload();
+  await c.getByRole('button', { name: 'Lock coins' }).click();
+  await c.getByText('Escrow funded. The freelancer has been told to start.').waitFor();
+  expect(balance(clientId, 'wallet')).toBe(0);
+  expect(Number(sql(`select balance from coin_accounts where contract_id = '${contractId}'`))).toBe(3000);
   await shot(c, 'contract-active-client');
 
-  step('freelancer delivers milestone 1');
+  step('freelancer delivers milestone 1; client approves and pays');
   await f.reload();
-  await shot(f, 'contract-active-freelancer');
   await f.getByRole('button', { name: 'Submit work' }).first().click();
   await f.getByLabel('Delivery note').fill('Design and build complete. Staging link below.');
   await f.getByLabel('Link 1').fill('https://staging.example.com');
   await f.getByRole('button', { name: 'Submit for review' }).click();
   await f.getByText('Submission v1').waitFor();
-
-  step('client approves and releases');
   await c.reload();
   await c.getByRole('button', { name: 'Approve & release' }).click();
-  await c.getByRole('button', { name: 'Approve and continue' }).click();
-  await c.getByRole('button', { name: 'Release in wallet' }).click();
-  await c.getByText('Confirmed on-chain').waitFor({ timeout: 60000 });
-  await c.getByRole('button', { name: 'Done' }).click();
-  await c.reload();
-  await shot(c, 'contract-after-release');
+  await shot(c, 'approve-dialog');
+  await c.getByRole('button', { name: 'Approve and pay' }).click();
+  await c.getByText(/Released\. 1,800 coins goes to the freelancer/).waitFor();
+  expect(balance(freeId, 'pending')).toBe(1800);
   await c.goto(`${contractUrl}?tab=funding`);
-  await shot(c, 'contract-transactions');
-  await c.goto(`${contractUrl}?tab=activity`);
-  await shot(c, 'contract-activity');
-  await c.goto(`${BASE}/dashboard`);
-  await shot(c, 'dashboard-client');
-  await f.goto(`${BASE}/dashboard`);
-  await shot(f, 'dashboard-freelancer');
-  await f.goto(`${BASE}/wallet`);
-  await shot(f, 'wallet-freelancer');
+  await shot(c, 'contract-escrow-movements');
 
-  step('dispute on milestone 2');
-  const sql = (q: string) => execSync(`psql -d ${DB} -Atc "${q}"`).toString().trim();
+  step('hold ends; freelancer adds a bank account and withdraws');
+  const admin = await persona('admin');
+  await signupAndOnboard(admin.page, 'Platform Admin', 'Both');
+  sql(`insert into platform_admins (user_id) values ('${userId('Platform Admin')}')`);
+  sql(`update coin_holds set available_on = current_date where user_id = '${freeId}'`);
+  await f.goto(`${BASE}/wallet`);
+  await f.getByLabel('Account holder name').fill('Ravi Freelancer');
+  await f.getByLabel('Account number').fill('123456789012');
+  await f.getByLabel('IFSC').fill('HDFC0001234');
+  await f.getByLabel('PAN').fill('ABCDE1234F');
+  await f.getByRole('button', { name: 'Save bank account' }).click();
+  await f.getByText('Being verified').waitFor();
+  const ad = admin.page;
+  await ad.goto(`${BASE}/admin#bank-accounts`);
+  await shot(ad, 'admin-bank-accounts');
+  await ad.getByRole('button', { name: 'Verify' }).first().click();
+  await ad.getByRole('button', { name: 'Verify' }).last().click();
+  await f.reload();
+  await shot(f, 'wallet-freelancer');
+  await f.getByLabel('Amount to withdraw').fill('1000');
+  await f.getByRole('button', { name: 'Withdraw' }).click();
+  await f.getByRole('button', { name: 'Request withdrawal' }).click();
+  await f.getByText('Withdrawal requested.').first().waitFor();
+  await ad.goto(`${BASE}/admin#withdrawals`);
+  await ad.getByRole('button', { name: 'Mark as paid' }).first().click();
+  await ad.getByLabel('Bank transfer reference (UTR)').fill('UTR0001234567');
+  await ad.getByRole('button', { name: 'Mark as paid' }).last().click();
+  for (let i = 0; i < 20 && sql(`select status from withdrawals where user_id = '${freeId}'`) !== 'paid'; i++) await ad.waitForTimeout(500);
+  expect(sql(`select status from withdrawals where user_id = '${freeId}'`)).toBe('paid');
+  expect(balance(freeId, 'earnings')).toBe(800);
+
+  step('dispute on milestone 2; arbitrator decides 40%');
   const arb = await persona('arbitrator');
   await signupAndOnboard(arb.page, 'Meera Arbiter', 'Find work');
-  const arbId = sql("select id from profiles where display_name = 'Meera Arbiter' order by created_at desc limit 1");
-  sql(`insert into arbitrators (user_id, status, specializations, statement, capacity, is_available) values ('${arbId}', 'approved', '{web-development}', 'Experienced reviewer of software delivery disputes across many teams.', 3, true)`);
-  const admin = await persona('admin', '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80');
-  await signupAndOnboard(admin.page, 'Platform Admin', 'Both');
-  const adminId = sql("select id from profiles where display_name = 'Platform Admin' order by created_at desc limit 1");
-  sql(`insert into platform_admins (user_id) values ('${adminId}')`);
-
-  const contractId = contractUrl.split('/').pop();
+  sql(`insert into arbitrators (user_id, status, specializations, statement, capacity, is_available) values ('${userId('Meera Arbiter')}', 'approved', '{web-development}', 'Experienced reviewer of software delivery disputes across many teams.', 3, true)`);
   const m2 = sql(`select id from milestones where contract_id = '${contractId}' and position = 2`);
   await c.goto(`${BASE}/disputes/new?contract=${contractId}&milestone=${m2}`);
   await c.getByRole('button', { name: 'Continue' }).click();
@@ -250,47 +218,30 @@ test('escrow lifecycle with dispute settlement', async ({ browser: b }) => {
   await c.getByLabel('Freelancer share in percent').fill('30');
   await c.getByRole('button', { name: 'Continue' }).click();
   await c.getByRole('button', { name: 'Continue' }).click(); // evidence
-  await shot(c, 'dispute-review');
   await c.getByRole('checkbox').check();
   await c.getByRole('button', { name: /dispute/i }).last().click();
   await c.waitForURL(/\/disputes\/[0-9a-f-]{36}$/);
   const disputeUrl = c.url();
   await shot(c, 'dispute-party');
-  await c.getByRole('button', { name: 'Flag milestone on-chain' }).click();
-  await c.getByRole('button', { name: 'Flag on-chain' }).click();
-  await c.getByText('Confirmed on-chain').waitFor({ timeout: 60000 });
-  await c.getByRole('button', { name: 'Done' }).click();
 
-  step('arbitrator decides');
   const a = arb.page;
-  await a.goto(`${BASE}/arbitration`);
-  await shot(a, 'arbitration-home');
   await a.goto(disputeUrl.replace('/disputes/', '/arbitration/cases/'));
-  await shot(a, 'case-room');
   await a.getByRole('button', { name: /start review/ }).click();
-  await a.getByRole('button', { name: 'Record decision' }).waitFor();
   await a.getByRole('button', { name: 'Record decision' }).click();
   await a.getByRole('radio', { name: /^Split/ }).click();
   await a.getByLabel('Freelancer share in percent').fill('40');
   await a.getByLabel('Reasoning').fill('Design work for the launch was partly done, but the handover was missed; a 40/60 split reflects the delivered portion.');
   await a.getByRole('button', { name: 'Record final decision' }).click();
-  for (let i = 0; i < 30 && sql(`select status from disputes order by created_at desc limit 1`) !== 'resolved'; i++) await a.waitForTimeout(500);
+  for (let i = 0; i < 30 && sql(`select settlement_status from disputes order by created_at desc limit 1`) !== 'settled'; i++) await a.waitForTimeout(500);
   await shot(a, 'case-room-decided');
 
-  step('admin settles on-chain');
-  const ad = admin.page;
-  await ad.goto(`${BASE}/admin`);
-  await shot(ad, 'admin');
-  await ad.getByRole('button', { name: 'Settle on-chain' }).first().click();
-  await ad.getByRole('button', { name: 'Send settlement' }).click();
-  for (let i = 0; i < 30 && sql(`select settlement_status from disputes order by created_at desc limit 1`) !== 'settled'; i++) await ad.waitForTimeout(2000);
-  await ad.reload();
-  await shot(ad, 'admin-after');
+  // Milestone 2 (1,000): 400 to the freelancer less the 10% fee = 360 on hold; 600 back to the client.
   expect(sql(`select status || ' / ' || settlement_status from disputes order by created_at desc limit 1`)).toBe('resolved / settled');
   expect(sql(`select status from contracts where id = '${contractId}'`)).toBe('completed');
+  expect(balance(freeId, 'pending')).toBe(360);
+  expect(balance(clientId, 'wallet')).toBe(600);
+  expect(sql('select sum(amount) from coin_entries')).toBe('0');
   await c.goto(disputeUrl);
   await shot(c, 'dispute-settled');
-  // 100 SHM starting balance + 20 released + 40% of 10 settled, minus gas spent by the freelancer (none).
-  expect(await rpc.getBalance(free.wallet.address)).toBe(124n * 10n ** 18n);
   expect(errors).toEqual([]);
 });

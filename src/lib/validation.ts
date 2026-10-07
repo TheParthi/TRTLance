@@ -26,9 +26,9 @@ export const ProfileUpdate = z.object({
 export type ProfileUpdate = z.input<typeof ProfileUpdate>;
 
 export const amountString = z.string().trim().refine((v) => {
-  const micro = parseAmount(v);
-  return micro !== null && micro > 0n;
-}, 'Enter a positive amount with up to 6 decimals.');
+  const coins = parseAmount(v);
+  return coins !== null && coins > 0n;
+}, 'Enter a whole number of coins.');
 
 export const MilestoneDraft = z.object({
   title: trimmed(120).min(3, 'Give each milestone a title (3+ characters).'),

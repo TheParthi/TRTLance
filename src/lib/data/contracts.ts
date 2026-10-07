@@ -3,8 +3,35 @@ import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { getMembers } from '@/lib/data/projects';
 import type {
-  Contract, ContractEvent, ContractFile, Dispute, EscrowTransaction, Milestone, MilestoneSubmission, Review,
+  Contract, ContractEvent, ContractFile, Dispute, EscrowEntry, Milestone, MilestoneSubmission, Review,
 } from '@/lib/types';
+
+/** Platform rules shown in the UI (fee, hold period, auto-release). Publicly readable. */
+export interface PlatformSettings {
+  fee_bps: number;
+  hold_working_days: number;
+  auto_release_days: number;
+  min_milestone_coins: number;
+  min_purchase_coins: number;
+  max_purchase_coins: number;
+  min_withdrawal_coins: number;
+  paise_per_coin: number;
+}
+
+const DEFAULT_SETTINGS: PlatformSettings = {
+  fee_bps: 1000, hold_working_days: 7, auto_release_days: 7, min_milestone_coins: 100,
+  min_purchase_coins: 100, max_purchase_coins: 500000, min_withdrawal_coins: 500, paise_per_coin: 100,
+};
+
+export const getPlatformSettings = cache(async (): Promise<PlatformSettings> => {
+  const supabase = await createClient();
+  const { data } = await supabase.from('platform_settings').select('key, value').returns<{ key: string; value: string }[]>();
+  const settings = { ...DEFAULT_SETTINGS };
+  for (const row of data ?? []) {
+    if (row.key in settings) settings[row.key as keyof PlatformSettings] = Number(row.value);
+  }
+  return settings;
+});
 
 export type ContractListItem = Contract & { milestones: Pick<Milestone, 'status' | 'amount' | 'due_date' | 'position'>[] };
 
@@ -26,15 +53,16 @@ export const getContractWorkspace = cache(async (id: string) => {
   const { data: contract } = await supabase.from('contracts').select('*').eq('id', id).maybeSingle<Contract>();
   if (!contract) return null;
 
-  const [milestones, submissions, files, txs, events, disputes, reviews, conversation] = await Promise.all([
+  const [milestones, submissions, files, escrow, events, disputes, reviews, conversation, settings] = await Promise.all([
     supabase.from('milestones').select('*').eq('contract_id', id).order('position').returns<Milestone[]>(),
     supabase.from('milestone_submissions').select('*').eq('contract_id', id).order('version', { ascending: false }).returns<MilestoneSubmission[]>(),
     supabase.from('contract_files').select('*').eq('contract_id', id).order('created_at').returns<ContractFile[]>(),
-    supabase.from('escrow_transactions').select('*').eq('contract_id', id).order('created_at', { ascending: false }).returns<EscrowTransaction[]>(),
+    supabase.rpc('contract_coin_history', { p_contract_id: id }),
     supabase.from('contract_events').select('*').eq('contract_id', id).order('id', { ascending: false }).limit(200).returns<ContractEvent[]>(),
     supabase.from('disputes').select('*').eq('contract_id', id).order('created_at', { ascending: false }).returns<Dispute[]>(),
     supabase.from('reviews').select('*').eq('contract_id', id).returns<Review[]>(),
     supabase.from('conversations').select('id').eq('contract_id', id).maybeSingle(),
+    getPlatformSettings(),
   ]);
 
   const signed = await Promise.all(
@@ -51,12 +79,13 @@ export const getContractWorkspace = cache(async (id: string) => {
     milestones: milestones.data ?? [],
     submissions: subs,
     files: signed,
-    transactions: txs.data ?? [],
+    escrow: (escrow.data ?? []) as EscrowEntry[],
     events: events.data ?? [],
     disputes: disputes.data ?? [],
     reviews: reviews.data ?? [],
     conversationId: (conversation.data?.id as string | undefined) ?? null,
     members,
+    settings,
   };
 });
 

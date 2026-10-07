@@ -16,7 +16,7 @@ export function Intro() {
           <div className="flex items-end justify-between gap-6">
             <p className="font-display text-[clamp(2.5rem,7vw,6rem)] font-medium leading-none tracking-[-0.04em]">TrustLance</p>
             <p className="intro-count t-mono pb-2 text-sm text-ink-secondary">
-              <span className="intro-count-value" /> SHM secured
+              <span className="intro-count-value" /> coins secured
             </p>
           </div>
           <div className="mt-6 h-1 overflow-hidden rounded-full bg-ink/10">

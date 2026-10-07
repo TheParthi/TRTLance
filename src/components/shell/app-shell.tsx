@@ -51,7 +51,7 @@ export function AppShell({ viewer, inEscrow, children }: { viewer: Viewer; inEsc
                     <Plus className="size-[18px]" aria-hidden />
                   </Link>
                 )}
-                <WalletChip address={viewer.wallet?.address ?? null} inEscrow={inEscrow} />
+                <WalletChip coins={viewer.coins.wallet} inEscrow={inEscrow} />
                 <NotificationBell userId={viewer.id} initialCount={viewer.unreadNotifications} />
                 <UserMenu name={viewer.profile.display_name} username={viewer.profile.username} avatarPath={viewer.profile.avatar_path} email={viewer.email} ctx={ctx} />
               </div>

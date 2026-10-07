@@ -29,14 +29,14 @@ export function nextAction(
 
   switch (c.status) {
     case 'cancelled':
-      return { tone: 'done', title: 'Contract cancelled', detail: 'It was cancelled before any money was deposited.' };
+      return { tone: 'done', title: 'Contract cancelled', detail: 'It was cancelled before any coins were locked.' };
     case 'pending_signatures':
       return signedByMe
         ? { tone: 'waiting', title: `Waiting for the ${role === 'client' ? 'freelancer' : 'client'} to sign`, detail: 'You have signed. We’ll notify you when they do.' }
         : { tone: 'action', title: 'Review and sign the contract', detail: 'Both parties sign the same terms before any money moves.', target: '#sign', cta: 'Review and sign' };
     case 'awaiting_funding':
       return role === 'client'
-        ? { tone: 'action', title: 'Fund escrow to start the work', detail: 'Deposit the full contract amount from your verified wallet.', target: '#fund', cta: 'Fund escrow' }
+        ? { tone: 'action', title: 'Lock the coins to start the work', detail: 'Lock the full contract amount from your coin wallet in TrustLance escrow.', target: '#fund', cta: 'Fund escrow' }
         : { tone: 'waiting', title: 'Waiting for the client to fund escrow', detail: 'Do not start work until escrow shows as funded.' };
     case 'completed':
       return reviews.some((r) => r.reviewer_role === role)
@@ -50,8 +50,8 @@ export function nextAction(
   const toDeliver = ordered.find((m) => m.status === 'revision_requested') ?? ordered.find((m) => m.status === 'funded');
 
   if (role === 'client') {
-    if (approved) return { tone: 'action', title: `Release payment for milestone ${approved.position}`, detail: `You approved “${approved.title}”. Confirm the release in your wallet to pay the freelancer.`, target: `#milestone-${approved.position}`, milestoneId: approved.id, cta: 'Release payment' };
-    if (submitted) return { tone: 'action', title: `Review milestone ${submitted.position}`, detail: `“${submitted.title}” was submitted. Approve it or request changes.`, target: `#milestone-${submitted.position}`, milestoneId: submitted.id, cta: 'Review submission' };
+    if (approved) return { tone: 'action', title: `Release payment for milestone ${approved.position}`, detail: `You approved “${approved.title}”. Release the coins to pay the freelancer.`, target: `#milestone-${approved.position}`, milestoneId: approved.id, cta: 'Release payment' };
+    if (submitted) return { tone: 'action', title: `Review milestone ${submitted.position}`, detail: `“${submitted.title}” was submitted. Approve it to release the payment, or request changes.`, target: `#milestone-${submitted.position}`, milestoneId: submitted.id, cta: 'Review submission' };
     if (openDispute) return { tone: 'alert', title: 'A dispute is in progress', detail: 'Follow the case and add evidence in the dispute workspace.', target: `/disputes/${openDispute.id}`, cta: 'Open the case' };
     if (toDeliver) return { tone: 'waiting', title: `Waiting for milestone ${toDeliver.position}`, detail: `The freelancer is working on “${toDeliver.title}”.`, target: `#milestone-${toDeliver.position}` };
   } else {
@@ -60,7 +60,7 @@ export function nextAction(
     if (openDispute) return { tone: 'alert', title: 'A dispute is in progress', detail: 'Follow the case and add evidence in the dispute workspace.', target: `/disputes/${openDispute.id}`, cta: 'Open the case' };
     // Work the freelancer can deliver comes before milestones that are only waiting on the client.
     if (toDeliver) return { tone: 'action', title: `Deliver milestone ${toDeliver.position}`, detail: `“${toDeliver.title}” is funded in escrow. Submit your work when it’s ready.`, target: `#milestone-${toDeliver.position}`, milestoneId: toDeliver.id, cta: 'Go to milestone' };
-    if (approved) return { tone: 'waiting', title: `Milestone ${approved.position} approved`, detail: 'Payment is sent when the client confirms the release in their wallet.', target: `#milestone-${approved.position}` };
+    if (approved) return { tone: 'waiting', title: `Milestone ${approved.position} approved`, detail: 'Waiting for the client to release the coins.', target: `#milestone-${approved.position}` };
     if (submitted) return { tone: 'waiting', title: `Milestone ${submitted.position} is under review`, detail: 'The client will approve it or request changes.', target: `#milestone-${submitted.position}` };
   }
   return { tone: 'waiting', title: 'Nothing to do right now', detail: 'We’ll notify you when something changes.' };

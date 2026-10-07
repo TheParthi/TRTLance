@@ -35,14 +35,14 @@ function checkValue(c: EligibilityCheck) {
     case 'contracts': return `${Number(c.value ?? 0)} completed`;
     case 'rating': return c.value === null ? 'No rating yet' : `${Number(c.value).toFixed(2)} average`;
     case 'disputes': return `${Number(c.value ?? 0)} lost`;
-    case 'wallet': return c.value ? 'Verified' : 'Not verified';
+    case 'identity': return c.value ? 'Verified' : 'Not verified';
     case 'age': return typeof c.value === 'string' ? `Joined ${formatDate(c.value)}` : '—';
     default: return String(c.value ?? '—');
   }
 }
 
 const fixLinks: Partial<Record<EligibilityCheck['key'], { href: string; label: string }>> = {
-  wallet: { href: '/wallet', label: 'Verify a wallet' },
+  identity: { href: '/wallet#withdraw', label: 'Verify your PAN and bank' },
   contracts: { href: '/work', label: 'Find work' },
 };
 
@@ -70,7 +70,7 @@ async function Programme({ arb }: { arb: Arbitrator | null }) {
       <PageHeader
         eyebrow="Arbitrator programme"
         title="Help settle disputes fairly"
-        description="Arbitrators are experienced TrustLance members who review disputed milestones and decide how the escrowed funds are split. A person always makes the decision; AI analysis is only an advisory aid."
+        description="Arbitrators are experienced TrustLance members who review disputed milestones and decide how the coins frozen in escrow are split. A person always makes the decision; AI analysis is only an advisory aid."
       />
       <div className="grid grid-cols-1 gap-12 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="min-w-0 space-y-12">
@@ -94,7 +94,7 @@ async function Programme({ arb }: { arb: Arbitrator | null }) {
             {[
               ['Assigned without conflicts', 'You are only assigned cases where you have never worked with either party, matched to your specialisations and capacity.'],
               ['Review the case file', 'Contract terms, the milestone, submitted work, both statements, evidence and the case chat — all in one case room.'],
-              ['Decide and explain', 'Choose full release, full refund or a split, and write reasoning both parties will read. The escrow contract pays out exactly that split.'],
+              ['Decide and explain', 'Choose full release, full refund or a split, and write reasoning both parties will read. The coins are paid out exactly that way as soon as you decide.'],
             ].map(([t, b], i) => (
               <LedgerRow key={t} className="flex-row items-start gap-4" lead={<span className="t-mono text-ink-muted">{String(i + 1).padStart(2, '0')}</span>}>
                 <p className="text-sm font-medium">{t}</p>

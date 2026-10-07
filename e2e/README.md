@@ -3,10 +3,10 @@
 Playwright, using the locally installed Google Chrome (`E2E_CHANNEL=chrome`; set it to `chromium` after `npx playwright install chromium`).
 
 - `public.spec.ts` — landing, navigation (desktop and phone), legacy redirects, auth guards, form validation, 404. Runs against any build, even without a database.
-- `escrow-journey.spec.ts` — the complete money lifecycle through the UI on a local chain: sign-up, onboarding, SIWE wallet verification, posting, proposal, hiring, signatures, escrow funding, delivery, approval and release, dispute, on-chain flag, arbitrator decision and arbiter settlement. Wallets are injected (EIP-1193, backed by Hardhat accounts). Needs the Docker-free local stack (`scripts/local-stack`), `npx hardhat node` + `npm run deploy:local`, and `E2E_LOCAL_STACK=1`.
-- `journey.spec.ts` — post project → proposal → hire → both sign → awaiting funding. Needs a Supabase-backed environment and two confirmed accounts with verified wallets (`E2E_CLIENT_EMAIL`, `E2E_CLIENT_PASSWORD`, `E2E_FREELANCER_EMAIL`, `E2E_FREELANCER_PASSWORD`). Skipped otherwise.
+- `escrow-journey.spec.ts` — the complete coin lifecycle through the UI with test payments: sign-up, onboarding, buying coins, posting with custom milestone amounts, proposal, hiring, signatures, locking coins in escrow, delivery, approve-and-pay (fee + 7-working-day hold), bank account verification, withdrawal paid by an admin, dispute and arbitrator decision. Needs the Docker-free local stack (`scripts/local-stack`), the app running against it with `PAYMENTS_PROVIDER` unset, and `E2E_LOCAL_STACK=1`.
+- `journey.spec.ts` — post project → proposal → hire → both sign → awaiting funding. Needs a Supabase-backed environment and two confirmed accounts (`E2E_CLIENT_EMAIL`, `E2E_CLIENT_PASSWORD`, `E2E_FREELANCER_EMAIL`, `E2E_FREELANCER_PASSWORD`). Skipped otherwise.
 
-On real networks the on-chain steps need a wallet extension; beyond the local journey they are also covered by `blockchain/test` (contract) and `supabase/tests/db` (database effects and idempotency), plus `src/lib/chain/verify.test.ts` (receipt verification).
+Money rules (fees, holds, auto-release, withdrawals, ledger balance) are also covered by `supabase/tests/db`.
 
 ```bash
 npm run test:e2e                         # starts `npm run dev` if nothing is running

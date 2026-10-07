@@ -4,8 +4,8 @@ import { EscrowRingStage } from '@/components/marketing/escrow-ring-stage';
 import { LedgerField } from '@/components/marketing/ledger-field';
 
 const points = [
-  { title: 'Funded before work starts', body: 'Every contract is deposited into escrow before the first milestone begins.' },
-  { title: 'Paid on approval', body: 'Approving a milestone releases it straight to the freelancer’s verified wallet.' },
+  { title: 'Funded before work starts', body: 'Every contract is locked in escrow before the first milestone begins.' },
+  { title: 'Paid on approval', body: 'Approving a milestone releases it to the freelancer, withdrawable to their bank.' },
   { title: 'Fair disputes', body: 'An independent arbitrator decides. AI assists; people decide.' },
 ];
 
@@ -32,7 +32,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
               </li>
             ))}
           </ol>
-          <p className="text-xs text-ink-inverse/50">Funds are held by a non-custodial smart contract. TrustLance cannot withdraw them.</p>
+          <p className="text-xs text-ink-inverse/50">Payments are locked in TrustLance escrow before work starts and released milestone by milestone.</p>
         </div>
       </aside>
       <main id="main" className="relative flex flex-col overflow-hidden px-4 py-8 sm:px-10">

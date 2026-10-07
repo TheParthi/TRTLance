@@ -17,12 +17,10 @@ import { ConfirmDialog } from '@/components/common/confirm-dialog';
 import { Money } from '@/components/common/money';
 import { MilestoneStatusMark } from '@/components/common/status-mark';
 import { StatusIcon } from '@/components/common/status-icon';
-import { EscrowTxDialog } from '@/components/escrow/escrow-tx-dialog';
-import { approveMilestone, requestRevision } from '@/lib/actions/contracts';
+import { approveMilestone, refundMilestone, releaseMilestone, requestRevision, type ReleaseResult } from '@/lib/actions/contracts';
 import type { SubmissionWithFiles } from '@/lib/data/contracts';
-import { isEscrowConfigured } from '@/lib/env';
-import { daysUntil, disputeNumber, formatBytes, formatDate, formatDateTime, shortAddress } from '@/lib/format';
-import { formatAmount } from '@/lib/money';
+import { daysUntil, disputeNumber, formatBytes, formatDate, formatDateTime } from '@/lib/format';
+import { feePercent, feeSplit, formatAmount } from '@/lib/money';
 import { milestoneStatus } from '@/lib/status';
 import type { Contract, Milestone } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -43,12 +41,15 @@ const nodeTone: Record<string, string> = {
  * One milestone on the contract's spine. Only the milestone that needs attention is expanded with
  * its primary action; secondary and risky actions sit in a "More" menu.
  */
-export function MilestoneCard({ contract, milestone: m, submissions, role, hasPendingTx, highlighted, dispute, last }: {
+export function MilestoneCard({ contract, milestone: m, submissions, role, holdDays, autoReleaseDays, highlighted, dispute, last }: {
   contract: Contract;
   milestone: Milestone;
   submissions: SubmissionWithFiles[];
   role: 'client' | 'freelancer';
-  hasPendingTx: boolean;
+  /** Working days a released payment is held before the freelancer can withdraw it. */
+  holdDays: number;
+  /** Days after a submission before an unanswered milestone pays out automatically. */
+  autoReleaseDays: number;
   /** The milestone the next action points at. */
   highlighted: boolean;
   dispute?: { id: string; number: number } | null;
@@ -65,7 +66,10 @@ export function MilestoneCard({ contract, milestone: m, submissions, role, hasPe
   const live = contract.status === 'active' || contract.status === 'disputed';
   const due = daysUntil(m.due_date);
   const open = ['funded', 'submitted', 'revision_requested', 'approved'].includes(m.status);
-  const index = m.position - 1;
+  const split = feeSplit(m.amount, contract.fee_bps);
+  const autoReleaseOn = m.status === 'submitted' && m.submitted_at
+    ? new Date(new Date(m.submitted_at).getTime() + autoReleaseDays * 86_400_000).toISOString()
+    : null;
 
   // The steps this party can take on this milestone. Only the milestone the next action points at
   // shows them as buttons; on the others they wait in the "More" menu so one action leads the page.
@@ -78,13 +82,21 @@ export function MilestoneCard({ contract, milestone: m, submissions, role, hasPe
     steps.push({ key: 'revise', label: 'Request changes', icon: <MessageSquareWarning />, quiet: true });
   }
   if (live && role === 'client' && m.status === 'approved') {
-    steps.push({ key: 'release', label: hasPendingTx ? 'Release confirming…' : 'Release payment', icon: null, disabled: hasPendingTx || !isEscrowConfigured() });
+    steps.push({ key: 'release', label: 'Release payment', icon: <Check /> });
   }
   const shown = highlighted ? steps : [];
   const tucked = highlighted ? [] : steps.filter((st) => !st.disabled);
-  const canRefund = live && role === 'freelancer' && m.status === 'funded' && isEscrowConfigured() && !hasPendingTx;
+  const canRefund = live && role === 'freelancer' && m.status === 'funded';
+  // A client may pay a milestone early, before any submission.
+  const canPayEarly = live && role === 'client' && (m.status === 'funded' || m.status === 'revision_requested');
   const canDispute = live && open;
-  const hasMenu = tucked.length > 0 || canRefund || canDispute;
+  const hasMenu = tucked.length > 0 || canRefund || canPayEarly || canDispute;
+
+  const paid = (r: ReleaseResult) => {
+    toast.success(r.already_paid ? 'This milestone was already paid.' : `Released. ${formatAmount(r.net ?? split.net)} goes to the freelancer${r.available_on ? `, withdrawable from ${formatDate(r.available_on)}` : ''}.`);
+    setDialog(null);
+    router.refresh();
+  };
 
   return (
     <article id={`milestone-${m.position}`} className="relative scroll-mt-24 pb-10 pl-12 last:pb-2" aria-labelledby={`ms-${m.id}-title`}>
@@ -114,7 +126,8 @@ export function MilestoneCard({ contract, milestone: m, submissions, role, hasPe
                 {m.due_date ? <>Due {formatDate(m.due_date)}{open && due !== null && <span className={cn(due < 0 ? 'text-danger-strong' : due <= 2 ? 'text-warning-strong' : '')}>&nbsp;· {due < 0 ? `${-due} days overdue` : due === 0 ? 'due today' : `${due} days left`}</span>}</> : `Due ${m.due_in_days} days after funding`}
               </span>
               {m.revision_count > 0 && <span>{m.revision_count} revision{m.revision_count === 1 ? '' : 's'}</span>}
-              {m.paid_at && m.status === 'paid' && <span>Released {formatDate(m.paid_at)}</span>}
+              {m.paid_at && m.status === 'paid' && <span>Released {formatDate(m.paid_at)}{m.platform_fee !== null && <> · {formatAmount(m.platform_fee)} platform fee</>}</span>}
+              {autoReleaseOn && <span>Pays automatically on {formatDate(autoReleaseOn)} if there is no response</span>}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-3 sm:flex-col sm:items-end sm:gap-1.5">
@@ -204,7 +217,8 @@ export function MilestoneCard({ contract, milestone: m, submissions, role, hasPe
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start">
                   {tucked.map((st) => <DropdownMenuItem key={st.key} onSelect={() => setDialog(st.key)}>{st.icon} {st.label}</DropdownMenuItem>)}
-                  {canRefund && <DropdownMenuItem onSelect={() => setDialog('refund')}><Undo2 /> Return funds to the client</DropdownMenuItem>}
+                  {canPayEarly && <DropdownMenuItem onSelect={() => setDialog('release')}><Check /> Release payment now</DropdownMenuItem>}
+                  {canRefund && <DropdownMenuItem onSelect={() => setDialog('refund')}><Undo2 /> Return coins to the client</DropdownMenuItem>}
                   {canDispute && (
                     <DropdownMenuItem asChild>
                       <Link href={`/disputes/new?contract=${contract.id}&milestone=${m.id}`}><Scale /> Raise a dispute</Link>
@@ -223,7 +237,7 @@ export function MilestoneCard({ contract, milestone: m, submissions, role, hasPe
         open={dialog === 'revise'}
         onOpenChange={(o) => setDialog(o ? 'revise' : null)}
         title={`Request changes to milestone ${m.position}`}
-        description="The freelancer sees your feedback and submits an updated version. Funds stay secured in escrow."
+        description="The freelancer sees your feedback and submits an updated version. The coins stay secured in escrow."
         confirmLabel="Send request"
         busy={busy}
         onConfirm={async () => {
@@ -243,62 +257,46 @@ export function MilestoneCard({ contract, milestone: m, submissions, role, hasPe
       </ConfirmDialog>
 
       <ConfirmDialog
-        open={dialog === 'approve'}
-        onOpenChange={(o) => setDialog(o ? 'approve' : null)}
-        title={`Approve milestone ${m.position}?`}
-        description={`You confirm “${m.title}” was delivered as agreed. Next, your wallet asks you to release ${formatAmount(m.amount)} from escrow to the freelancer.`}
-        confirmLabel="Approve and continue"
+        open={dialog === 'approve' || dialog === 'release'}
+        onOpenChange={(o) => setDialog(o ? dialog : null)}
+        title={dialog === 'approve' ? `Approve and pay milestone ${m.position}?` : `Release milestone ${m.position}?`}
+        description={`${dialog === 'approve' ? `You confirm “${m.title}” was delivered as agreed. ` : ''}${formatAmount(m.amount)} leaves escrow now. This cannot be undone.`}
+        confirmLabel={dialog === 'approve' ? 'Approve and pay' : 'Release payment'}
         busy={busy}
         onConfirm={async () => {
           setBusy(true);
-          const r = await approveMilestone(contract.id, m.id);
+          const r = dialog === 'approve' ? await approveMilestone(contract.id, m.id) : await releaseMilestone(contract.id, m.id);
           setBusy(false);
           if (!r.ok) return toast.error(r.error.message);
+          paid(r.data);
+        }}
+      >
+        <dl className="divide-y border-y text-sm">
+          <div className="flex justify-between gap-4 py-2.5"><dt className="text-ink-muted">Milestone</dt><dd><Money amount={m.amount} /></dd></div>
+          <div className="flex justify-between gap-4 py-2.5"><dt className="text-ink-muted">Platform fee ({feePercent(contract.fee_bps)})</dt><dd><Money amount={split.fee} /></dd></div>
+          <div className="flex justify-between gap-4 py-2.5"><dt className="text-ink-muted">Freelancer receives</dt><dd><Money amount={split.net} /></dd></div>
+        </dl>
+        <p className="text-sm text-ink-secondary">The freelancer can withdraw it to their bank account after {holdDays} working days.</p>
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={dialog === 'refund'}
+        onOpenChange={(o) => setDialog(o ? 'refund' : null)}
+        title={`Return milestone ${m.position} to the client?`}
+        description={`Use this if you can’t deliver “${m.title}” and agree it should be refunded. The client gets all ${formatAmount(m.amount)} back in their coin wallet. This cannot be undone.`}
+        confirmLabel="Return coins"
+        tone="danger"
+        busy={busy}
+        onConfirm={async () => {
+          setBusy(true);
+          const r = await refundMilestone(contract.id, m.id);
+          setBusy(false);
+          if (!r.ok) return toast.error(r.error.message);
+          toast.success('The coins were returned to the client.');
+          setDialog(null);
           router.refresh();
-          setDialog(isEscrowConfigured() ? 'release' : null);
         }}
       />
-
-      {contract.escrow_key && (
-        <>
-          <EscrowTxDialog
-            open={dialog === 'release'}
-            onOpenChange={(o) => setDialog(o ? 'release' : null)}
-            title={`Release milestone ${m.position}`}
-            purpose={`Pay “${m.title}” from escrow to the freelancer’s verified wallet. This cannot be undone.`}
-            kind="release"
-            contractId={contract.id}
-            milestoneId={m.id}
-            requiredWallet={contract.client_wallet}
-            call={{ fn: 'release', args: [contract.escrow_key, index] }}
-            rows={[
-              { label: 'Amount', value: <Money amount={m.amount} /> },
-              { label: 'Goes to', value: <span className="font-mono text-xs">{shortAddress(contract.freelancer_wallet)} (freelancer)</span> },
-            ]}
-            nextSteps="When the network confirms, the milestone shows as Released and the freelancer is notified. If this was the last open milestone, the contract completes."
-            confirmLabel="Release in wallet"
-            onSettled={() => router.refresh()}
-          />
-          <EscrowTxDialog
-            open={dialog === 'refund'}
-            onOpenChange={(o) => setDialog(o ? 'refund' : null)}
-            title={`Return milestone ${m.position} to the client`}
-            purpose="Use this if you can’t deliver this milestone and agree it should be refunded. The client gets the full milestone amount back. This cannot be undone."
-            kind="refund"
-            contractId={contract.id}
-            milestoneId={m.id}
-            requiredWallet={contract.freelancer_wallet}
-            call={{ fn: 'refund', args: [contract.escrow_key, index] }}
-            rows={[
-              { label: 'Amount', value: <Money amount={m.amount} /> },
-              { label: 'Goes to', value: <span className="font-mono text-xs">{shortAddress(contract.client_wallet)} (client)</span> },
-            ]}
-            nextSteps="When the network confirms, the milestone shows as Refunded and the client is notified."
-            confirmLabel="Refund in wallet"
-            onSettled={() => router.refresh()}
-          />
-        </>
-      )}
     </article>
   );
 }

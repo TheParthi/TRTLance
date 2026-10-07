@@ -1,7 +1,7 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import {
-  activeContract, as, createOpenProject, createUser, deliverAndApprove, expectError, fundContract, milestonePlan,
-  pool, randomTxHash, releaseMilestone, root, service, signedContract, submitProposal, verifyWallet,
+  activeContract, as, balances, buyCoins, createOpenProject, createUser, deliverAndApprove, escrowBalance, expectError,
+  fundContract, milestonePlan, pool, releaseMilestone, root, signedContract, submitProposal,
 } from './helpers';
 
 afterAll(() => pool.end());
@@ -145,7 +145,7 @@ describe('hiring', () => {
 });
 
 describe('signing', () => {
-  it('requires a verified wallet and the current terms, and cannot be repeated', async () => {
+  it('requires the current terms and cannot be repeated', async () => {
     const client = await createUser('Sign Client');
     const freelancer = await createUser('Sign Freelancer');
     const projectId = await createOpenProject(client);
@@ -154,13 +154,10 @@ describe('signing', () => {
     });
     const [{ terms_hash }] = await root<{ terms_hash: string }>('select terms_hash from public.contracts where id = $1', [contractId]);
 
-    await expectError(as(client).rpc('sign_contract', { p_contract_id: contractId, p_full_name: 'Client', p_terms_hash: terms_hash }), 'wallet_required');
-    await verifyWallet(client);
     await expectError(as(client).rpc('sign_contract', { p_contract_id: contractId, p_full_name: 'Client', p_terms_hash: 'f'.repeat(64) }), 'terms_changed');
     expect(await as(client).rpc('sign_contract', { p_contract_id: contractId, p_full_name: 'Client', p_terms_hash: terms_hash })).toBe('pending_signatures');
     await expectError(as(client).rpc('sign_contract', { p_contract_id: contractId, p_full_name: 'Client', p_terms_hash: terms_hash }), 'already_signed');
 
-    await verifyWallet(freelancer);
     expect(await as(freelancer).rpc('sign_contract', { p_contract_id: contractId, p_full_name: 'Freelancer', p_terms_hash: terms_hash })).toBe('awaiting_funding');
   });
 
@@ -174,37 +171,31 @@ describe('signing', () => {
 });
 
 describe('funding', () => {
-  it('only accepts deposits from the client wallet for the exact total, once', async () => {
+  it('locks exactly the total from the client wallet, once, and only for the client', async () => {
     const ctx = await signedContract([100, 200]);
-    const wrongAmount = await fundContract(ctx.contractId, ctx.client, ctx.clientWallet, '299');
-    const [failed] = await root<{ status: string }>('select status from public.escrow_transactions where id = $1', [wrongAmount]);
-    expect(failed.status).toBe('failed');
+    // The project budget (300) was bought when the project was posted; spend some elsewhere.
+    await root(`with t as (insert into public.coin_transactions (kind, memo) values ('purchase', 'Spent elsewhere') returning id)
+                select app.move_coins((select id from t), app.coin_account('wallet', $1), app.coin_account('gateway'), 250)`, [ctx.client]);
+    const short = await expectError(fundContract(ctx.contractId, ctx.client), 'insufficient_coins');
+    expect(short.detail).toContain('250 more coins');
+    await expectError(as(ctx.freelancer).rpc('fund_contract', { p_contract_id: ctx.contractId }), 'forbidden');
 
-    const wrongWallet = await fundContract(ctx.contractId, ctx.client, ctx.freelancerWallet);
-    const [failed2] = await root<{ status: string }>('select status from public.escrow_transactions where id = $1', [wrongWallet]);
-    expect(failed2.status).toBe('failed');
+    await buyCoins(ctx.client, 250);
+    expect(await fundContract(ctx.contractId, ctx.client)).toBe('active');
+    // Funding again changes nothing.
+    expect(await fundContract(ctx.contractId, ctx.client)).toBe('active');
+    expect(await escrowBalance(ctx.contractId)).toBe(300);
+    expect((await balances(ctx.client)).wallet).toBe(0);
 
-    const ok = await fundContract(ctx.contractId, ctx.client, ctx.clientWallet);
-    // Applying the same confirmed transaction again changes nothing.
-    await service().rpc('apply_escrow_funding', {
-      p_tx_id: ok, p_block: 1, p_from: ctx.clientWallet, p_amount: '300', p_escrow_address: ctx.clientWallet, p_escrow_key: randomTxHash(),
-    });
-    const [c] = await root<{ status: string }>('select status from public.contracts where id = $1', [ctx.contractId]);
-    expect(c.status).toBe('active');
     const ms = await root<{ status: string; due_date: string | null }>('select status, due_date from public.milestones where contract_id = $1', [ctx.contractId]);
     expect(ms.every((m) => m.status === 'funded' && m.due_date)).toBe(true);
     const [stats] = await root<{ funded_as_client: number }>('select funded_as_client from public.profile_stats where id = $1', [ctx.client]);
     expect(stats.funded_as_client).toBe(1);
   });
 
-  it('the apply functions are not callable by users', async () => {
-    const ctx = await signedContract();
-    const txId = await as(ctx.client).rpc<string>('report_escrow_tx', {
-      p_contract_id: ctx.contractId, p_kind: 'fund', p_milestone_id: null, p_chain_id: 31337, p_tx_hash: randomTxHash(),
-    });
-    await expectError(as(ctx.client).rpc('apply_escrow_funding', {
-      p_tx_id: txId, p_block: 1, p_from: ctx.clientWallet, p_amount: '300', p_escrow_address: ctx.clientWallet, p_escrow_key: randomTxHash(),
-    }), 'permission denied for function apply_escrow_funding');
+  it('cannot be cancelled once coins are locked', async () => {
+    const ctx = await activeContract([100]);
+    await expectError(as(ctx.client).rpc('cancel_contract', { p_contract_id: ctx.contractId, p_reason: 'Changed my mind about it.' }), 'invalid_state');
   });
 });
 
@@ -224,26 +215,21 @@ describe('milestones', () => {
     const versions = await root('select version from public.milestone_submissions where milestone_id = $1 order by version', [m1.id]);
     expect(versions).toEqual([{ version: 1 }, { version: 2 }]);
 
-    const approval = await as(ctx.client).rpc<{ position: number }>('approve_milestone', { p_milestone_id: m1.id });
-    expect(approval.position).toBe(1);
-    // Approving again is a no-op that returns the same release instructions.
-    expect((await as(ctx.client).rpc<{ position: number }>('approve_milestone', { p_milestone_id: m1.id })).position).toBe(1);
-
-    const tx = await releaseMilestone(ctx.contractId, ctx.client, ctx.clientWallet, m1.id);
-    // Replaying the release does not pay twice.
-    await service().rpc('apply_escrow_release', { p_tx_id: tx, p_block: 2, p_from: ctx.clientWallet, p_position: 1, p_amount: m1.amount });
-    const [paid] = await root<{ status: string; freelancer_payout: string }>('select status, freelancer_payout from public.milestones where id = $1', [m1.id]);
+    const approval = await as(ctx.client).rpc<{ position: number; fee: number; net: number }>('approve_milestone', { p_milestone_id: m1.id });
+    expect(approval).toMatchObject({ position: 1, fee: 10, net: 90 });
+    // Approving or releasing again does not pay twice.
+    expect(await as(ctx.client).rpc('approve_milestone', { p_milestone_id: m1.id })).toMatchObject({ already_paid: true });
+    expect(await releaseMilestone(ctx.client, m1.id)).toMatchObject({ already_paid: true });
+    const [paid] = await root<{ status: string; freelancer_payout: string; platform_fee: string }>(
+      'select status, freelancer_payout, platform_fee from public.milestones where id = $1', [m1.id]);
     expect(paid.status).toBe('paid');
-
-    // A second release transaction for the same milestone is rejected.
-    const second = await releaseMilestone(ctx.contractId, ctx.client, ctx.clientWallet, m1.id);
-    const [rejected] = await root<{ status: string }>('select status from public.escrow_transactions where id = $1', [second]);
-    expect(rejected.status).toBe('failed');
+    expect(Number(paid.platform_fee)).toBe(10);
+    expect(await balances(ctx.freelancer)).toEqual({ wallet: 0, pending: 90, earnings: 0 });
+    expect(await escrowBalance(ctx.contractId)).toBe(200);
 
     await expectError(as(ctx.freelancer).rpc('submit_review', { p_contract_id: ctx.contractId, p_rating: 5, p_ratings: '{}', p_body: 'Great client to work with overall.' }), 'invalid_state');
 
     await deliverAndApprove(ctx, m2.id);
-    await releaseMilestone(ctx.contractId, ctx.client, ctx.clientWallet, m2.id);
     const [c] = await root<{ status: string }>('select status from public.contracts where id = $1', [ctx.contractId]);
     expect(c.status).toBe('completed');
     const [s] = await root<{ completed_as_freelancer: number; trust_credits: number }>(
@@ -260,16 +246,22 @@ describe('milestones', () => {
   });
 
   it('a freelancer can voluntarily refund a funded milestone', async () => {
-    const ctx = await activeContract([50]);
+    const ctx = await activeContract([150]);
     const [m] = ctx.milestones;
-    const txId = await as(ctx.freelancer).rpc<string>('report_escrow_tx', {
-      p_contract_id: ctx.contractId, p_kind: 'refund', p_milestone_id: m.id, p_chain_id: 31337, p_tx_hash: randomTxHash(),
-    });
-    await expectError(as(ctx.client).rpc('report_escrow_tx', {
-      p_contract_id: ctx.contractId, p_kind: 'refund', p_milestone_id: m.id, p_chain_id: 31337, p_tx_hash: randomTxHash(),
-    }), 'forbidden');
-    await service().rpc('apply_escrow_refund', { p_tx_id: txId, p_block: 3, p_from: ctx.freelancerWallet, p_position: 1, p_amount: m.amount });
+    await expectError(as(ctx.client).rpc('refund_milestone', { p_milestone_id: m.id }), 'forbidden');
+    await as(ctx.freelancer).rpc('refund_milestone', { p_milestone_id: m.id });
+    await expectError(as(ctx.freelancer).rpc('refund_milestone', { p_milestone_id: m.id }), 'invalid_state');
+    expect((await balances(ctx.client)).wallet).toBe(150);
+    expect(await escrowBalance(ctx.contractId)).toBe(0);
     const [c] = await root<{ status: string }>('select status from public.contracts where id = $1', [ctx.contractId]);
     expect(c.status).toBe('completed');
+  });
+
+  it('only the client releases, and only while the contract is funded', async () => {
+    const ctx = await activeContract([100, 200]);
+    await expectError(as(ctx.freelancer).rpc('release_milestone', { p_milestone_id: ctx.milestones[0].id }), 'not_found');
+    // A client may pay a milestone early, before any submission.
+    await releaseMilestone(ctx.client, ctx.milestones[1].id);
+    expect((await balances(ctx.freelancer)).pending).toBe(180);
   });
 });

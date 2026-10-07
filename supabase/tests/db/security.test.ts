@@ -1,18 +1,22 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import {
-  activeContract, anon, as, createOpenProject, createUser, expectError, pool, randomAddress, root, service,
-  signedContract, submitProposal, verifyWallet,
+  activeContract, anon, as, createOpenProject, createUser, expectError, pool, root, service,
+  signedContract, submitProposal, verifiedBankAccount,
 } from './helpers';
 
 afterAll(() => pool.end());
 
 describe('H1 — users cannot change privileged fields', () => {
-  it('blocks writes to reputation, trust and wallet data', async () => {
+  it('blocks writes to reputation, trust and coin data', async () => {
     const uid = await createUser('Privilege Tester');
     await expectError(as(uid).query('update public.profile_stats set rating_avg = 5, trust_credits = 9999 where id = $1', [uid]),
       'permission denied for table profile_stats');
-    await expectError(as(uid).query('insert into public.wallets (user_id, address, chain_id, siwe_message, signature) values ($1, $2, 1, $3, $4)',
-      [uid, randomAddress(), 'm', 's']), 'permission denied for table wallets');
+    await expectError(as(uid).query(`update public.coin_accounts set balance = 1000000 where user_id = $1`, [uid]),
+      'permission denied for table coin_accounts');
+    await expectError(as(uid).query(`insert into public.coin_accounts (kind, user_id, balance) values ('wallet', $1, 5000)`, [uid]),
+      'permission denied for table coin_accounts');
+    await expectError(as(uid).query(`insert into public.payout_accounts (user_id, account_holder, account_number, ifsc, pan, status)
+      values ($1, 'Me', '123456789012', 'HDFC0001234', 'ABCDE1234F', 'verified')`, [uid]), 'permission denied for table payout_accounts');
     await expectError(as(uid).query('insert into public.platform_admins (user_id) values ($1)', [uid]),
       'permission denied for table platform_admins');
     await expectError(as(uid).query(`update public.profiles set created_at = now() - interval '1 year' where id = $1`, [uid]),
@@ -35,55 +39,27 @@ describe('H1 — users cannot change privileged fields', () => {
 });
 
 describe('H2 — private data is not public', () => {
-  it('exposes no email/phone/wallet to anonymous or other users', async () => {
+  it('exposes no email, phone or bank details to anonymous or other users', async () => {
     const uid = await createUser('Private Person');
     await as(uid).query(`update public.profile_private set phone = '+91 98765 43210' where id = $1`, [uid]);
-    await verifyWallet(uid);
+    await verifiedBankAccount(uid);
     const columns = await root<{ column_name: string }>(
       `select column_name from information_schema.columns where table_schema = 'public' and table_name = 'profiles'`);
     expect(columns.map((c) => c.column_name)).not.toContain('email');
 
     await expectError(anon().query('select * from public.profile_private'), 'permission denied for table profile_private');
-    await expectError(anon().query('select * from public.wallets'), 'permission denied for table wallets');
+    await expectError(anon().query('select * from public.payout_accounts'), 'permission denied for table payout_accounts');
     const stranger = await createUser('Stranger');
     expect(await as(stranger).query('select * from public.profile_private where id = $1', [uid])).toHaveLength(0);
-    expect(await as(stranger).query('select * from public.wallets where user_id = $1', [uid])).toHaveLength(0);
-    // Public trust facts are visible without revealing the address.
-    const [stats] = await anon().query<{ wallet_verified: boolean }>('select wallet_verified from public.profile_stats where id = $1', [uid]);
-    expect(stats.wallet_verified).toBe(true);
-  });
-});
-
-describe('wallet linking', () => {
-  it('binds one wallet per account and one account per wallet, with single-use nonces', async () => {
-    const a = await createUser('Wallet A');
-    const b = await createUser('Wallet B');
-    const address = randomAddress();
-    await verifyWallet(a, address);
-    await expectError(as(a).rpc('issue_wallet_nonce'), 'wallet_already_linked');
-    const nonce = await as(b).rpc<string>('issue_wallet_nonce');
-    await expectError(service().rpc('link_verified_wallet', {
-      p_user: b, p_nonce: nonce, p_address: address.toUpperCase().replace('0X', '0x'), p_chain_id: 1, p_message: 'm', p_signature: 's',
-    }), 'wallet_in_use');
-    // A nonce works once, only for the user it was issued to.
-    const c = await createUser('Wallet C');
-    const nonceC = await as(c).rpc<string>('issue_wallet_nonce');
-    await expectError(service().rpc('link_verified_wallet', {
-      p_user: b, p_nonce: nonceC, p_address: randomAddress(), p_chain_id: 1, p_message: 'm', p_signature: 's',
-    }), 'nonce_invalid');
-    await service().rpc('link_verified_wallet', {
-      p_user: b, p_nonce: nonce, p_address: randomAddress(), p_chain_id: 1, p_message: 'm', p_signature: 's',
-    });
-    const reuse = await as(c).rpc<string>('issue_wallet_nonce');
-    await service().rpc('link_verified_wallet', {
-      p_user: c, p_nonce: reuse, p_address: randomAddress(), p_chain_id: 1, p_message: 'm', p_signature: 's',
-    });
-    await expectError(service().rpc('link_verified_wallet', {
-      p_user: c, p_nonce: reuse, p_address: randomAddress(), p_chain_id: 1, p_message: 'm', p_signature: 's',
-    }), 'nonce_invalid');
-    await expectError(as(b).rpc('link_verified_wallet', {
-      p_user: b, p_nonce: 'x'.repeat(32), p_address: randomAddress(), p_chain_id: 1, p_message: 'm', p_signature: 's',
-    }), 'permission denied for function link_verified_wallet');
+    expect(await as(stranger).query('select user_id from public.payout_accounts where user_id = $1', [uid])).toHaveLength(0);
+    // Even the owner cannot read back the full account number or PAN.
+    await expectError(as(uid).query('select account_number from public.payout_accounts'), 'permission denied for table payout_accounts');
+    await expectError(as(uid).query('select pan from public.payout_accounts'), 'permission denied for table payout_accounts');
+    const [own] = await as(uid).query<{ account_last4: string; status: string }>('select account_last4, status from public.payout_accounts');
+    expect(own).toEqual({ account_last4: '9012', status: 'verified' });
+    // Public trust facts are visible without revealing the details.
+    const [stats] = await anon().query<{ identity_verified: boolean }>('select identity_verified from public.profile_stats where id = $1', [uid]);
+    expect(stats.identity_verified).toBe(true);
   });
 });
 
@@ -91,7 +67,7 @@ describe('contract privacy', () => {
   it('limits contracts, milestones, events and messages to the parties', async () => {
     const ctx = await activeContract();
     const stranger = await createUser('Contract Stranger');
-    for (const table of ['contracts', 'milestones', 'contract_events', 'escrow_transactions']) {
+    for (const table of ['contracts', 'milestones', 'contract_events', 'coin_accounts']) {
       const column = table === 'contracts' ? 'id' : 'contract_id';
       const own = await as(ctx.client).query(`select 1 from public.${table} where ${column} = $1`, [ctx.contractId]);
       expect(own.length, table).toBeGreaterThan(0);

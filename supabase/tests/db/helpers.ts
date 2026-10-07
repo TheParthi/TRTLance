@@ -77,20 +77,24 @@ export async function createUser(name = 'Test User', opts: { confirmed?: boolean
   return row.id;
 }
 
-export const randomAddress = () => `0x${randomBytes(20).toString('hex')}`;
-export const randomTxHash = () => `0x${randomBytes(32).toString('hex')}`;
+/** Buys coins for a user the way the payment webhook does (service role). */
+export async function buyCoins(uid: string, coins: number) {
+  const purchase = await service().rpc<{ id: string }>('create_coin_purchase', { p_user: uid, p_coins: coins, p_provider: 'mock' });
+  const orderId = `order_${randomBytes(8).toString('hex')}`;
+  await service().rpc('attach_coin_purchase_order', { p_purchase_id: purchase.id, p_order_id: orderId });
+  await service().rpc('complete_coin_purchase', { p_order_id: orderId, p_payment_id: `pay_${randomBytes(8).toString('hex')}`, p_amount_paise: coins * 100 });
+  return orderId;
+}
 
-export async function verifyWallet(uid: string, address = randomAddress()) {
-  const nonce = await as(uid).rpc<string>('issue_wallet_nonce');
-  await service().rpc('link_verified_wallet', {
-    p_user: uid,
-    p_nonce: nonce,
-    p_address: address,
-    p_chain_id: 31337,
-    p_message: 'test message',
-    p_signature: '0xsig',
-  });
-  return address.toLowerCase();
+export async function balances(uid: string) {
+  const rows = await root<{ kind: string; balance: string }>('select kind, balance from public.coin_accounts where user_id = $1', [uid]);
+  const get = (k: string) => Number(rows.find((r) => r.kind === k)?.balance ?? 0);
+  return { wallet: get('wallet'), pending: get('pending'), earnings: get('earnings') };
+}
+
+export async function escrowBalance(contractId: string) {
+  const [row] = await root<{ balance: string }>('select balance from public.coin_accounts where contract_id = $1', [contractId]);
+  return Number(row?.balance ?? 0);
 }
 
 export const milestonePlan = (amounts: number[], dueEvery = 5) =>
@@ -102,6 +106,7 @@ export const milestonePlan = (amounts: number[], dueEvery = 5) =>
   }));
 
 export async function createOpenProject(clientId: string, budget = 300, extra: Record<string, unknown> = {}) {
+  await buyCoins(clientId, budget);
   const [project] = await as(clientId).query<{ id: string }>(
     `insert into public.projects (client_id, title, description, category, skills, budget_amount, experience_level)
      values ($1, $2, $3, 'web-development', '{react,typescript}', $4, 'intermediate') returning id`,
@@ -126,44 +131,26 @@ export async function submitProposal(freelancerId: string, projectId: string, am
   });
 }
 
-export async function fundContract(contractId: string, clientId: string, clientWallet: string, amount?: string) {
-  const [c] = await root<{ total_amount: string }>('select total_amount from public.contracts where id = $1', [contractId]);
-  const txId = await as(clientId).rpc<string>('report_escrow_tx', {
-    p_contract_id: contractId,
-    p_kind: 'fund',
-    p_milestone_id: null,
-    p_chain_id: 31337,
-    p_tx_hash: randomTxHash(),
-  });
-  await service().rpc('apply_escrow_funding', {
-    p_tx_id: txId,
-    p_block: 1,
-    p_from: clientWallet,
-    p_amount: amount ?? c.total_amount,
-    p_escrow_address: randomAddress(),
-    p_escrow_key: randomTxHash(),
-  });
-  return txId;
+export async function fundContract(contractId: string, clientId: string) {
+  return as(clientId).rpc<string>('fund_contract', { p_contract_id: contractId });
 }
 
-/** Client + freelancer with verified wallets and a signed contract awaiting funding. */
+/** Client + freelancer with a signed contract awaiting funding (the client already holds the coins). */
 export async function signedContract(amounts = [100, 200]) {
   const client = await createUser('Client Person');
   const freelancer = await createUser('Freelancer Person');
-  const clientWallet = await verifyWallet(client);
-  const freelancerWallet = await verifyWallet(freelancer);
   const projectId = await createOpenProject(client, amounts.reduce((a, b) => a + b, 0));
   const proposalId = await submitProposal(freelancer, projectId, amounts);
   const contractId = await as(client).rpc<string>('accept_proposal', { p_proposal_id: proposalId });
   const [{ terms_hash }] = await root<{ terms_hash: string }>('select terms_hash from public.contracts where id = $1', [contractId]);
   await as(client).rpc('sign_contract', { p_contract_id: contractId, p_full_name: 'Client Person', p_terms_hash: terms_hash });
   await as(freelancer).rpc('sign_contract', { p_contract_id: contractId, p_full_name: 'Freelancer Person', p_terms_hash: terms_hash });
-  return { client, freelancer, clientWallet, freelancerWallet, projectId, proposalId, contractId };
+  return { client, freelancer, projectId, proposalId, contractId };
 }
 
 export async function activeContract(amounts = [100, 200]) {
   const ctx = await signedContract(amounts);
-  await fundContract(ctx.contractId, ctx.client, ctx.clientWallet);
+  await fundContract(ctx.contractId, ctx.client);
   const milestones = await root<{ id: string; position: number; amount: string; status: string }>(
     'select id, position, amount, status from public.milestones where contract_id = $1 order by position',
     [ctx.contractId],
@@ -171,23 +158,25 @@ export async function activeContract(amounts = [100, 200]) {
   return { ...ctx, milestones };
 }
 
-export async function releaseMilestone(contractId: string, clientId: string, clientWallet: string, milestoneId: string) {
-  const [m] = await root<{ position: number; amount: string }>('select position, amount from public.milestones where id = $1', [milestoneId]);
-  const txId = await as(clientId).rpc<string>('report_escrow_tx', {
-    p_contract_id: contractId,
-    p_kind: 'release',
-    p_milestone_id: milestoneId,
-    p_chain_id: 31337,
-    p_tx_hash: randomTxHash(),
+export async function releaseMilestone(clientId: string, milestoneId: string) {
+  return as(clientId).rpc<{ fee: number; net: number; available_on: string }>('release_milestone', { p_milestone_id: milestoneId });
+}
+
+/** Creates a platform admin. */
+export async function makeAdmin(name = 'Platform Admin') {
+  const uid = await createUser(name);
+  await root('insert into public.platform_admins (user_id) values ($1)', [uid]);
+  return uid;
+}
+
+/** Saves and verifies a bank account so the user can withdraw. */
+export async function verifiedBankAccount(uid: string, admin?: string) {
+  await as(uid).rpc('save_payout_account', {
+    p_holder: 'Test Person', p_account_number: '123456789012', p_ifsc: 'HDFC0001234', p_pan: 'ABCDE1234F',
   });
-  await service().rpc('apply_escrow_release', {
-    p_tx_id: txId,
-    p_block: 2,
-    p_from: clientWallet,
-    p_position: m.position,
-    p_amount: m.amount,
-  });
-  return txId;
+  const reviewer = admin ?? (await makeAdmin('Bank Reviewer'));
+  await as(reviewer).rpc('admin_review_payout_account', { p_user: uid, p_approve: true, p_note: null });
+  return reviewer;
 }
 
 export async function deliverAndApprove(ctx: { contractId: string; client: string; freelancer: string }, milestoneId: string) {

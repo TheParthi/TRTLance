@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { PageHeader } from '@/components/common/page-header';
 import { requireViewer } from '@/lib/auth';
+import { getPlatformSettings } from '@/lib/data/contracts';
 import { getMyProposal, getProject } from '@/lib/data/projects';
 import { normalizeAmount } from '@/lib/money';
 import { ProposalComposer } from './composer';
@@ -15,7 +16,7 @@ export default async function ApplyPage({ params }: { params: Promise<{ id: stri
   if (!data || data.project.status === 'draft') notFound();
   const { project, riskReport } = data;
   if (project.client_id === viewer.id || project.status !== 'open') redirect(`/projects/${id}`);
-  const existing = await getMyProposal(id, viewer.id);
+  const [existing, settings] = await Promise.all([getMyProposal(id, viewer.id), getPlatformSettings()]);
   if (existing && existing.status !== 'withdrawn') redirect(`/projects/${id}`);
 
   const plan = project.milestone_plan.length
@@ -37,7 +38,9 @@ export default async function ApplyPage({ params }: { params: Promise<{ id: stri
         mySkills={viewer.profile.skills}
         initialMilestones={plan}
         riskLevel={riskReport?.result.overall ?? null}
-        hasWallet={Boolean(viewer.wallet)}
+        identityVerified={viewer.stats.identity_verified}
+        feeBps={settings.fee_bps}
+        minMilestone={settings.min_milestone_coins}
       />
     </div>
   );

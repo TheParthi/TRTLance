@@ -10,7 +10,8 @@ export interface Viewer {
   emailConfirmed: boolean;
   profile: Profile;
   stats: ProfileStats;
-  wallet: { address: string; chain_id: number; verified_at: string } | null;
+  /** Coin balances: purchased (spendable), held after release, and withdrawable. */
+  coins: { wallet: string; pending: string; earnings: string };
   isAdmin: boolean;
   arbitrator: Arbitrator | null;
   unreadNotifications: number;
@@ -22,22 +23,23 @@ export const getViewer = cache(async (): Promise<Viewer | null> => {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) return null;
   const uid = auth.user.id;
-  const [profile, stats, wallet, admin, arbitrator, unread] = await Promise.all([
+  const [profile, stats, accounts, admin, arbitrator, unread] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', uid).maybeSingle(),
     supabase.from('profile_stats').select('*').eq('id', uid).maybeSingle(),
-    supabase.from('wallets').select('address, chain_id, verified_at').eq('user_id', uid).maybeSingle(),
+    supabase.from('coin_accounts').select('kind, balance').eq('user_id', uid).returns<{ kind: string; balance: string }[]>(),
     supabase.from('platform_admins').select('user_id').eq('user_id', uid).maybeSingle(),
     supabase.from('arbitrators').select('*').eq('user_id', uid).maybeSingle(),
     supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', uid).is('read_at', null),
   ]);
   if (!profile.data || !stats.data) return null;
+  const balance = (kind: string) => String(accounts.data?.find((a) => a.kind === kind)?.balance ?? '0');
   return {
     id: uid,
     email: auth.user.email ?? null,
     emailConfirmed: Boolean(auth.user.email_confirmed_at),
     profile: profile.data as Profile,
     stats: stats.data as ProfileStats,
-    wallet: wallet.data ?? null,
+    coins: { wallet: balance('wallet'), pending: balance('pending'), earnings: balance('earnings') },
     isAdmin: Boolean(admin.data),
     arbitrator: (arbitrator.data as Arbitrator | null) ?? null,
     unreadNotifications: unread.count ?? 0,

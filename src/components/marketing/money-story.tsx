@@ -7,18 +7,18 @@ import { clamp01, useStickyProgress } from './motion';
 
 const STEPS = [
   { title: 'Agree', body: 'Client and freelancer sign the same terms — scope, milestones, amounts and dates. Signing moves no money.' },
-  { title: 'Fund', body: 'The client deposits the whole contract into escrow before any work starts. TrustLance cannot withdraw it.' },
+  { title: 'Fund', body: 'The client locks the whole contract in TrustLance escrow, in coins, before any work starts. Neither side can take it back alone.' },
   { title: 'Deliver', body: 'The freelancer submits milestone 01 with files, links and notes. The money waits, locked.' },
   { title: 'Review', body: 'The client approves — or asks for changes, written into the contract’s record.' },
-  { title: 'Release', body: 'Approval pays that milestone straight to the freelancer’s verified wallet. The rest stays secured.' },
+  { title: 'Release', body: 'Approval pays that milestone to the freelancer, less the platform fee — withdrawable to their bank after 7 working days. The rest stays secured.' },
 ];
 
 const MILESTONES = [
-  { title: 'Discovery', amount: 120 },
-  { title: 'Design', amount: 180 },
-  { title: 'Build & launch', amount: 300 },
+  { title: 'Discovery', amount: 1200 },
+  { title: 'Design', amount: 1800 },
+  { title: 'Build & launch', amount: 3000 },
 ];
-const TOTAL = 600;
+const TOTAL = 6000;
 const ease = (k: number) => 1 - Math.pow(1 - clamp01(k), 3);
 
 /**
@@ -34,7 +34,7 @@ export function MoneyStory() {
 
   const fund = step < 1 ? 0 : step > 1 ? 1 : ease(s / 0.8);
   const first: 'secured' | 'review' | 'approved' | 'released' = at(4, 0.3) ? 'released' : at(3, 0.35) ? 'approved' : at(2, 0.25) ? 'review' : 'secured';
-  const released = first === 'released' ? 120 : 0;
+  const released = first === 'released' ? 1200 : 0;
   const secured = Math.round(TOTAL * fund) - released;
 
   return (
@@ -113,9 +113,9 @@ function StoryStatement({ step, s, fund, first, secured, released }: {
 
       <div className="mt-6 flex h-5 gap-1">
         {MILESTONES.map((m, i) => {
-          const start = cursor / 600;
+          const start = cursor / TOTAL;
           cursor += m.amount;
-          const end = cursor / 600;
+          const end = cursor / TOTAL;
           const segFill = clamp01((fund - start) / (end - start));
           const state = i === 0 ? first : 'secured';
           return (
@@ -131,7 +131,7 @@ function StoryStatement({ step, s, fund, first, secured, released }: {
           return (
             <div key={m.title} className="min-w-0" style={{ flexGrow: m.amount, flexBasis: 0 }}>
               <p className="truncate text-2xs font-semibold uppercase tracking-[0.1em] text-ink-muted">0{i + 1} · {label}</p>
-              <p className="t-money text-sm">{m.amount} <span className="text-[0.7em] uppercase tracking-[0.08em] text-ink-muted">SHM</span></p>
+              <p className="t-money text-sm">{m.amount.toLocaleString('en-IN')} <span className="text-[0.7em] uppercase tracking-[0.08em] text-ink-muted">coins</span></p>
             </div>
           );
         })}
@@ -139,24 +139,24 @@ function StoryStatement({ step, s, fund, first, secured, released }: {
 
       <dl className="mt-4 grid grid-cols-3 gap-4 border-t pt-4 sm:mt-6 sm:pt-5">
         {[
-          { label: 'Total', value: 600 },
+          { label: 'Total', value: TOTAL },
           { label: 'Secured', value: Math.max(0, secured) },
           { label: 'Released', value: released },
         ].map((f) => (
           <div key={f.label}>
             <dt className="text-2xs font-semibold uppercase tracking-[0.1em] text-ink-muted">{f.label}</dt>
             <dd className={cn('t-money text-xl tabular-nums sm:text-2xl md:text-3xl', f.label === 'Released' && released > 0 && 'text-success-strong')}>
-              {f.value}<span className="ml-1 text-xs uppercase tracking-[0.08em] text-ink-muted">SHM</span>
+              {f.value.toLocaleString('en-IN')}<span className="ml-1 text-xs uppercase tracking-[0.08em] text-ink-muted">coins</span>
             </dd>
           </div>
         ))}
       </dl>
 
       <ul className="mt-4 hidden space-y-2 border-t pt-4 text-sm sm:block md:mt-5">
-        <Event on={at(1, 0.85)} icon={<Lock className="size-3.5" />}>600 SHM locked in escrow on Shardeum</Event>
+        <Event on={at(1, 0.85)} icon={<Lock className="size-3.5" />}>6,000 coins locked in TrustLance escrow</Event>
         <Event on={at(2, 0.25)} icon={<Upload className="size-3.5" />}>Milestone 01 submitted · version 1</Event>
         <Event on={at(3, 0.35)} icon={<Check className="size-3.5" />}>Approved by the client</Event>
-        <Event on={at(4, 0.3)} icon={<ShieldCheck className="size-3.5" />} strong>120 SHM paid to the freelancer’s verified wallet</Event>
+        <Event on={at(4, 0.3)} icon={<ShieldCheck className="size-3.5" />} strong>1,080 coins released to the freelancer (after the 10% fee)</Event>
       </ul>
     </div>
   );

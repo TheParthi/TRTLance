@@ -1,4 +1,3 @@
-import { PendingEscrowWatcher } from '@/components/escrow/pending-escrow-watcher';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { ExternalLink, FileText } from 'lucide-react';
@@ -54,7 +53,6 @@ export default async function CaseRoomPage({ params }: Params) {
 
   return (
     <div className="space-y-10">
-      <PendingEscrowWatcher contractIds={[c.id]} />
       <PageHeader
         className="mb-0 md:mb-0"
         breadcrumbs={[
@@ -73,7 +71,7 @@ export default async function CaseRoomPage({ params }: Params) {
         }
       />
 
-      <CaseMoney dispute={d} milestone={m} transactions={data.transactions} raisedBy={raiser} />
+      <CaseMoney dispute={d} milestone={m} feeBps={c.fee_bps} raisedBy={raiser} />
 
       <NextSteps dispute={d} isParty={false} />
 
@@ -98,7 +96,7 @@ export default async function CaseRoomPage({ params }: Params) {
             </ul>
           </nav>
 
-          {decided && <DecisionCard dispute={d} transactions={data.transactions} members={members} />}
+          {decided && <DecisionCard dispute={d} feeBps={c.fee_bps} members={members} />}
 
           <Ledger id="parties" className="scroll-mt-24" title="Parties" description="Verified by TrustLance from account and contract records.">
             {([['client', c.client_id], ['freelancer', c.freelancer_id]] as const).map(([r, uid]) => {
@@ -139,7 +137,7 @@ export default async function CaseRoomPage({ params }: Params) {
             <h2 id="milestone-title" className="t-label-caps">Disputed milestone</h2>
             <FactRows items={[
               { label: 'Milestone', value: `${m.position}. ${m.title}` },
-              { label: 'Amount in escrow', value: <Money amount={m.amount} size="sm" /> },
+              { label: 'Frozen in escrow', value: <Money amount={m.amount} size="sm" /> },
               { label: 'Due date', value: m.due_date ? formatDate(m.due_date) : `Day ${m.due_in_days} of the contract` },
               { label: 'Status before dispute', value: before ? <span className="flex flex-wrap items-center gap-x-2 gap-y-1"><MilestoneStatusMark status={before} /><span className="t-meta">{milestoneStatus[before].description}</span></span> : '—' },
               { label: 'Revisions requested', value: String(m.revision_count) },

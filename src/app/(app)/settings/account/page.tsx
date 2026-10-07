@@ -4,7 +4,7 @@ import { LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SettingsSection, SettingsSections } from '@/components/settings/settings-section';
 import { requireViewer } from '@/lib/auth';
-import { formatDate, shortAddress } from '@/lib/format';
+import { formatAmount } from '@/lib/money';
 import { createClient } from '@/lib/supabase/server';
 import { cn } from '@/lib/utils';
 import { PasswordForm } from './password-form';
@@ -52,22 +52,22 @@ export default async function AccountSettingsPage() {
         <PhoneForm phone={priv?.phone ?? null} />
       </SettingsSection>
 
-      <SettingsSection id="wallet" title="Wallet" description="Payments are released to, and refunds returned to, your verified wallet.">
-        {viewer.wallet ? (
-          <dl className="flex flex-wrap gap-x-10 gap-y-3 text-sm">
-            <div className="space-y-0.5">
-              <dt className="t-label-caps">Verified address</dt>
-              <dd className="flex items-center gap-3 font-mono">{shortAddress(viewer.wallet.address)} <Mark ok>Verified</Mark></dd>
-            </div>
-            <div className="space-y-0.5">
-              <dt className="t-label-caps">Verified on</dt>
-              <dd>{formatDate(viewer.wallet.verified_at)}</dd>
-            </div>
-          </dl>
-        ) : (
-          <p className="text-sm text-ink-secondary">No verified wallet yet. You need one to sign or fund a contract.</p>
-        )}
-        <Button asChild variant="secondary" size="sm"><Link href="/wallet">{viewer.wallet ? 'Manage wallet' : 'Connect a wallet'}</Link></Button>
+      <SettingsSection id="wallet" title="Coins and payouts" description="Your coin balance, and the bank account your earnings are withdrawn to.">
+        <dl className="flex flex-wrap gap-x-10 gap-y-3 text-sm">
+          <div className="space-y-0.5">
+            <dt className="t-label-caps">Coin wallet</dt>
+            <dd>{formatAmount(viewer.coins.wallet)}</dd>
+          </div>
+          <div className="space-y-0.5">
+            <dt className="t-label-caps">Withdrawable</dt>
+            <dd>{formatAmount(viewer.coins.earnings)}</dd>
+          </div>
+          <div className="space-y-0.5">
+            <dt className="t-label-caps">Bank account and PAN</dt>
+            <dd>{viewer.stats.identity_verified ? <Mark ok>Verified</Mark> : 'Not verified yet'}</dd>
+          </div>
+        </dl>
+        <Button asChild variant="secondary" size="sm"><Link href="/wallet">Open wallet</Link></Button>
       </SettingsSection>
 
       <SettingsSection id="session" title="Sessions" description="Sign out of TrustLance on this device. Other devices stay signed in.">

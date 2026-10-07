@@ -8,17 +8,17 @@ export type RingState = 'unfunded' | 'secured' | 'review' | 'changes' | 'approve
 export type RingMilestone = { amount: number; state: RingState };
 export type RingMoment = { milestone: number; state: string; amount: number };
 
-const DEMO_AMOUNTS = [120, 180, 300];
+const DEMO_AMOUNTS = [1200, 1800, 3000];
 /** The example contract the landing ring plays on a loop: fund everything, then review and release each milestone. */
 const SCRIPT: { at: number; states: RingState[]; moment: RingMoment }[] = [
-  { at: 0, states: ['unfunded', 'unfunded', 'unfunded'], moment: { milestone: 0, state: 'Signed by both sides', amount: 600 } },
-  { at: 1.8, states: ['secured', 'secured', 'secured'], moment: { milestone: 0, state: 'Secured in escrow', amount: 600 } },
-  { at: 3.8, states: ['review', 'secured', 'secured'], moment: { milestone: 1, state: 'Under review', amount: 120 } },
-  { at: 5.6, states: ['released', 'secured', 'secured'], moment: { milestone: 1, state: 'Released', amount: 120 } },
-  { at: 7.4, states: ['released', 'review', 'secured'], moment: { milestone: 2, state: 'Under review', amount: 180 } },
-  { at: 9.2, states: ['released', 'released', 'secured'], moment: { milestone: 2, state: 'Released', amount: 180 } },
-  { at: 11.0, states: ['released', 'released', 'review'], moment: { milestone: 3, state: 'Under review', amount: 300 } },
-  { at: 12.8, states: ['released', 'released', 'released'], moment: { milestone: 3, state: 'Released', amount: 300 } },
+  { at: 0, states: ['unfunded', 'unfunded', 'unfunded'], moment: { milestone: 0, state: 'Signed by both sides', amount: 6000 } },
+  { at: 1.8, states: ['secured', 'secured', 'secured'], moment: { milestone: 0, state: 'Secured in escrow', amount: 6000 } },
+  { at: 3.8, states: ['review', 'secured', 'secured'], moment: { milestone: 1, state: 'Under review', amount: 1200 } },
+  { at: 5.6, states: ['released', 'secured', 'secured'], moment: { milestone: 1, state: 'Released', amount: 1200 } },
+  { at: 7.4, states: ['released', 'review', 'secured'], moment: { milestone: 2, state: 'Under review', amount: 1800 } },
+  { at: 9.2, states: ['released', 'released', 'secured'], moment: { milestone: 2, state: 'Released', amount: 1800 } },
+  { at: 11.0, states: ['released', 'released', 'review'], moment: { milestone: 3, state: 'Under review', amount: 3000 } },
+  { at: 12.8, states: ['released', 'released', 'released'], moment: { milestone: 3, state: 'Released', amount: 3000 } },
 ];
 const LOOP = 16;
 const GAP = 0.075;

@@ -36,7 +36,7 @@ export function SiteFooter() {
       </div>
       <div className="container flex flex-col gap-2 border-t border-ink-inverse/10 py-6 text-xs text-ink-inverse/55 sm:flex-row sm:justify-between">
         <p>© {new Date().getFullYear()} TrustLance</p>
-        <p>Payments are held by a non-custodial escrow contract. TrustLance cannot withdraw them.</p>
+        <p>Payments are locked in TrustLance escrow and released milestone by milestone. 1 coin = ₹1.</p>
       </div>
     </footer>
   );

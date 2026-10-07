@@ -1,10 +1,10 @@
 import { Badge } from '@/components/ui/badge';
 import { Tooltip } from '@/components/ui/tooltip';
 import {
-  contractStatus, disputeStatus, milestoneStatus, projectStatus, proposalStatus, settlementStatus, txStatus, type StatusMeta,
+  contractStatus, disputeStatus, milestoneStatus, projectStatus, proposalStatus, settlementStatus, type StatusMeta,
 } from '@/lib/status';
 import type {
-  ContractStatus, DisputeStatus, EscrowTxStatus, MilestoneStatus, ProjectStatus, ProposalStatus, SettlementStatus,
+  ContractStatus, DisputeStatus, MilestoneStatus, ProjectStatus, ProposalStatus, SettlementStatus,
 } from '@/lib/types';
 import { StatusIcon } from './status-icon';
 
@@ -26,4 +26,3 @@ export const ProjectStatusBadge = ({ status }: { status: ProjectStatus }) => <St
 export const ProposalStatusBadge = ({ status }: { status: ProposalStatus }) => <StatusBadge meta={proposalStatus[status]} />;
 export const DisputeStatusBadge = ({ status }: { status: DisputeStatus }) => <StatusBadge meta={disputeStatus[status]} />;
 export const SettlementStatusBadge = ({ status }: { status: SettlementStatus }) => <StatusBadge meta={settlementStatus[status]} />;
-export const TxStatusBadge = ({ status }: { status: EscrowTxStatus }) => <StatusBadge meta={txStatus[status]} />;

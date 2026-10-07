@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, ArrowRight, Check, CloudOff, FileText, Loader2, Lock, Plus, Trash2, Upload, Wallet } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, CloudOff, FileText, Loader2, Lock, Plus, Trash2, Upload, Coins } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RadioCard, RadioGroup } from '@/components/ui/choice';
 import { Field, FieldGroup } from '@/components/ui/field';
@@ -20,8 +20,8 @@ import {
 } from '@/lib/actions/projects';
 import { CURRENCY } from '@/lib/env';
 import { proposalSegments } from '@/lib/escrow-summary';
-import { formatBytes, shortAddress } from '@/lib/format';
-import { formatAmount, microToAmount, normalizeAmount, parseAmount } from '@/lib/money';
+import { formatBytes } from '@/lib/format';
+import { coinsToString, formatAmount, normalizeAmount, parseAmount, toCoins } from '@/lib/money';
 import { experienceLabel } from '@/lib/status';
 import { BUCKETS, MAX_UPLOAD_BYTES, objectPath } from '@/lib/storage';
 import { getBrowserClient } from '@/lib/supabase/client';
@@ -34,12 +34,14 @@ interface PlanRow { title: string; description: string; amount: string }
 
 type SaveState = { kind: 'idle' | 'saving' | 'saved' | 'error'; at?: string };
 
-export function ProjectWizard({ project, attachments: initialFiles, categories, escrow, walletAddress }: {
+const MIN_MILESTONE = 100n;
+
+export function ProjectWizard({ project, attachments: initialFiles, categories, coinBalance }: {
   project: Project;
   attachments: ProjectAttachment[];
   categories: Category[];
-  escrow: { configured: boolean; network: string | null };
-  walletAddress: string | null;
+  /** Coins in the client's wallet; publishing needs at least the budget. */
+  coinBalance: string;
 }) {
   const router = useRouter();
   const [step, setStep] = React.useState(Math.min(project.draft_step, STEPS.length) - 1);
@@ -60,6 +62,7 @@ export function ProjectWizard({ project, attachments: initialFiles, categories, 
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [save, setSave] = React.useState<SaveState>({ kind: 'idle' });
   const [publishing, setPublishing] = React.useState(false);
+  const [shortfall, setShortfall] = React.useState<{ coins: string; message: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
   const dirty = React.useRef(false);
@@ -117,8 +120,10 @@ export function ProjectWizard({ project, attachments: initialFiles, categories, 
     return () => window.removeEventListener('beforeunload', warn);
   }, []);
 
-  const budgetMicro = parseAmount(form.budget_amount);
-  const planMicro = form.milestone_plan.reduce((sum, m) => sum + (parseAmount(m.amount) ?? 0n), 0n);
+  const budgetCoins = parseAmount(form.budget_amount);
+  const planCoins = form.milestone_plan.reduce((sum, m) => sum + (parseAmount(m.amount) ?? 0n), 0n);
+  const balance = toCoins(coinBalance);
+  const missing = budgetCoins && budgetCoins > balance ? budgetCoins - balance : 0n;
 
   const validate = (s: number): Record<string, string> => {
     const e: Record<string, string> = {};
@@ -137,15 +142,16 @@ export function ProjectWizard({ project, attachments: initialFiles, categories, 
         if (!form.experience_level) e.experience_level = 'Choose an experience level.';
         break;
       case 'Budget':
-        if (!budgetMicro || budgetMicro <= 0n) e.budget_amount = `Enter a budget in ${CURRENCY}, e.g. 250 or 250.5.`;
+        if (!budgetCoins || budgetCoins <= 0n) e.budget_amount = `Enter a whole number of ${CURRENCY}, e.g. 5000.`;
         break;
       case 'Timeline':
         if (form.due_date && form.due_date < new Date().toISOString().slice(0, 10)) e.due_date = 'The due date is in the past.';
         if (form.start_date && form.due_date && form.due_date < form.start_date) e.due_date = 'The due date must be after the start date.';
         break;
       case 'Deliverables & milestones':
-        if (form.milestone_plan.some((m) => m.title.trim().length < 3 || !parseAmount(m.amount))) e.milestone_plan = 'Each suggested milestone needs a title and an amount.';
-        else if (form.milestone_plan.length && planMicro !== budgetMicro) e.milestone_plan = `Milestones add up to ${formatAmount(microToAmount(planMicro))}; the budget is ${formatAmount(form.budget_amount || '0')}.`;
+        if (form.milestone_plan.some((m) => m.title.trim().length < 3 || !parseAmount(m.amount))) e.milestone_plan = 'Each suggested milestone needs a title and a whole number of coins.';
+        else if (form.milestone_plan.some((m) => (parseAmount(m.amount) ?? 0n) < MIN_MILESTONE)) e.milestone_plan = `Each milestone must be at least ${formatAmount(coinsToString(MIN_MILESTONE))}.`;
+        else if (form.milestone_plan.length && planCoins !== budgetCoins) e.milestone_plan = `Milestones add up to ${formatAmount(coinsToString(planCoins))}; the budget is ${formatAmount(form.budget_amount || '0')}.`;
         break;
     }
     return e;
@@ -175,10 +181,16 @@ export function ProjectWizard({ project, attachments: initialFiles, categories, 
       }
     }
     setPublishing(true);
+    setShortfall(null);
     if (!(await persist(STEPS.length - 1))) return setPublishing(false);
     const r = await publishProject(project.id);
     if (!r.ok) {
       setPublishing(false);
+      if (r.error.code === 'insufficient_coins') {
+        // The database states the exact shortfall ("You need 400 more coins…"); fall back to our own estimate.
+        const need = /need ([\d,]+) more/.exec(r.error.message)?.[1]?.replace(/,/g, '') ?? coinsToString(missing);
+        return setShortfall({ coins: need, message: r.error.message });
+      }
       return toast.error(r.error.message);
     }
     toast.success('Your project is live');
@@ -253,11 +265,12 @@ export function ProjectWizard({ project, attachments: initialFiles, categories, 
           {title === 'Budget' && (
             <div className="space-y-5">
               <Field label={`Fixed budget (${CURRENCY})`} hint="The total you expect to pay. Freelancers can propose a different amount." error={errors.budget_amount}>
-                <AmountInput unit={CURRENCY} value={form.budget_amount} onChange={(e) => set('budget_amount', e.target.value)} placeholder="0.00" className="max-w-xs" />
+                <AmountInput unit={CURRENCY} inputMode="numeric" value={form.budget_amount} onChange={(e) => set('budget_amount', e.target.value)} placeholder="5000" className="max-w-xs" />
               </Field>
+              <CoinBalance balance={coinBalance} missing={missing} />
               <p className="flex max-w-reading gap-2 text-sm text-ink-secondary">
                 <Lock className="mt-0.5 size-4 shrink-0 text-brand" aria-hidden />
-                <span><span className="font-medium text-ink">You don’t pay anything now.</span> After you hire someone and you both sign, you deposit the agreed amount into the escrow contract. It is released milestone by milestone as you approve the work.</span>
+                <span><span className="font-medium text-ink">Coins stay in your wallet when you publish.</span> You need enough coins to cover the budget before you post. After you hire someone and you both sign, the agreed amount is locked in TrustLance escrow and released milestone by milestone as you approve the work.</span>
               </p>
             </div>
           )}
@@ -304,7 +317,7 @@ export function ProjectWizard({ project, attachments: initialFiles, categories, 
                       </div>
                       <div className="grid gap-3 sm:grid-cols-[1fr_10rem]">
                         <Field label="Title"><Input value={m.title} maxLength={120} onChange={(e) => set('milestone_plan', form.milestone_plan.map((x, j) => (j === i ? { ...x, title: e.target.value } : x)))} /></Field>
-                        <Field label="Amount"><AmountInput unit={CURRENCY} value={m.amount} onChange={(e) => set('milestone_plan', form.milestone_plan.map((x, j) => (j === i ? { ...x, amount: e.target.value } : x)))} /></Field>
+                        <Field label="Amount"><AmountInput unit={CURRENCY} inputMode="numeric" placeholder="1000" value={m.amount} onChange={(e) => set('milestone_plan', form.milestone_plan.map((x, j) => (j === i ? { ...x, amount: e.target.value } : x)))} /></Field>
                       </div>
                       <Field label="What is delivered" optional>
                         <Textarea rows={2} value={m.description} maxLength={2000} onChange={(e) => set('milestone_plan', form.milestone_plan.map((x, j) => (j === i ? { ...x, description: e.target.value } : x)))} />
@@ -318,8 +331,8 @@ export function ProjectWizard({ project, attachments: initialFiles, categories, 
                   )}
                   {form.milestone_plan.length > 0 && (
                     <p className="text-sm" aria-live="polite">
-                      Total <span className="t-money">{formatAmount(microToAmount(planMicro))}</span> of {formatAmount(form.budget_amount || '0')}
-                      {planMicro === budgetMicro ? <Check className="ml-1 inline size-4 text-success" aria-label="matches budget" /> : null}
+                      Total <span className="t-money">{formatAmount(coinsToString(planCoins))}</span> of {formatAmount(form.budget_amount || '0')}
+                      {planCoins === budgetCoins ? <Check className="ml-1 inline size-4 text-success" aria-label="matches budget" /> : null}
                     </p>
                   )}
                 </div>
@@ -347,7 +360,7 @@ export function ProjectWizard({ project, attachments: initialFiles, categories, 
                   ['Category', categoryLabel ?? '—', 2],
                   ['Skills', form.skills.join(', ') || '—', 3],
                   ['Experience', form.experience_level ? experienceLabel[form.experience_level] : '—', 3],
-                  ['Budget', budgetMicro ? formatAmount(form.budget_amount) : '—', 4],
+                  ['Budget', budgetCoins ? formatAmount(form.budget_amount) : '—', 4],
                   ['Timeline', timelineText(form.start_date, form.due_date), 5],
                   ['Deliverables', `${form.deliverables.filter((d) => d.trim()).length} listed`, 6],
                   ['Suggested milestones', form.milestone_plan.length ? `${form.milestone_plan.length}` : 'None — freelancers will propose', 6],
@@ -370,7 +383,7 @@ export function ProjectWizard({ project, attachments: initialFiles, categories, 
                     {form.milestone_plan.map((m, i) => (
                       <li key={i} className="flex items-baseline justify-between gap-4 py-2.5">
                         <span className="min-w-0"><span className="t-mono mr-2 text-ink-muted">{String(i + 1).padStart(2, '0')}</span>{m.title || `Milestone ${i + 1}`}</span>
-                        <Money amount={microToAmount(parseAmount(m.amount) ?? 0n)} size="sm" />
+                        <Money amount={coinsToString(parseAmount(m.amount) ?? 0n)} size="sm" />
                       </li>
                     ))}
                   </ol>
@@ -381,14 +394,20 @@ export function ProjectWizard({ project, attachments: initialFiles, categories, 
                 <h2 id="funding-title" className="flex items-center gap-2 font-semibold"><Lock className="size-4 text-brand" aria-hidden /> How funding will work</h2>
                 <dl className="grid gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
                   <div><dt className="t-label-caps">Project budget</dt><dd><Money amount={form.budget_amount || '0'} size="lg" /></dd></div>
-                  <div><dt className="t-label-caps">Platform fee</dt><dd><Money amount="0" size="lg" /> <span className="t-meta block">TrustLance charges no fee today.</span></dd></div>
+                  <div><dt className="t-label-caps">Platform fee</dt><dd className="font-medium">None for you <span className="t-meta block">The fee comes out of each payment to the freelancer, not on top of your budget.</span></dd></div>
                   <div><dt className="t-label-caps">Total required at hiring</dt><dd>The amount of the proposal you accept (your budget is a guide)</dd></div>
-                  <div><dt className="t-label-caps">Network</dt><dd>{escrow.configured ? escrow.network : 'Escrow network not configured yet'} · network fees paid in {CURRENCY}</dd></div>
-                  <div><dt className="t-label-caps">Your wallet</dt><dd className="flex items-center gap-1.5"><Wallet className="size-4 shrink-0 text-ink-muted" aria-hidden />{walletAddress ? `${shortAddress(walletAddress)} (verified)` : <span>Not verified yet — <Link className="link" href="/wallet">verify before you sign</Link></span>}</dd></div>
-                  <div><dt className="t-label-caps">Transaction status</dt><dd>Nothing is charged when you publish.</dd></div>
+                  <div><dt className="t-label-caps">Your coin wallet</dt><dd><CoinBalance balance={coinBalance} missing={missing} /></dd></div>
+                  <div><dt className="t-label-caps">When you publish</dt><dd>No coins are spent. They are locked in TrustLance escrow only after you hire and both of you sign.</dd></div>
                 </dl>
-                <p className="text-xs text-ink-secondary">When you hire, you’ll review the contract, sign it, and then confirm one deposit in your wallet. Work begins only after that deposit is confirmed on-chain.</p>
+                <p className="text-xs text-ink-secondary">When you hire, you’ll review the contract, sign it, and then lock the full amount in TrustLance escrow. Work begins once the coins are locked.</p>
               </section>
+
+              {shortfall && (
+                <p role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-danger/40 bg-danger/5 px-4 py-3 text-sm">
+                  <span className="text-ink">{shortfall.message}</span>
+                  <Link className="link font-medium" href={`/wallet?buy=${shortfall.coins}`}>Buy coins</Link>
+                </p>
+              )}
 
               <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
                 <Button variant="ghost" className="text-danger-strong" onClick={() => setConfirmDelete(true)}><Trash2 /> Delete draft</Button>
@@ -441,9 +460,25 @@ const titles: Record<string, string> = {
   'Review & publish': 'Review and publish',
 };
 
+/** The client's coin balance, with a shortcut to buy what the budget still needs. */
+function CoinBalance({ balance, missing }: { balance: string; missing: bigint }) {
+  return (
+    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-secondary">
+      <Coins className="size-4 shrink-0 text-ink-muted" aria-hidden />
+      <span>You have <span className="t-money font-medium text-ink">{formatAmount(balance)}</span>.</span>
+      {missing > 0n && (
+        <span>
+          {formatAmount(coinsToString(missing))} more needed to publish —{' '}
+          <Link className="link" href={`/wallet?buy=${coinsToString(missing)}`}>buy coins</Link>
+        </span>
+      )}
+    </p>
+  );
+}
+
 /** The suggested plan drawn as a neutral rail (amounts that are not valid yet count as zero). */
 function PlanRail({ plan, className }: { plan: PlanRow[]; className?: string }) {
-  const segments = proposalSegments(plan.map((m, i) => ({ position: i + 1, title: m.title.trim() || `Milestone ${i + 1}`, amount: microToAmount(parseAmount(m.amount) ?? 0n) })));
+  const segments = proposalSegments(plan.map((m, i) => ({ position: i + 1, title: m.title.trim() || `Milestone ${i + 1}`, amount: coinsToString(parseAmount(m.amount) ?? 0n) })));
   return <EscrowRail segments={segments} size="md" label="Suggested milestone plan" className={className} />;
 }
 

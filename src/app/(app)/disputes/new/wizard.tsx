@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, ArrowLeft, ArrowRight, Flag, Gavel, Lock, UserCheck } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowRight, Coins, Gavel, Lock, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox, RadioCard, RadioGroup } from '@/components/ui/choice';
 import { Field, FieldGroup } from '@/components/ui/field';
@@ -250,7 +250,7 @@ export function DisputeWizard({ contracts, initialContractId, initialMilestoneId
                   {([
                     [Lock, 'The milestone is frozen.', 'Release is blocked until the dispute is decided. No money moves when you open it.'],
                     [UserCheck, 'An independent arbitrator is assigned.', 'Someone with no history with either of you. Both sides get 3 days to add evidence.'],
-                    [Flag, 'You flag the milestone on-chain.', 'From your verified wallet, so the arbiter can settle the decision. This sends no money.'],
+                    [Coins, 'The decision is paid out straight away.', 'The freelancer’s share, less the platform fee, goes to their earnings; the rest returns to the client’s coin wallet.'],
                     [Gavel, 'The decision is final on TrustLance.', 'The losing party’s record shows a lost dispute.'],
                   ] as const).map(([Icon, title, body]) => (
                     <li key={title} className="flex items-start gap-3 py-3">
@@ -262,7 +262,7 @@ export function DisputeWizard({ contracts, initialContractId, initialMilestoneId
               </section>
               <label className="flex items-start gap-3 text-sm">
                 <Checkbox checked={confirmed} onCheckedChange={(v) => { setConfirmed(v === true); setErrors({}); }} aria-describedby={errors.confirm ? 'confirm-error' : undefined} />
-                <span>I understand that the milestone is frozen, release is blocked until the dispute is decided, and that I need to flag it on-chain.</span>
+                <span>I understand that the milestone is frozen, release is blocked until the dispute is decided, and that the coins move as soon as the arbitrator decides.</span>
               </label>
               {errors.confirm && <p id="confirm-error" role="alert" className="text-xs font-medium text-danger-strong">{errors.confirm}</p>}
               <div className="flex flex-col-reverse gap-2 border-t pt-5 sm:flex-row sm:justify-between">

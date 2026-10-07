@@ -66,7 +66,7 @@ export function ProjectCard({ project, categories, plan }: {
             role="client"
             stats={{
               email_verified: project.client_email_verified,
-              wallet_verified: project.client_wallet_verified,
+              identity_verified: project.client_identity_verified,
               funded_as_client: project.client_funded,
               rating_avg: project.client_rating,
               review_count: project.client_reviews,

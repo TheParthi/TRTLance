@@ -25,7 +25,7 @@ export function Money({ amount, size = 'md', className, muted }: {
   );
 }
 
-/** Labelled figure for summaries: "Secured in escrow — 1,200 SHM". */
+/** Labelled figure for summaries: "Secured in escrow — 1,200 coins". */
 export function MoneyStat({ label, amount, hint, tone, className }: {
   label: string;
   amount: string | number | null | undefined;

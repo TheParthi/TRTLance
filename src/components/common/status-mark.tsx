@@ -1,9 +1,9 @@
 import { cn } from '@/lib/utils';
 import {
-  contractStatus, disputeStatus, milestoneStatus, projectStatus, proposalStatus, settlementStatus, txStatus, type StatusMeta, type Tone,
+  contractStatus, disputeStatus, milestoneStatus, projectStatus, proposalStatus, settlementStatus, type StatusMeta, type Tone,
 } from '@/lib/status';
 import type {
-  ContractStatus, DisputeStatus, EscrowTxStatus, MilestoneStatus, ProjectStatus, ProposalStatus, SettlementStatus,
+  ContractStatus, DisputeStatus, MilestoneStatus, ProjectStatus, ProposalStatus, SettlementStatus,
 } from '@/lib/types';
 
 const markText: Record<Tone, string> = {
@@ -48,4 +48,3 @@ export const ProjectStatusMark = ({ status, className }: { status: ProjectStatus
 export const ProposalStatusMark = ({ status, className }: { status: ProposalStatus; className?: string }) => <StatusMark meta={proposalStatus[status]} className={className} />;
 export const DisputeStatusMark = ({ status, className }: { status: DisputeStatus; className?: string }) => <StatusMark meta={disputeStatus[status]} className={className} />;
 export const SettlementStatusMark = ({ status, className }: { status: SettlementStatus; className?: string }) => <StatusMark meta={settlementStatus[status]} className={className} />;
-export const TxStatusMark = ({ status, className }: { status: EscrowTxStatus; className?: string }) => <StatusMark meta={txStatus[status]} className={className} />;

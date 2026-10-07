@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { requireViewer } from '@/lib/auth';
 import { getCategories, getProject } from '@/lib/data/projects';
-import { isEscrowConfigured, publicEnv } from '@/lib/env';
 import { ProjectWizard } from './wizard';
 
 export const metadata: Metadata = { title: 'Edit draft' };
@@ -18,8 +17,7 @@ export default async function EditProjectPage({ params }: { params: Promise<{ id
       project={data.project}
       attachments={data.attachments}
       categories={categories}
-      escrow={{ configured: isEscrowConfigured(), network: publicEnv.chain.name || (publicEnv.chain.id ? `Chain ${publicEnv.chain.id}` : null) }}
-      walletAddress={viewer.wallet?.address ?? null}
+      coinBalance={viewer.coins.wallet}
     />
   );
 }

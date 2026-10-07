@@ -19,7 +19,7 @@ import { acceptProposal, declineProposal } from '@/lib/actions/projects';
 import type { PublicMember, ProposalWithMilestones } from '@/lib/data/projects';
 import { formatRelative } from '@/lib/format';
 import { proposalSegments } from '@/lib/escrow-summary';
-import { formatAmount, toWei, weiToAmount } from '@/lib/money';
+import { coinsToString, formatAmount, toCoins } from '@/lib/money';
 import { cn } from '@/lib/utils';
 
 interface Item { proposal: ProposalWithMilestones; member: PublicMember | null; matched: string[] }
@@ -37,7 +37,7 @@ export function ProposalBoard({ projectId, projectOpen, budget, projectSkillCoun
   const [decline, setDecline] = React.useState<Item | null>(null);
   const shown = items.filter((i) => filter === 'all' || i.proposal.status === 'pending');
   // Rails share one scale (the largest of the budget and the shown prices), so their lengths compare like the prices do.
-  const scale = shown.reduce((max, i) => (toWei(i.proposal.amount) > max ? toWei(i.proposal.amount) : max), budget ? toWei(budget) : 0n);
+  const scale = shown.reduce((max, i) => (toCoins(i.proposal.amount) > max ? toCoins(i.proposal.amount) : max), budget ? toCoins(budget) : 0n);
 
   return (
     <div className="space-y-6">
@@ -92,9 +92,9 @@ function Cell({ label, children, inline, className }: { label?: string; children
 
 function budgetDelta(amount: string, budget: string | null) {
   if (!budget || !Number(budget)) return null;
-  const diff = toWei(amount) - toWei(budget);
+  const diff = toCoins(amount) - toCoins(budget);
   if (diff === 0n) return 'Matches your budget';
-  return `${formatAmount(weiToAmount(diff < 0n ? -diff : diff))} ${diff < 0n ? 'under' : 'over'} your budget`;
+  return `${formatAmount(coinsToString(diff < 0n ? -diff : diff))} ${diff < 0n ? 'under' : 'over'} your budget`;
 }
 
 function ProposalColumn({ item, budget, scale, projectSkillCount, projectOpen, onHire, onDecline }: {
@@ -105,7 +105,7 @@ function ProposalColumn({ item, budget, scale, projectSkillCount, projectOpen, o
   const delta = budgetDelta(p.amount, budget);
   const titleId = `proposal-${p.id}-name`;
   const detailsId = `proposal-${p.id}-details`;
-  const railWidth = scale > 0n ? Math.max(12, Number((toWei(p.amount) * 1000n) / scale) / 10) : 100;
+  const railWidth = scale > 0n ? Math.max(12, Number((toCoins(p.amount) * 1000n) / scale) / 10) : 100;
   const completed = m?.stats?.completed_as_freelancer ?? 0;
   return (
     <article
@@ -245,8 +245,8 @@ function HireDialog({ item, onClose }: { item: Item; onClose: () => void }) {
         </dl>
         <ol className="list-decimal space-y-1 pl-5 text-ink-secondary">
           <li>You both review and sign the contract terms.</li>
-          <li>You deposit <strong className="text-ink">{formatAmount(p.amount)}</strong> into escrow from your verified wallet.</li>
-          <li>Work starts once the deposit is confirmed on-chain.</li>
+          <li>You lock <strong className="text-ink">{formatAmount(p.amount)}</strong> in TrustLance escrow from your coin wallet.</li>
+          <li>Work starts as soon as the coins are locked.</li>
         </ol>
         <p className="flex gap-2 text-xs text-ink-muted"><Lock className="size-3.5 shrink-0" aria-hidden /> No money moves when you click hire.</p>
       </div>

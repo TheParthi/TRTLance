@@ -16,7 +16,7 @@ export interface PersonSearchRow {
   rating_avg: string | null;
   review_count: number;
   completed_as_freelancer: number;
-  wallet_verified: boolean;
+  identity_verified: boolean;
   email_verified: boolean;
   total_count: number;
 }

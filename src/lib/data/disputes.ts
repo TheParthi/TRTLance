@@ -1,14 +1,11 @@
 import 'server-only';
 import { cache } from 'react';
-import { Contract as EthersContract, JsonRpcProvider } from 'ethers';
-import abi from '@/lib/chain/escrow-abi.json';
 import { createClient } from '@/lib/supabase/server';
 import { getMembers, type PublicMember } from '@/lib/data/projects';
-import { isEscrowConfigured, publicEnv } from '@/lib/env';
 import { BUCKETS } from '@/lib/storage';
 import type {
   Arbitrator, Category, Contract, ContractFile, Dispute, DisputeEvent, DisputeEvidence, DisputeMessage,
-  DisputeRecommendation, EscrowTransaction, Milestone, MilestoneSubmission,
+  DisputeRecommendation, Milestone, MilestoneSubmission,
 } from '@/lib/types';
 
 const UUID_RE = /^[0-9a-f-]{36}$/i;
@@ -91,7 +88,6 @@ export interface DisputeCase {
   messages: DisputeMessage[];
   events: DisputeEvent[];
   recommendation: DisputeRecommendation | null;
-  transactions: EscrowTransaction[];
   members: Map<string, PublicMember>;
 }
 
@@ -103,7 +99,7 @@ export const getDisputeCase = cache(async (id: string): Promise<DisputeCase | nu
   if (error) throw error;
   if (!dispute) return null;
 
-  const [contract, milestone, evidence, messages, events, recommendation, transactions] = await Promise.all([
+  const [contract, milestone, evidence, messages, events, recommendation] = await Promise.all([
     supabase.from('contracts').select('*, project:projects(id, title)').eq('id', dispute.contract_id)
       .maybeSingle<Contract & { project: { id: string; title: string } | null }>(),
     supabase.from('milestones').select('*').eq('id', dispute.milestone_id).maybeSingle<Milestone>(),
@@ -113,11 +109,8 @@ export const getDisputeCase = cache(async (id: string): Promise<DisputeCase | nu
     supabase.from('dispute_events').select('*').eq('dispute_id', id).order('id').returns<DisputeEvent[]>(),
     supabase.from('ai_dispute_recommendations').select('*').eq('dispute_id', id).order('generated_at', { ascending: false })
       .limit(1).maybeSingle<DisputeRecommendation>(),
-    supabase.from('escrow_transactions').select('*').eq('contract_id', dispute.contract_id)
-      .eq('milestone_id', dispute.milestone_id).in('kind', ['dispute', 'resolve'])
-      .order('created_at', { ascending: false }).returns<EscrowTransaction[]>(),
   ]);
-  for (const r of [contract, milestone, evidence, messages, events, transactions]) if (r.error) throw r.error;
+  for (const r of [contract, milestone, evidence, messages, events]) if (r.error) throw r.error;
   if (!contract.data || !milestone.data) return null;
 
   const evidenceRows = evidence.data ?? [];
@@ -149,7 +142,6 @@ export const getDisputeCase = cache(async (id: string): Promise<DisputeCase | nu
     messages: messageRows,
     events: eventRows,
     recommendation: recommendation.data ?? null,
-    transactions: transactions.data ?? [],
     members,
   };
 });
@@ -229,7 +221,7 @@ export async function getDisputableContracts(viewerId: string): Promise<Disputab
 // ---------------------------------------------------------------------------
 
 export interface EligibilityCheck {
-  key: 'contracts' | 'rating' | 'disputes' | 'wallet' | 'age';
+  key: 'contracts' | 'rating' | 'disputes' | 'identity' | 'age';
   label: string;
   met: boolean;
   value: number | string | boolean | null;
@@ -253,27 +245,49 @@ export async function getCategoryList(): Promise<Category[]> {
 // Admin
 // ---------------------------------------------------------------------------
 
-export type SettlementItem = Dispute & {
-  contract: Pick<Contract, 'id' | 'title' | 'escrow_key' | 'client_id' | 'freelancer_id'> | null;
-  milestone: Pick<Milestone, 'id' | 'position' | 'title' | 'amount'> | null;
-};
+/** A bank account waiting for verification (public.admin_payout_account_queue). */
+export interface PayoutAccountReview {
+  user_id: string;
+  display_name: string;
+  username: string;
+  account_holder: string;
+  account_number: string;
+  ifsc: string;
+  pan: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/** A withdrawal waiting to be paid by bank transfer (public.admin_withdrawal_queue). */
+export interface WithdrawalToPay {
+  id: string;
+  number: number;
+  user_id: string;
+  display_name: string;
+  username: string;
+  coins: number;
+  amount_paise: number;
+  account_holder: string;
+  account_number: string;
+  ifsc: string;
+  pan: string;
+  requested_at: string;
+}
 
 export type ArbitratorWithLoad = Arbitrator & { active: number };
 
 export async function getAdminQueues() {
   const supabase = await createClient();
-  const [attention, settlements, applications, available] = await Promise.all([
+  const [attention, bankAccounts, withdrawals, applications, available] = await Promise.all([
     supabase.from('disputes').select(LIST_SELECT)
       .or('and(status.eq.open,arbitrator_id.is.null),status.eq.escalated')
       .order('created_at', { ascending: true }).limit(100).returns<DisputeListItem[]>(),
-    supabase.from('disputes')
-      .select('*, contract:contracts(id, title, escrow_key, client_id, freelancer_id), milestone:milestones(id, position, title, amount)')
-      .eq('status', 'resolved').in('settlement_status', ['ready', 'failed', 'pending'])
-      .order('decided_at', { ascending: true }).limit(100).returns<SettlementItem[]>(),
+    supabase.rpc('admin_payout_account_queue'),
+    supabase.rpc('admin_withdrawal_queue'),
     supabase.from('arbitrators').select('*').eq('status', 'pending').order('applied_at').returns<Arbitrator[]>(),
     supabase.from('arbitrators').select('*').eq('status', 'approved').eq('is_available', true).returns<Arbitrator[]>(),
   ]);
-  for (const r of [attention, settlements, applications, available]) if (r.error) throw r.error;
+  for (const r of [attention, bankAccounts, withdrawals, applications, available]) if (r.error) throw r.error;
 
   const pool = available.data ?? [];
   const load = new Map<string, number>();
@@ -286,36 +300,18 @@ export async function getAdminQueues() {
   const arbitrators: ArbitratorWithLoad[] = pool.map((a) => ({ ...a, active: load.get(a.user_id) ?? 0 }));
 
   const attentionRows = attention.data ?? [];
-  const settlementRows = settlements.data ?? [];
   const applicationRows = applications.data ?? [];
   const members = await getMembers([
     ...attentionRows.flatMap((d) => [d.contract?.client_id ?? '', d.contract?.freelancer_id ?? '']),
-    ...settlementRows.flatMap((d) => [d.contract?.client_id ?? '', d.contract?.freelancer_id ?? '']),
     ...applicationRows.map((a) => a.user_id),
     ...arbitrators.map((a) => a.user_id),
   ]);
-  return { attention: attentionRows, settlements: settlementRows, applications: applicationRows, arbitrators, members };
-}
-
-export type ArbiterLookup = { address: string; error: null } | { address: null; error: string };
-
-/** The escrow contract's on-chain arbiter — the only account that can settle a decided dispute. */
-export async function getEscrowArbiter(): Promise<ArbiterLookup> {
-  if (!isEscrowConfigured()) {
-    return { address: null, error: 'Escrow is not configured on this deployment, so decisions cannot be settled on-chain.' };
-  }
-  try {
-    const provider = new JsonRpcProvider(process.env.ESCROW_RPC_URL || publicEnv.chain.rpcUrl, publicEnv.chain.id, { staticNetwork: true });
-    const escrow = new EthersContract(publicEnv.chain.escrowAddress, abi, provider);
-    const address = await Promise.race([
-      escrow.getFunction('arbiter')() as Promise<string>,
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error('RPC timeout')), 8000)),
-    ]);
-    provider.destroy();
-    if (!/^0x[0-9a-fA-F]{40}$/.test(address)) throw new Error('Unexpected arbiter value');
-    return { address: address.toLowerCase(), error: null };
-  } catch (error) {
-    console.error('[escrow] arbiter lookup failed', error);
-    return { address: null, error: 'The escrow contract could not be reached to read its arbiter address. Settlement is unavailable until the network responds — reload to try again.' };
-  }
+  return {
+    attention: attentionRows,
+    bankAccounts: (bankAccounts.data ?? []) as PayoutAccountReview[],
+    withdrawals: (withdrawals.data ?? []) as WithdrawalToPay[],
+    applications: applicationRows,
+    arbitrators,
+    members,
+  };
 }

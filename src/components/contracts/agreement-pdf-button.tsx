@@ -4,14 +4,14 @@ import * as React from 'react';
 import { Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/toaster';
-import { CURRENCY, publicEnv } from '@/lib/env';
+import { COIN_NAME } from '@/lib/env';
 import { formatDateTime } from '@/lib/format';
-import { formatAmount } from '@/lib/money';
+import { feePercent, formatAmount } from '@/lib/money';
 import { contractStatus } from '@/lib/status';
-import type { Contract, EscrowTransaction, Milestone } from '@/lib/types';
+import type { Contract, EscrowEntry, Milestone } from '@/lib/types';
 
 /** Generates the signed agreement as a PDF from the contract record itself (never stale data). */
-export function AgreementPdfButton({ contract, milestones, transactions }: { contract: Contract; milestones: Milestone[]; transactions: EscrowTransaction[] }) {
+export function AgreementPdfButton({ contract, milestones, escrow }: { contract: Contract; milestones: Milestone[]; escrow: EscrowEntry[] }) {
   const [busy, setBusy] = React.useState(false);
   const download = async () => {
     setBusy(true);
@@ -49,8 +49,8 @@ export function AgreementPdfButton({ contract, milestones, transactions }: { con
       text(`Contract ${contract.id} · status: ${contractStatus[contract.status].label}`, { size: 9, color: [90, 98, 110], gap: 14 });
 
       text('Parties', { size: 12, bold: true });
-      text(`Client: ${t.client.name} (@${t.client.username})${contract.client_wallet ? ` — wallet ${contract.client_wallet}` : ''}`);
-      text(`Freelancer: ${t.freelancer.name} (@${t.freelancer.username})${contract.freelancer_wallet ? ` — wallet ${contract.freelancer_wallet}` : ''}`, { gap: 12 });
+      text(`Client: ${t.client.name} (@${t.client.username})`);
+      text(`Freelancer: ${t.freelancer.name} (@${t.freelancer.username})`, { gap: 12 });
 
       text('Project', { size: 12, bold: true });
       text(t.project.title, { bold: true });
@@ -62,7 +62,7 @@ export function AgreementPdfButton({ contract, milestones, transactions }: { con
       }
 
       text('Payment', { size: 12, bold: true });
-      text(`Total: ${formatAmount(t.total_amount)} (${CURRENCY}, paid through the escrow contract${publicEnv.chain.name ? ` on ${publicEnv.chain.name}` : ''}). Platform fee: 0 ${CURRENCY}. Duration: ${t.duration_days} days.`, { gap: 6 });
+      text(`Total: ${formatAmount(t.total_amount)} (${COIN_NAME}, 1 coin = ₹1, held in TrustLance escrow). Platform fee: ${t.platform_fee_pct ? `${t.platform_fee_pct}%` : feePercent(contract.fee_bps)} of each payment to the freelancer. Duration: ${t.duration_days} days.`, { gap: 6 });
       t.milestones.forEach((m) => {
         const live = milestones.find((x) => x.position === m.position);
         text(`${m.position}. ${m.title} — ${formatAmount(m.amount)} — due ${live?.due_date ?? `${m.due_in_days} days after funding`} — ${live ? live.status.replace('_', ' ') : 'pending'}`, { gap: 1 });
@@ -76,10 +76,9 @@ export function AgreementPdfButton({ contract, milestones, transactions }: { con
       text(contract.freelancer_signed_at ? `Freelancer: signed by "${contract.freelancer_signature_name}" on ${formatDateTime(contract.freelancer_signed_at)}` : 'Freelancer: not signed');
       text(`Terms fingerprint (SHA-256): ${contract.terms_hash}`, { size: 8, color: [90, 98, 110], gap: 12 });
 
-      const confirmed = transactions.filter((x) => x.status === 'confirmed');
-      if (confirmed.length) {
-        text('Verified escrow transactions', { size: 12, bold: true });
-        confirmed.forEach((x) => text(`${x.kind} · ${x.amount ? formatAmount(x.amount) : ''} · ${x.tx_hash} · ${formatDateTime(x.confirmed_at)}`, { size: 8, gap: 1 }));
+      if (escrow.length) {
+        text('Escrow movements', { size: 12, bold: true });
+        escrow.forEach((x) => text(`${formatDateTime(x.created_at)} · ${x.memo} · ${formatAmount(x.amount)} · in escrow after: ${formatAmount(x.balance_after)}`, { size: 8, gap: 1 }));
         y += 8;
       }
       text(`Generated ${formatDateTime(new Date())} from the TrustLance contract record. Signatures are typed-name electronic signatures bound to the terms fingerprint above.`, { size: 8, color: [120, 126, 136] });

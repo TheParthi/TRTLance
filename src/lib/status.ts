@@ -1,5 +1,5 @@
 import type {
-  ContractStatus, DisputeStatus, EscrowTxStatus, MilestoneStatus, ProjectStatus, ProposalStatus, SettlementStatus,
+  CoinTxKind, ContractStatus, DisputeStatus, MilestoneStatus, ProjectStatus, ProposalStatus, SettlementStatus, WithdrawalStatus,
 } from '@/lib/types';
 
 /**
@@ -19,24 +19,24 @@ export interface StatusMeta {
 }
 
 export const milestoneStatus: Record<MilestoneStatus, StatusMeta> = {
-  pending: { label: 'Not funded', tone: 'neutral', icon: 'circle-dashed', description: 'Waiting for the client to fund escrow.' },
-  funded: { label: 'Secured', tone: 'brand', icon: 'lock', description: 'Funds are locked in escrow. Work can begin.' },
+  pending: { label: 'Not funded', tone: 'neutral', icon: 'circle-dashed', description: 'Waiting for the client to lock the coins in escrow.' },
+  funded: { label: 'Secured', tone: 'brand', icon: 'lock', description: 'The coins are locked in escrow. Work can begin.' },
   submitted: { label: 'Under review', tone: 'info', icon: 'eye', description: 'Work was submitted and is waiting for the client.' },
   revision_requested: { label: 'Changes requested', tone: 'warning', icon: 'pen', description: 'The client asked for changes before approving.' },
-  approved: { label: 'Approved', tone: 'success', icon: 'check', description: 'Approved. Payment is released when the client’s transaction confirms.' },
-  paid: { label: 'Released', tone: 'success', icon: 'check-check', description: 'Paid to the freelancer’s verified wallet.' },
+  approved: { label: 'Approved', tone: 'success', icon: 'check', description: 'Approved and waiting to be paid from escrow.' },
+  paid: { label: 'Released', tone: 'success', icon: 'check-check', description: 'Paid to the freelancer’s earnings, less the platform fee.' },
   disputed: { label: 'Disputed', tone: 'danger', icon: 'alert', description: 'Frozen while an arbitrator reviews the dispute.' },
-  refunded: { label: 'Refunded', tone: 'refund', icon: 'undo', description: 'Returned to the client’s wallet.' },
+  refunded: { label: 'Refunded', tone: 'refund', icon: 'undo', description: 'Returned to the client’s coin wallet.' },
   settled: { label: 'Settled', tone: 'refund', icon: 'scale', description: 'Split between both parties by an arbitrator’s decision.' },
 };
 
 export const contractStatus: Record<ContractStatus, StatusMeta> = {
   pending_signatures: { label: 'Awaiting signatures', tone: 'warning', icon: 'pen', description: 'Both parties must sign the terms.' },
-  awaiting_funding: { label: 'Awaiting funding', tone: 'warning', icon: 'wallet', description: 'Signed. The client must deposit the full amount into escrow.' },
-  active: { label: 'Active', tone: 'brand', icon: 'lock', description: 'Escrow is funded and work is in progress.' },
+  awaiting_funding: { label: 'Awaiting funding', tone: 'warning', icon: 'wallet', description: 'Signed. The client must lock the full amount in escrow.' },
+  active: { label: 'Active', tone: 'brand', icon: 'lock', description: 'The coins are locked in escrow and work is in progress.' },
   disputed: { label: 'In dispute', tone: 'danger', icon: 'alert', description: 'At least one milestone is under dispute.' },
   completed: { label: 'Completed', tone: 'success', icon: 'check-check', description: 'Every milestone is closed.' },
-  cancelled: { label: 'Cancelled', tone: 'neutral', icon: 'ban', description: 'Cancelled before any money was deposited.' },
+  cancelled: { label: 'Cancelled', tone: 'neutral', icon: 'ban', description: 'Cancelled before any coins were locked.' },
 };
 
 export const projectStatus: Record<ProjectStatus, StatusMeta> = {
@@ -63,26 +63,28 @@ export const disputeStatus: Record<DisputeStatus, StatusMeta> = {
 };
 
 export const settlementStatus: Record<SettlementStatus, StatusMeta> = {
-  awaiting_flag: { label: 'Needs on-chain flag', tone: 'warning', icon: 'flag', description: 'A party must flag the milestone on-chain so the arbiter can settle it.' },
-  ready: { label: 'Ready to settle', tone: 'info', icon: 'scale', description: 'The decision can now be settled by the escrow contract.' },
-  pending: { label: 'Settling', tone: 'info', icon: 'loader', description: 'The settlement transaction is being confirmed.' },
-  settled: { label: 'Settled', tone: 'success', icon: 'check-check', description: 'Funds were distributed by the escrow contract.' },
-  failed: { label: 'Settlement failed', tone: 'danger', icon: 'x', description: 'The settlement transaction failed and must be retried.' },
+  pending: { label: 'Not settled', tone: 'info', icon: 'clock', description: 'The coins stay frozen until the decision.' },
+  settled: { label: 'Settled', tone: 'success', icon: 'check-check', description: 'The coins were paid out as decided.' },
 };
 
-export const txStatus: Record<EscrowTxStatus, StatusMeta> = {
-  pending: { label: 'Confirming', tone: 'info', icon: 'loader', description: 'Broadcast to the network; waiting for confirmation.' },
-  confirmed: { label: 'Confirmed', tone: 'success', icon: 'check', description: 'Confirmed on-chain and verified by TrustLance.' },
-  failed: { label: 'Failed', tone: 'danger', icon: 'x', description: 'The transaction was not accepted.' },
+export const withdrawalStatus: Record<WithdrawalStatus, StatusMeta> = {
+  requested: { label: 'Processing', tone: 'info', icon: 'loader', description: 'TrustLance is sending the money to your bank account.' },
+  paid: { label: 'Paid', tone: 'success', icon: 'check-check', description: 'Sent to your bank account.' },
+  failed: { label: 'Returned', tone: 'danger', icon: 'x', description: 'The transfer did not go through. The coins are back in your earnings.' },
+  cancelled: { label: 'Cancelled', tone: 'neutral', icon: 'undo', description: 'You cancelled it. The coins are back in your earnings.' },
 };
 
-export const txKindLabel = {
-  fund: 'Escrow deposit',
-  release: 'Milestone release',
-  refund: 'Refund to client',
-  dispute: 'Dispute flag',
-  resolve: 'Dispute settlement',
-} as const;
+export const coinTxLabel: Record<CoinTxKind, string> = {
+  purchase: 'Bought coins',
+  fund: 'Locked in escrow',
+  release: 'Milestone payment',
+  refund: 'Milestone refund',
+  settlement: 'Dispute settlement',
+  hold_release: 'Now withdrawable',
+  withdrawal: 'Withdrawal requested',
+  withdrawal_paid: 'Paid to bank',
+  withdrawal_returned: 'Withdrawal returned',
+};
 
 export const disputeReasonLabel = {
   quality: 'Quality of work',

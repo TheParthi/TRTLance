@@ -1,69 +1,71 @@
-import { formatEther, parseEther } from 'ethers';
 import { CURRENCY } from '@/lib/env';
 
 /**
- * Money helpers. Amounts are decimal strings (Postgres numeric) with at most 6 decimal places in
- * the app, and wei (bigint) on-chain. Arithmetic never uses floating point.
+ * Money helpers. Every amount is a whole number of TrustLance Coins (1 coin = ₹1). Postgres numerics
+ * arrive as strings such as "1500.000000000000000000"; arithmetic uses bigint, never floating point.
  */
-const MICRO = 1_000_000n;
-const AMOUNT_RE = /^(\d{1,20})(?:\.(\d{1,6}))?$/;
+const COINS_RE = /^\d{1,15}$/;
 
-/** Parses user input like "1,250.5" into micro-units, or null if invalid. */
+/** Parses user input like "1,250" into coins, or null if it is not a whole, non-negative number. */
 export function parseAmount(input: string | number | null | undefined): bigint | null {
   if (input === null || input === undefined) return null;
-  const clean = String(input).trim().replace(/,/g, '');
-  const match = AMOUNT_RE.exec(clean);
-  if (!match) return null;
-  return BigInt(match[1]) * MICRO + BigInt((match[2] ?? '').padEnd(6, '0') || '0');
+  const clean = String(input).trim().replace(/[,\s]/g, '');
+  return COINS_RE.test(clean) ? BigInt(clean) : null;
 }
 
-export function microToAmount(micro: bigint): string {
-  const negative = micro < 0n;
-  const abs = negative ? -micro : micro;
-  const whole = abs / MICRO;
-  const frac = (abs % MICRO).toString().padStart(6, '0').replace(/0+$/, '');
-  return `${negative ? '-' : ''}${whole}${frac ? `.${frac}` : ''}`;
-}
-
-/** "100.000000000000000000" → "100"; keeps up to 18 significant decimals for on-chain values. */
-export function normalizeAmount(value: string | number | null | undefined): string {
+/** "1500.000000000000000000" → "1500". Any fraction (only possible on legacy rows) is dropped. */
+export function normalizeAmount(value: string | number | bigint | null | undefined): string {
   if (value === null || value === undefined || value === '') return '0';
-  const str = String(value);
-  if (!str.includes('.')) return str.replace(/^0+(?=\d)/, '');
-  const trimmed = str.replace(/0+$/, '').replace(/\.$/, '');
-  return trimmed.replace(/^0+(?=\d)/, '') || '0';
+  const whole = String(value).split('.')[0].replace(/^(-?)0+(?=\d)/, '$1');
+  return whole === '' || whole === '-' ? '0' : whole;
+}
+
+export function toCoins(value: string | number | bigint | null | undefined): bigint {
+  return typeof value === 'bigint' ? value : BigInt(normalizeAmount(value));
+}
+
+export function coinsToString(coins: bigint): string {
+  return coins.toString();
 }
 
 function groupThousands(whole: string) {
   return whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
-/** Human display: "1,234.5 SHM". */
-export function formatAmount(value: string | number | null | undefined, opts: { symbol?: boolean; maxDecimals?: number } = {}) {
+/** Human display: "1,234 coins". */
+export function formatAmount(value: string | number | bigint | null | undefined, opts: { symbol?: boolean } = {}) {
   const normalized = normalizeAmount(value);
-  const [whole, frac = ''] = normalized.split('.');
-  const decimals = frac.slice(0, opts.maxDecimals ?? 6).replace(/0+$/, '');
-  const text = `${groupThousands(whole)}${decimals ? `.${decimals}` : ''}`;
+  const negative = normalized.startsWith('-');
+  const text = `${negative ? '-' : ''}${groupThousands(negative ? normalized.slice(1) : normalized)}`;
   return opts.symbol === false ? text : `${text} ${CURRENCY}`;
 }
 
-export function sumAmounts(values: (string | number)[]): string {
-  let total = 0n;
-  for (const v of values) total += toWei(v);
-  return weiToAmount(total);
+/** Rupees from paise: 150000 → "₹1,500", 150050 → "₹1,500.50". */
+export function formatRupees(paise: string | number | bigint) {
+  const p = toCoins(paise);
+  const rupees = groupThousands((p / 100n).toString());
+  const rest = p % 100n;
+  return `₹${rupees}${rest ? `.${rest.toString().padStart(2, '0')}` : ''}`;
 }
 
-export function toWei(value: string | number): bigint {
-  return parseEther(normalizeAmount(value));
+export function sumAmounts(values: (string | number | bigint)[]): string {
+  return values.reduce<bigint>((total, v) => total + toCoins(v), 0n).toString();
 }
 
-export function weiToAmount(wei: bigint): string {
-  return normalizeAmount(formatEther(wei));
+/** Splits a disputed milestone like the database does: the freelancer's share rounds down. */
+export function splitByPct(amount: string | number, freelancerPct: number) {
+  const coins = toCoins(amount);
+  const freelancer = (coins * BigInt(freelancerPct)) / 100n;
+  return { freelancer: freelancer.toString(), client: (coins - freelancer).toString() };
 }
 
-/** Splits a milestone exactly like the escrow contract: freelancer share rounds down, in wei. */
-export function splitByPct(amount: string, freelancerPct: number) {
-  const wei = toWei(amount);
-  const freelancer = (wei * BigInt(freelancerPct)) / 100n;
-  return { freelancer: weiToAmount(freelancer), client: weiToAmount(wei - freelancer) };
+/** The platform fee on a payment to the freelancer (basis points, rounded down) and what they receive. */
+export function feeSplit(amount: string | number | bigint, feeBps: number) {
+  const coins = toCoins(amount);
+  const fee = (coins * BigInt(feeBps)) / 10_000n;
+  return { fee: fee.toString(), net: (coins - fee).toString() };
+}
+
+export function feePercent(feeBps: number) {
+  return `${(feeBps / 100).toFixed(feeBps % 100 ? 2 : 0)}%`;
 }

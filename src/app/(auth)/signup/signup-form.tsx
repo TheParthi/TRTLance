@@ -96,7 +96,7 @@ export function SignupForm() {
         </Field>
         <Button type="submit" size="lg" className="w-full" loading={busy}>Create account</Button>
         <p className="text-xs text-ink-muted">
-          You’ll verify your email, then set up your profile. Connecting a wallet comes later — only when you sign or fund a contract.
+          You’ll verify your email, then set up your profile. Clients buy coins only when they post work; freelancers add a bank account to withdraw.
         </p>
       </form>
     </div>

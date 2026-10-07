@@ -15,19 +15,22 @@ import { RiskBadge } from '@/components/projects/risk-panel';
 import { submitProposal } from '@/lib/actions/projects';
 import { CURRENCY } from '@/lib/env';
 import { proposalSegments } from '@/lib/escrow-summary';
-import { formatAmount, microToAmount, parseAmount } from '@/lib/money';
+import { coinsToString, feePercent, feeSplit, formatAmount, parseAmount } from '@/lib/money';
 import type { RiskLevel } from '@/lib/types';
 
 interface Row { title: string; description: string; amount: string; due_in_days: string }
 
-export function ProposalComposer({ projectId, budget, projectSkills, mySkills, initialMilestones, riskLevel, hasWallet }: {
+export function ProposalComposer({ projectId, budget, projectSkills, mySkills, initialMilestones, riskLevel, identityVerified, feeBps, minMilestone }: {
   projectId: string;
   budget: string;
   projectSkills: string[];
   mySkills: string[];
   initialMilestones: Row[];
   riskLevel: RiskLevel | null;
-  hasWallet: boolean;
+  identityVerified: boolean;
+  /** Platform fee on each payment to the freelancer, in basis points. */
+  feeBps: number;
+  minMilestone: number;
 }) {
   const router = useRouter();
   const [cover, setCover] = React.useState('');
@@ -38,9 +41,10 @@ export function ProposalComposer({ projectId, budget, projectSkills, mySkills, i
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const submitted = React.useRef(false);
 
-  const totalMicro = rows.reduce((s, r) => s + (parseAmount(r.amount) ?? 0n), 0n);
-  const total = microToAmount(totalMicro);
-  const budgetMicro = parseAmount(budget) ?? 0n;
+  const totalCoins = rows.reduce((s, r) => s + (parseAmount(r.amount) ?? 0n), 0n);
+  const total = coinsToString(totalCoins);
+  const budgetCoins = parseAmount(budget) ?? 0n;
+  const youReceive = feeSplit(total, feeBps);
   const update = (i: number, patch: Partial<Row>) => setRows((r) => r.map((x, j) => (j === i ? { ...x, ...patch } : x)));
 
   const validate = () => {
@@ -50,11 +54,13 @@ export function ProposalComposer({ projectId, budget, projectSkills, mySkills, i
     if (!Number.isInteger(d) || d < 1 || d > 730) e.duration = 'Enter a whole number of days between 1 and 730.';
     rows.forEach((r, i) => {
       if (r.title.trim().length < 3) e[`t${i}`] = 'Add a title.';
-      if (!parseAmount(r.amount)) e[`a${i}`] = 'Enter an amount.';
+      const coins = parseAmount(r.amount);
+      if (!coins) e[`a${i}`] = 'Enter a whole number of coins.';
+      else if (coins < BigInt(minMilestone)) e[`a${i}`] = `At least ${formatAmount(minMilestone)}.`;
       const due = Number(r.due_in_days);
       if (!Number.isInteger(due) || due < 1 || (Number.isInteger(d) && due > d)) e[`d${i}`] = `Day 1–${d || 730}.`;
     });
-    if (totalMicro <= 0n) e.total = 'The total must be more than zero.';
+    if (totalCoins <= 0n) e.total = 'The total must be more than zero.';
     return e;
   };
 
@@ -84,7 +90,7 @@ export function ProposalComposer({ projectId, budget, projectSkills, mySkills, i
     router.refresh();
   };
 
-  const railRows = rows.map((r, i) => ({ position: i + 1, title: r.title.trim() || `Milestone ${i + 1}`, amount: microToAmount(parseAmount(r.amount) ?? 0n) }));
+  const railRows = rows.map((r, i) => ({ position: i + 1, title: r.title.trim() || `Milestone ${i + 1}`, amount: coinsToString(parseAmount(r.amount) ?? 0n) }));
 
   return (
     <form onSubmit={onSubmit} className="grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-12" noValidate>
@@ -148,8 +154,8 @@ export function ProposalComposer({ projectId, budget, projectSkills, mySkills, i
             <h2 id="price-title" className="t-label-caps">Your price</h2>
             <Money amount={total} size="xl" />
             <p className="text-xs text-ink-secondary">
-              Client budget: {budget} {CURRENCY}
-              {budgetMicro > 0n && totalMicro !== budgetMicro && <> · you are {totalMicro > budgetMicro ? 'above' : 'below'} it</>}
+              Client budget: {formatAmount(budget)}
+              {budgetCoins > 0n && totalCoins !== budgetCoins && <> · you are {totalCoins > budgetCoins ? 'above' : 'below'} it</>}
             </p>
           </div>
           <div className="space-y-2">
@@ -166,10 +172,11 @@ export function ProposalComposer({ projectId, budget, projectSkills, mySkills, i
           <dl className="ledger text-sm">
             <div className="flex justify-between py-2"><dt className="text-ink-muted">Milestones</dt><dd>{rows.length}</dd></div>
             <div className="flex justify-between py-2"><dt className="text-ink-muted">Duration</dt><dd>{duration || '—'} days</dd></div>
-            <div className="flex justify-between py-2"><dt className="text-ink-muted">Platform fee</dt><dd>0 {CURRENCY}</dd></div>
+            <div className="flex justify-between py-2"><dt className="text-ink-muted">Platform fee ({feePercent(feeBps)})</dt><dd>−{formatAmount(youReceive.fee)}</dd></div>
+            <div className="flex justify-between py-2"><dt className="text-ink-muted">You receive</dt><dd className="font-medium">{formatAmount(youReceive.net)}</dd></div>
           </dl>
-          <p className="flex gap-2 text-xs text-ink-secondary"><Lock className="mt-0.5 size-3.5 shrink-0 text-brand" aria-hidden /> If you’re hired, the client deposits this total into escrow before you start.</p>
-          {!hasWallet && <p className="text-xs text-warning-strong">You’ll need a <Link className="underline" href="/wallet">verified wallet</Link> to sign the contract and receive payment.</p>}
+          <p className="flex gap-2 text-xs text-ink-secondary"><Lock className="mt-0.5 size-3.5 shrink-0 text-brand" aria-hidden /> If you’re hired, the client locks this total in TrustLance escrow before you start. Each payment can be withdrawn to your bank 7 working days after it is released.</p>
+          {!identityVerified && <p className="text-xs text-warning-strong">To withdraw what you earn, add and verify your <Link className="underline" href="/wallet#withdraw">bank account and PAN</Link>.</p>}
           <Button type="submit" size="lg" className="w-full" loading={busy}>Send proposal</Button>
         </div>
       </aside>

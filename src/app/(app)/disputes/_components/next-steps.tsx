@@ -32,18 +32,11 @@ function steps(d: Dispute, isParty: boolean): CaseStep {
         body: 'The platform team reviews the case and decides, or assigns a new arbitrator. You can still add evidence and write in Messages.',
       };
     case 'resolved':
-      switch (d.settlement_status) {
-        case 'awaiting_flag':
-          return { tone: isParty ? 'action' : 'waiting', title: 'Decided — needs an on-chain flag', body: 'The decision is recorded. Before the escrow contract can pay it out, one party must flag the milestone on-chain.' };
-        case 'ready':
-          return { tone: 'waiting', title: 'Decided — waiting for settlement', body: 'The arbiter settles the decision through the escrow contract. Funds move only when that transaction is confirmed.' };
-        case 'pending':
-          return { tone: 'waiting', title: 'Settlement is confirming', body: 'The settlement transaction was broadcast and is being verified on-chain.' };
-        case 'failed':
-          return { tone: 'alert', title: 'Settlement needs a retry', body: 'The last settlement transaction was not accepted. The platform team will send it again; no funds moved.' };
-        default:
-          return { tone: 'done', title: 'Settled', body: 'The escrow contract paid out the decision. This case is closed.' };
-      }
+      return {
+        tone: 'done',
+        title: 'Decided and settled',
+        body: 'The coins were paid out as decided: the freelancer’s share (less the platform fee) went to their earnings, withdrawable after 7 working days, and the client’s share went back to their coin wallet. This case is closed.',
+      };
   }
 }
 
@@ -59,7 +52,7 @@ export type CaseStep = { title: string; body: React.ReactNode; tone: Tone };
 
 /**
  * "What happens next" for a case — said once, as one line with a coloured rule, never a box.
- * `step` replaces the status-based text when the viewer has a specific action (e.g. flag on-chain); `control` is its one button.
+ * `step` replaces the status-based text when the viewer has a specific action; `control` is its one button.
  */
 export function NextSteps({ dispute, isParty, step, control, className }: {
   dispute: Dispute;

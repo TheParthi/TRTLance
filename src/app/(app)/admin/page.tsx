@@ -1,4 +1,3 @@
-import { PendingEscrowWatcher } from '@/components/escrow/pending-escrow-watcher';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { AlertTriangle, ArrowRight, Gavel } from 'lucide-react';
@@ -9,16 +8,15 @@ import { PageHeader } from '@/components/common/page-header';
 import { EmptyState } from '@/components/common/states';
 import { DisputeStatusMark, SettlementStatusMark } from '@/components/common/status-mark';
 import { TrustLine } from '@/components/common/trust-signals';
-import { getAdminQueues, getCategoryList, getEscrowArbiter, type DisputeListItem } from '@/lib/data/disputes';
-import { disputeNumber, formatDate, formatDateTime, formatRelative, shortAddress } from '@/lib/format';
+import { getAdminQueues, getCategoryList, type DisputeListItem } from '@/lib/data/disputes';
+import { disputeNumber, formatDate, formatDateTime, formatRelative } from '@/lib/format';
+import { formatAmount, formatRupees } from '@/lib/money';
 import { disputeReasonLabel } from '@/lib/status';
 import { createClient } from '@/lib/supabase/server';
 import { cn } from '@/lib/utils';
-import { decisionLabel } from '../disputes/_components/labels';
-import { SplitRows } from '../disputes/_components/split';
 import { ApplicationReview } from './application-review';
 import { AssignForm, type ArbitratorOption } from './assign-form';
-import { SettleButton } from './settle-button';
+import { BankAccountReview, WithdrawalActions } from './payout-review';
 
 export const metadata: Metadata = { title: 'Admin' };
 
@@ -31,31 +29,29 @@ const quietEmpty = (title: string, body: string) => <EmptyState compact title={t
 
 export default async function AdminPage() {
   const supabase = await createClient();
-  const [queues, arbiter, categories, recent] = await Promise.all([
+  const [queues, categories, recent] = await Promise.all([
     getAdminQueues(),
-    getEscrowArbiter(),
     getCategoryList().catch(() => []),
     supabase.from('disputes').select(CASE_SELECT).order('created_at', { ascending: false }).limit(50).returns<DisputeListItem[]>(),
   ]);
-  const { attention, settlements, applications, arbitrators, members } = queues;
+  const { attention, bankAccounts, withdrawals, applications, arbitrators, members } = queues;
   const cases = recent.data ?? [];
   const name = (id: string | null | undefined) => (id ? members.get(id)?.display_name ?? 'Member' : '—');
   const categoryLabel = (slug: string) => categories.find((c) => c.slug === slug)?.label ?? slug;
 
   const queueNav = [
     { href: '#attention', label: 'Needs attention', count: attention.length, urgent: attention.length > 0 },
-    { href: '#settlements', label: 'Settlements', count: settlements.length, urgent: settlements.length > 0 },
+    { href: '#withdrawals', label: 'Withdrawals', count: withdrawals.length, urgent: withdrawals.length > 0 },
+    { href: '#bank-accounts', label: 'Bank accounts', count: bankAccounts.length, urgent: bankAccounts.length > 0 },
     { href: '#applications', label: 'Applications', count: applications.length, urgent: false },
-    { href: '#cases', label: 'All cases', count: cases.length, urgent: false },
   ];
 
   return (
     <>
-      <PendingEscrowWatcher contractIds={settlements.flatMap((d) => (d.contract ? [d.contract.id] : []))} />
       <PageHeader
         eyebrow="Platform admin"
-        title="Disputes and arbitration"
-        description="Cases that need a person from the platform team, decisions waiting to be settled on-chain, and arbitrator applications."
+        title="Queues"
+        description="Disputes that need a person from the platform team, withdrawals to pay, bank accounts to verify, and arbitrator applications."
       />
       <nav aria-label="Queues" className="mb-10">
         <ul className="grid grid-cols-2 border-y md:grid-cols-4">
@@ -117,50 +113,49 @@ export default async function AdminPage() {
         </Ledger>
 
         <Ledger
-          id="settlements"
+          id="withdrawals"
           className="scroll-mt-24"
-          title={`Settlements (${settlements.length})`}
-          description={
-            <>
-              Decided disputes whose milestone is flagged on-chain. The escrow’s arbiter account sends the settlement; funds move only when it confirms.
-              {!arbiter.error && <span className="t-meta mt-1 block">Arbiter account <span className="font-mono">{shortAddress(arbiter.address)}</span> — connect it in your wallet to settle.</span>}
-            </>
-          }
-          empty={
-            <>
-              {arbiter.error && <p className="mb-3 text-sm text-warning-strong">Settlement is unavailable: {arbiter.error}</p>}
-              {quietEmpty('No settlements waiting', 'Decided disputes appear here once a party has flagged the milestone on-chain.')}
-            </>
-          }
+          title={`Withdrawals to pay (${withdrawals.length})`}
+          description="Send each amount by bank transfer to the account shown, then mark it as paid with the transfer reference. You cannot pay out your own withdrawal."
+          empty={quietEmpty('No withdrawals waiting', 'Members’ withdrawal requests appear here.')}
         >
-          {settlements.length > 0 ? <>
-          {arbiter.error && <li className="py-3 text-sm text-warning-strong">Settlement is unavailable: {arbiter.error}</li>}
-          {settlements.map((d) => (
-            <li key={d.id} className="relative grid grid-cols-1 gap-4 py-4 pl-4 before:absolute before:inset-y-3 before:left-0 before:w-0.5 before:rounded-full before:bg-brand md:grid-cols-[minmax(0,1fr)_18rem] md:items-center md:gap-8">
+          {withdrawals.map((w) => {
+            const label = `WD-${String(w.number).padStart(6, '0')}`;
+            return (
+              <li key={w.id} className="relative grid grid-cols-1 gap-4 py-4 pl-4 before:absolute before:inset-y-3 before:left-0 before:w-0.5 before:rounded-full before:bg-brand md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-8">
+                <div className="min-w-0 space-y-1">
+                  <p className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+                    <span className="t-mono text-ink-muted">{label}</span>
+                    <Link href={`/u/${w.username}`} className="font-medium hover:text-brand">{w.display_name}</Link>
+                    <span className="t-money">{formatRupees(w.amount_paise)}</span>
+                    <span className="t-meta">({formatAmount(w.coins)})</span>
+                  </p>
+                  <FactLine items={[['Account holder', w.account_holder], ['Account number', w.account_number], ['IFSC', w.ifsc], ['PAN', w.pan]]} />
+                  <p className="t-meta">Requested {formatDateTime(w.requested_at)} ({formatRelative(w.requested_at)})</p>
+                </div>
+                <WithdrawalActions id={w.id} label={label} coins={w.coins} amountPaise={w.amount_paise} />
+              </li>
+            );
+          })}
+        </Ledger>
+
+        <Ledger
+          id="bank-accounts"
+          className="scroll-mt-24"
+          title={`Bank accounts to verify (${bankAccounts.length})`}
+          description="Check that the name, PAN and bank account belong together before the member’s first withdrawal."
+          empty={quietEmpty('Nothing to verify', 'New bank details appear here for review.')}
+        >
+          {bankAccounts.map((a) => (
+            <li key={a.user_id} className="relative grid grid-cols-1 gap-4 py-4 pl-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-8">
               <div className="min-w-0 space-y-1">
-                <p className="flex min-w-0 flex-wrap items-baseline gap-x-2">
-                  <Link href={`/arbitration/cases/${d.id}`} className="t-mono link">{disputeNumber(d.number)}</Link>
-                  <span className="font-medium">{d.contract?.title ?? 'Contract'}</span>
-                </p>
-                <p className="text-sm text-ink-secondary">Milestone {d.milestone?.position} · {d.milestone?.title}</p>
-                {d.decision && d.freelancer_pct !== null && <p className="text-sm font-medium">{decisionLabel(d.decision, d.freelancer_pct)}</p>}
-                <p className="flex flex-wrap items-center gap-x-3 gap-y-1"><SettlementStatusMark status={d.settlement_status} /><span className="t-meta">Decided {formatDate(d.decided_at)}</span></p>
+                <Link href={`/u/${a.username}`} className="font-medium hover:text-brand">{a.display_name}</Link>
+                <FactLine items={[['Account holder', a.account_holder], ['Account number', a.account_number], ['IFSC', a.ifsc], ['PAN', a.pan]]} />
+                <p className="t-meta">Submitted {formatDateTime(a.updated_at)}</p>
               </div>
-              <div className="min-w-0 space-y-3">
-                {d.freelancer_pct !== null && <SplitRows amount={d.amount} pct={d.freelancer_pct} size="sm" />}
-                {d.settlement_status === 'pending' ? (
-                  <p className="t-meta">A settlement transaction is being verified.</p>
-                ) : !d.contract?.escrow_key || !d.milestone ? (
-                  <p className="t-meta">No escrow record for this contract — it cannot be settled on-chain.</p>
-                ) : arbiter.address && d.freelancer_pct !== null ? (
-                  <SettleButton disputeLabel={disputeNumber(d.number)} contractId={d.contract.id} milestoneId={d.milestone.id}
-                    milestoneTitle={d.milestone.title} position={d.milestone.position} escrowKey={d.contract.escrow_key}
-                    amount={d.milestone.amount} freelancerPct={d.freelancer_pct} arbiter={arbiter.address} />
-                ) : null}
-              </div>
+              <BankAccountReview userId={a.user_id} name={a.display_name} />
             </li>
           ))}
-          </> : null}
         </Ledger>
 
         <Ledger
@@ -210,7 +205,7 @@ export default async function AdminPage() {
               </p>
               <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
                 <DisputeStatusMark status={d.status} />
-                {(d.status === 'resolved' || d.settlement_status === 'awaiting_flag') && <SettlementStatusMark status={d.settlement_status} />}
+                {d.status === 'resolved' && <SettlementStatusMark status={d.settlement_status} />}
                 <span className="t-meta">Milestone {d.milestone?.position} · opened {formatDate(d.created_at)}</span>
               </p>
             </LedgerRow>
@@ -218,5 +213,16 @@ export default async function AdminPage() {
         </Ledger>
       </div>
     </>
+  );
+}
+
+/** Bank details on one wrapped line, in a fixed-width font so digits are easy to copy and compare. */
+function FactLine({ items }: { items: [string, string][] }) {
+  return (
+    <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+      {items.map(([label, value]) => (
+        <span key={label}><span className="text-ink-muted">{label}</span> <span className="font-mono">{value}</span></span>
+      ))}
+    </p>
   );
 }

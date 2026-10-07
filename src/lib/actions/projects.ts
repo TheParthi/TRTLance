@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { attempt, fail, type ActionResult } from '@/lib/errors';
-import { normalizeAmount, parseAmount, microToAmount } from '@/lib/money';
+import { normalizeAmount, parseAmount } from '@/lib/money';
 import { ProjectDraft, ProposalInput } from '@/lib/validation';
 
 async function session() {
@@ -15,8 +15,8 @@ async function session() {
 
 const amountOrNull = (v: string | null | undefined) => {
   if (!v) return null;
-  const micro = parseAmount(v);
-  return micro === null ? null : microToAmount(micro);
+  const coins = parseAmount(v);
+  return coins === null ? null : coins.toString();
 };
 
 export async function createDraftProject(): Promise<ActionResult<string>> {

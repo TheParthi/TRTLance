@@ -1,4 +1,3 @@
-import { PendingEscrowWatcher } from '@/components/escrow/pending-escrow-watcher';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -13,14 +12,13 @@ import { disputeNumber, formatDate, formatDateTime } from '@/lib/format';
 import { AddEvidenceForm } from '../_components/add-evidence-form';
 import { AiRecommendationPanel } from '../_components/ai-recommendation';
 import { AuditTrail } from '../_components/audit-trail';
-import { CaseMoney, CaseTimeline, TxHash } from '../_components/case-summary';
+import { CaseMoney, CaseTimeline } from '../_components/case-summary';
 import { DecisionCard, FactRows } from '../_components/decision-card';
 import { DisputeChat } from '../_components/dispute-chat';
 import { EscalateButton } from '../_components/escalate-button';
 import { EvidenceList } from '../_components/evidence-list';
-import { flagState, partyEscalation, roleIn } from '../_components/labels';
-import { NextSteps, type CaseStep } from '../_components/next-steps';
-import { FlagMilestoneButton, FlagMilestoneTrigger } from '../_components/onchain-card';
+import { partyEscalation, roleIn } from '../_components/labels';
+import { NextSteps } from '../_components/next-steps';
 import { Statements } from '../_components/statements';
 
 type Params = { params: Promise<{ id: string }> };
@@ -48,43 +46,9 @@ export default async function DisputePage({ params }: Params) {
   const escalation = partyEscalation(d);
   const arbitrator = d.arbitrator_id ? members[d.arbitrator_id] : null;
   const raisedByMe = d.raised_by === viewer.id;
-  const flag = flagState(d.settlement_status, data.transactions);
-
-  // The one next step on the page. Flagging on-chain is the party's own action, so it wins when needed.
-  let step: CaseStep | undefined;
-  let control: React.ReactNode;
-  if (flag.needsFlag) {
-    step = {
-      tone: 'action',
-      title: `Flag milestone ${m.position} on-chain`,
-      body: (
-        <>
-          The escrow contract does not know about this dispute yet. Either party flags it from their verified wallet so the arbiter can settle the decision. This sends no money.
-          {flag.failedFlag && <span className="mt-1 block text-xs text-danger-strong">A previous flag transaction was not accepted (<TxHash hash={flag.failedFlag.tx_hash} />). You can try again.</span>}
-        </>
-      ),
-    };
-    control = <FlagMilestoneTrigger escrowKey={c.escrow_key} />;
-  } else if (flag.pendingFlag && !flag.flagged) {
-    step = { tone: 'waiting', title: 'Flag transaction confirming', body: <>Your flag was broadcast (<TxHash hash={flag.pendingFlag.tx_hash} />). TrustLance updates this case once it is confirmed on-chain.</> };
-  }
 
   return (
     <div className="space-y-10">
-      <PendingEscrowWatcher contractIds={[c.id]} />
-      {/* The flag dialog lives here, not in the next-step line, so it survives the refresh after confirmation. */}
-      {(role === 'client' || role === 'freelancer') && (
-        <FlagMilestoneButton
-          trigger={false}
-          contractId={c.id}
-          milestoneId={m.id}
-          milestonePosition={m.position}
-          milestoneTitle={m.title}
-          amount={d.amount}
-          escrowKey={c.escrow_key}
-          requiredWallet={role === 'client' ? c.client_wallet : c.freelancer_wallet}
-        />
-      )}
       <PageHeader
         className="mb-0 md:mb-0"
         breadcrumbs={[{ label: 'Contracts', href: '/contracts' }, { label: 'Disputes', href: '/disputes' }, { label: disputeNumber(d.number) }]}
@@ -116,15 +80,15 @@ export default async function DisputePage({ params }: Params) {
         })()}
       />
 
-      <CaseMoney dispute={d} milestone={m} transactions={data.transactions} raisedBy={raisedByMe ? 'you' : members[d.raised_by]?.display_name ?? 'the other party'} />
+      <CaseMoney dispute={d} milestone={m} feeBps={c.fee_bps} raisedBy={raisedByMe ? 'you' : members[d.raised_by]?.display_name ?? 'the other party'} />
 
-      <NextSteps dispute={d} isParty step={step} control={control} />
+      <NextSteps dispute={d} isParty />
 
       <CaseTimeline dispute={d} arbitratorName={arbitrator?.display_name ?? null} className="border-y py-5" />
 
       <div className="grid grid-cols-1 gap-12 lg:grid-cols-[minmax(0,1fr)_17rem]">
         <div className="min-w-0 space-y-12">
-          {decided && <DecisionCard dispute={d} transactions={data.transactions} members={members} />}
+          {decided && <DecisionCard dispute={d} feeBps={c.fee_bps} members={members} />}
 
           <section aria-labelledby="statements-title" className="space-y-3">
             <h2 id="statements-title" className="t-label-caps">Statements</h2>

@@ -1,5 +1,4 @@
 import { format, formatDistanceToNowStrict, isValid, parseISO } from 'date-fns';
-import { publicEnv } from '@/lib/env';
 
 function toDate(value: string | Date | null | undefined) {
   if (!value) return null;
@@ -22,24 +21,6 @@ export function formatRelative(value: string | Date | null | undefined) {
   const diff = Date.now() - d.getTime();
   if (Math.abs(diff) < 45_000) return 'just now';
   return formatDistanceToNowStrict(d, { addSuffix: true });
-}
-
-export function shortAddress(address: string | null | undefined) {
-  if (!address) return '—';
-  return `${address.slice(0, 6)}…${address.slice(-4)}`;
-}
-
-export function shortHash(hash: string | null | undefined) {
-  if (!hash) return '—';
-  return `${hash.slice(0, 10)}…${hash.slice(-6)}`;
-}
-
-export function explorerTxUrl(hash: string) {
-  return publicEnv.chain.explorerUrl ? `${publicEnv.chain.explorerUrl}/tx/${hash}` : null;
-}
-
-export function explorerAddressUrl(address: string) {
-  return publicEnv.chain.explorerUrl ? `${publicEnv.chain.explorerUrl}/address/${address}` : null;
 }
 
 export function formatBytes(bytes: number | null | undefined) {

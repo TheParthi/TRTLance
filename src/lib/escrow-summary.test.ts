@@ -6,8 +6,8 @@ const m = (position: number, amount: string, status: string, extra: Record<strin
 
 describe('escrow statement', () => {
   it('sums each money state exactly', () => {
-    const s = escrowStatement([m(1, '20', 'paid'), m(2, '40.5', 'submitted'), m(3, '30', 'funded'), m(4, '10', 'disputed')]);
-    expect(s).toEqual({ total: '100.5', secured: '70.5', released: '20', refunded: '0', disputed: '10', unfunded: '0' });
+    const s = escrowStatement([m(1, '2000', 'paid'), m(2, '4050', 'submitted'), m(3, '3000', 'funded'), m(4, '1000', 'disputed')]);
+    expect(s).toEqual({ total: '10050', secured: '7050', released: '2000', refunded: '0', disputed: '1000', unfunded: '0' });
   });
 
   it('splits a settled milestone into released and refunded parts', () => {
