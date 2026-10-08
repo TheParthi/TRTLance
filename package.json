@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack -p 9002",
+    "dev:admin": "NEXT_DIST_DIR=.next-admin next dev --turbopack -p 9001",
     "build": "next build",
     "start": "next start -p 9002",
     "lint": "eslint .",

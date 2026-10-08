@@ -363,3 +363,73 @@ html.has-cursor * {
     padding-bottom: env(safe-area-inset-bottom);
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * The console's seal (src/app/admin/gate/seal.tsx)
+ *
+ * Two rings of ledger ticks turn slowly while the console is sealed. On [data-seal='opening'] they
+ * settle onto the mark, the boundary ring draws itself shut and the centre completes a cross.
+ * Reduced motion drops every movement but keeps the open state, because an opened lock is
+ * information, not decoration.
+ * --------------------------------------------------------------------------- */
+.seal-ring-outer {
+  transform-origin: center;
+  animation: seal-turn 38s linear infinite;
+}
+.seal-ring-inner {
+  transform-origin: center;
+  animation: seal-turn 26s linear infinite reverse;
+}
+.seal-boundary {
+  transform-origin: center;
+  rotate: -90deg;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 72;
+}
+.seal-cross {
+  transform-origin: center;
+  transform: scaleY(0);
+  opacity: 0;
+}
+
+[data-seal='opening'] .seal-ring-outer,
+[data-seal='opening'] .seal-ring-inner {
+  animation: seal-settle 900ms var(--ease-ledger) forwards;
+}
+[data-seal='opening'] .seal-boundary {
+  animation: seal-close 700ms var(--ease-ledger) forwards;
+}
+[data-seal='opening'] .seal-cross {
+  animation: seal-cross 600ms var(--ease-ledger) 200ms forwards;
+}
+
+@keyframes seal-turn {
+  to { transform: rotate(360deg); }
+}
+@keyframes seal-settle {
+  0% { transform: rotate(0deg) scale(1); }
+  60% { transform: rotate(-9deg) scale(1.04); }
+  100% { transform: rotate(0deg) scale(1); }
+}
+@keyframes seal-close {
+  from { stroke-dashoffset: 72; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes seal-cross {
+  from { transform: scaleY(0); opacity: 0; }
+  to { transform: scaleY(1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seal-ring-outer,
+  .seal-ring-inner,
+  [data-seal='opening'] .seal-ring-outer,
+  [data-seal='opening'] .seal-ring-inner,
+  [data-seal='opening'] .seal-boundary,
+  [data-seal='opening'] .seal-cross {
+    animation: none;
+  }
+  /* The end state of the opening animations, applied straight away. */
+  [data-seal='opening'] .seal-boundary { stroke-dashoffset: 0; }
+  [data-seal='opening'] .seal-cross { transform: scaleY(1); opacity: 1; }
+}

@@ -61,3 +61,6 @@ blockchain/typechain-types/
 /.next-*/
 blockchain/deployments/localhost.json
 blockchain/deployments/hardhat.json
+
+# Second dev server (the console's origin, see npm run dev:admin)
+.next-admin

@@ -45,7 +45,7 @@ export function UserMenu({ name, username, avatarPath, email, ctx }: {
         <DropdownMenuItem asChild>
           <Link href="/arbitration"><Gavel /> {ctx.isArbitrator ? 'Arbitration' : 'Become an arbitrator'}</Link>
         </DropdownMenuItem>
-        {ctx.isAdmin && <DropdownMenuItem asChild><Link href="/admin"><ShieldCheck /> Admin</Link></DropdownMenuItem>}
+        {ctx.isAdmin && <DropdownMenuItem asChild><Link href="/admin"><ShieldCheck /> Platform console</Link></DropdownMenuItem>}
         <DropdownMenuSeparator />
         <ThemeMenuItems />
         <DropdownMenuSeparator />

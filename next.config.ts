@@ -37,11 +37,11 @@ const legacyRedirects: [string, string][] = [
   ['/edit-profile', '/settings'],
   ['/profile', '/settings'],
   ['/profile/:username', '/u/:username'],
-  ['/admin/disputes', '/admin'],
 ];
 
 const nextConfig: NextConfig = {
-  // A second dev server (e.g. for audits) can use its own build folder: NEXT_DIST_DIR=.next-audit
+  // A second dev server needs its own build folder, so the two do not overwrite each other's
+  // output: the console's origin runs with NEXT_DIST_DIR=.next-admin (see `npm run dev:admin`).
   distDir: process.env.NEXT_DIST_DIR || '.next',
   poweredByHeader: false,
   // Genkit pulls optional OpenTelemetry exporters; load it from node_modules at runtime instead of bundling.

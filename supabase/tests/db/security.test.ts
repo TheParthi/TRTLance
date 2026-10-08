@@ -1,6 +1,6 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import {
-  activeContract, anon, as, createOpenProject, createUser, expectError, pool, root, service,
+  activeContract, anon, as, createOpenProject, createUser, expectError, pool, root,
   signedContract, submitProposal, verifiedBankAccount,
 } from './helpers';
 

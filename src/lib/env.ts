@@ -17,3 +17,14 @@ export const COIN_NAME = 'TrustLance Coins';
 export function isSupabaseConfigured() {
   return Boolean(publicEnv.supabaseUrl && publicEnv.supabaseAnonKey);
 }
+
+/**
+ * Which Supabase values are missing, for pages that would otherwise fail several frames deep inside
+ * the client library with a message about an API key. Returns an empty array when all are present.
+ */
+export function missingSupabaseConfig() {
+  return [
+    ['NEXT_PUBLIC_SUPABASE_URL', publicEnv.supabaseUrl],
+    ['NEXT_PUBLIC_SUPABASE_ANON_KEY', publicEnv.supabaseAnonKey],
+  ].filter(([, value]) => !value).map(([key]) => key);
+}

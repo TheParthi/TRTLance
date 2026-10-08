@@ -57,6 +57,46 @@ npx supabase migration list --db-url "…"   # local and remote history should m
 
 The hosted project for v2 is `trustlance-v2` (ref `ynhrhztquocljondkdws`). It is separate from the v1 prototype's database.
 
+## The platform console
+
+`/admin` is the platform team's console: the action queues (disputes to assign, withdrawals to pay,
+bank accounts to verify, arbitrator applications), members, projects, contracts, disputes, the coin
+ledger with its reconciliation check, platform settings and the audit trail.
+
+Two things make it different from the rest of the app:
+
+- **Row-level security gives admins no blanket read access.** Every screen is backed by a
+  `security definer` function in `supabase/migrations/20261007000100_admin.sql` that checks
+  `app.is_admin()` first and returns only what that screen needs. Every change goes through a
+  function there and writes a row to `admin_audit_log`, which is append-only — a trigger refuses any
+  update or delete, including from the database owner.
+- **Being an admin is not enough to open it.** `/admin/gate` asks for the admin's password again and
+  sets a short-lived signed cookie (`src/lib/admin/seal.ts`): 30 minutes of use, at most 8 hours
+  before it has to be given again. Anyone who is not an admin gets a 404, so the console's existence
+  is not discoverable. Set `ADMIN_SESSION_SECRET` in production.
+
+### Two origins
+
+One deployment serves both the site and the console; the middleware decides what each origin may
+serve (`src/lib/origins.ts`). Set `NEXT_PUBLIC_ADMIN_URL` and the console moves to its own address:
+anything else asked for there is sent to the site, and `/admin` on the site is sent across. In
+production that means a separate hostname, which also gives the console its own cookie scope, so a
+cross-site scripting bug on the public site cannot reach the console's seal. Leave the variable empty
+and the console stays at `/admin` on the site itself.
+
+```bash
+npm run dev          # the site       http://localhost:9002
+npm run dev:admin    # the console    http://localhost:9001
+```
+
+Two dev servers, because each origin needs its own port; `dev:admin` builds into `.next-admin` so the
+two do not overwrite each other. Note that two ports on localhost still share a cookie jar — cookies
+ignore the port — so the separation is a convenience in development and real only in production.
+
+A member can be suspended from their account page. Suspension is enforced in `app.require_user()`,
+which every write RPC already calls, so a suspended member keeps read access to their own account
+but cannot post, propose, sign, fund, release or withdraw anywhere in the product.
+
 Then in Supabase: enable Google sign-in (redirect `…/auth/callback`), set the email templates' confirm/recovery links to `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=…`, and add admins with `insert into platform_admins (user_id) values ('<uuid>');`.
 
 Escrow (optional): deploy the contract and set the `NEXT_PUBLIC_CHAIN_*` / `NEXT_PUBLIC_ESCROW_ADDRESS` variables.
