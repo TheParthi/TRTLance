@@ -62,7 +62,7 @@ export function FilterBar({ searchName = 'q', searchLabel, selects = [], childre
     <div className="console-card flex flex-wrap items-center gap-2 p-2">
       {searchLabel && (
         <form
-          className="min-w-[14rem] flex-1"
+          className="min-w-0 flex-1 basis-full sm:basis-56"
           role="search"
           onSubmit={(e) => {
             e.preventDefault();
@@ -94,7 +94,12 @@ export function FilterBar({ searchName = 'q', searchLabel, selects = [], childre
         const chosen = select.options.find((o) => o.value === value) ?? select.options[0];
         const narrowed = Boolean(params.get(select.name));
         return (
-          <div key={select.name} className="relative">
+          /*
+           * A <select> is as wide as its widest option, and nothing in a flex row can shrink it
+           * below that — long options like "Show: Not finished onboarding" pushed the whole page
+           * sideways on a phone. Full width on a narrow screen, intrinsic from sm up.
+           */
+          <div key={select.name} className="relative min-w-0 flex-1 sm:flex-none">
             <label htmlFor={`filter-${select.name}`} className="sr-only">{select.label}</label>
             <select
               id={`filter-${select.name}`}
@@ -102,7 +107,7 @@ export function FilterBar({ searchName = 'q', searchLabel, selects = [], childre
               onChange={(e) => navigate({ [select.name]: e.target.value })}
               className={cn(
                 controlClass,
-                'h-9 appearance-none bg-[length:16px] bg-[right_0.55rem_center] bg-no-repeat pl-3 pr-8 text-sm shadow-none',
+                'h-9 w-full appearance-none bg-[length:16px] bg-[right_0.55rem_center] bg-no-repeat pl-3 pr-8 text-sm shadow-none sm:w-auto',
                 "bg-[url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%238a9499' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")]",
                 narrowed
                   ? 'border-brand/40 bg-brand-soft text-brand-strong'

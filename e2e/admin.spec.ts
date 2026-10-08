@@ -255,11 +255,24 @@ test.describe('the console', () => {
     await expect(page.getByRole('table').getByText('Console unsealed').first()).toBeVisible();
   });
 
-  test('the console has no horizontal overflow', async () => {
+  test('the console never scrolls sideways', async () => {
+    /*
+     * Asserted by trying to scroll, not by comparing scrollWidth to clientWidth.
+     *
+     * A console screen holds wide tables inside their own horizontal scrollers, and a scroller's
+     * content inflates an ancestor's scrollWidth even though the browser clips it and the page
+     * cannot move. Comparing widths therefore reports a problem the person never has. Trying to
+     * scroll and finding that nothing moves is the thing we actually care about.
+     */
     for (const section of SECTIONS) {
       await page.goto(section.path);
-      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-      expect(overflow, `${section.path} should not scroll sideways`).toBeLessThanOrEqual(0);
+      const moved = await page.evaluate(() => {
+        window.scrollTo(9999, 0);
+        const x = window.scrollX;
+        window.scrollTo(0, 0);
+        return x;
+      });
+      expect(moved, `${section.path} should not scroll sideways`).toBe(0);
     }
   });
 
