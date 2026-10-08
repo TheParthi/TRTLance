@@ -61,8 +61,11 @@ export async function unsealConsole(password: string, next?: string): Promise<Ac
   // actual rate_limited error is reported as one — anything else is a fault on our side, and
   // telling an admin to "wait fifteen minutes" for a dropped connection would send them away
   // from a console that is simply broken.
+  // Ten attempts a quarter of an hour, counted per admin. Low enough that guessing a password
+  // through this form is hopeless, high enough that an admin who mistypes, steps away and comes
+  // back, or runs the console's own end-to-end tests is never locked out of their own tool.
   const limiter = await createAdminClient().rpc('check_rate_limit', {
-    p_bucket: 'console_unseal', p_limit: 5, p_window_seconds: 900, p_subject: viewer.id,
+    p_bucket: 'console_unseal', p_limit: 10, p_window_seconds: 900, p_subject: viewer.id,
   });
   if (limiter.error) {
     const appError = toAppError(limiter.error);

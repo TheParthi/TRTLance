@@ -49,44 +49,46 @@ export default async function GatePage({ searchParams }: { searchParams: Promise
   const oauthOnly = providers.length > 0 && !providers.includes('email');
 
   return (
-    <div className="relative flex min-h-dvh flex-col overflow-hidden bg-surface-inverse text-ink-inverse">
+    // data-console: the front door is dressed in the console's own skin, so unsealing already
+    // looks like the room it opens onto rather than like the marketplace.
+    <div data-console className="relative flex min-h-dvh flex-col overflow-hidden bg-canvas text-ink">
       {/* The same moving ledger lines the product opens with, turned down low. */}
-      <LedgerField tone="signal" density={26} pulses={3} className="opacity-[0.22] [mask-image:radial-gradient(ellipse_at_center,black_20%,transparent_75%)]" />
+      <LedgerField tone="signal" density={26} pulses={3} className="opacity-[0.18] [mask-image:radial-gradient(ellipse_at_center,black_20%,transparent_72%)]" />
 
       <header className="relative flex items-center justify-between gap-4 px-5 py-5 md:px-8">
-        <Link href="/dashboard" aria-label="TrustLance" className="opacity-90 transition-opacity hover:opacity-100">
+        <Link href="/dashboard" aria-label="TrustLance" className="opacity-80 transition-opacity hover:opacity-100">
           <Logo />
         </Link>
         <Link
           href="/dashboard"
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-inverse/60 underline-offset-4 transition-colors hover:text-ink-inverse hover:underline"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-muted underline-offset-4 transition-colors hover:text-ink hover:underline"
         >
           <ArrowLeft className="size-3.5" aria-hidden /> Back to TrustLance
         </Link>
       </header>
 
-      <main id="main" className="relative flex flex-1 items-center justify-center px-5 py-8 md:px-8">
+      <main id="main" className="relative flex flex-1 items-center justify-center px-5 py-6 md:px-8">
         <div className="w-full max-w-md">
           <div className="space-y-2 text-center">
-            <p className="inline-flex items-center gap-1.5 rounded-full border border-ink-inverse/15 px-3 py-1 text-2xs font-semibold uppercase tracking-[0.18em] text-ink-inverse/70">
+            <p className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 text-2xs font-semibold uppercase tracking-[0.18em] text-ink-secondary">
               <ShieldCheck className="size-3.5" aria-hidden /> Platform console
             </p>
-            <h1 className="font-display text-[clamp(2.1rem,7vw,2.9rem)] font-medium leading-[1.02] tracking-[-0.035em] text-ink-inverse">
+            <h1 className="font-display text-[clamp(2.1rem,7vw,2.9rem)] font-medium leading-[1.02] tracking-[-0.035em] text-ink">
               Sealed
             </h1>
-            <p className="mx-auto max-w-sm text-sm text-ink-inverse/70">
-              Signed in as <span className="font-medium text-ink-inverse">{viewer.profile.display_name}</span>.
+            <p className="mx-auto max-w-sm text-sm leading-relaxed text-ink-secondary">
+              Signed in as <span className="font-medium text-ink">{viewer.profile.display_name}</span>.
               The console can suspend members, change the platform fee and release payouts, so it asks
               for your password again before it opens.
             </p>
           </div>
 
           {/* The form sits on its own paper, so the fields keep the product's normal contrast. */}
-          <div className="mt-7 rounded-lg border border-ink-inverse/10 bg-canvas p-5 text-ink shadow-lg md:p-6">
+          <div className="console-card mt-6 p-5 shadow-lg md:p-6">
             <GateForm next={destination} oauthOnly={oauthOnly} />
           </div>
 
-          <p className="mt-5 text-center text-2xs leading-relaxed text-ink-inverse/50">
+          <p className="mt-4 text-center text-2xs leading-relaxed text-ink-muted">
             Unsealing is recorded in the audit trail with the time and the browser that did it.
             A console session cannot be extended past {MAX_HOURS} hours without unsealing again.
           </p>

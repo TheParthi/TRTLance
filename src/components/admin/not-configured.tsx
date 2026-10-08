@@ -9,7 +9,7 @@ import { Logo } from '@/components/common/logo';
  */
 export function ConsoleNotConfigured({ missing }: { missing: string[] }) {
   return (
-    <div className="flex min-h-dvh flex-col bg-surface-inverse text-ink-inverse">
+    <div data-console className="flex min-h-dvh flex-col bg-canvas text-ink">
       <header className="px-5 py-5 md:px-8">
         <Logo />
       </header>
@@ -17,19 +17,19 @@ export function ConsoleNotConfigured({ missing }: { missing: string[] }) {
       <main id="main" className="flex flex-1 items-center justify-center px-5 py-8 md:px-8">
         <div className="w-full max-w-xl space-y-6">
           <div className="space-y-2">
-            <p className="text-2xs font-semibold uppercase tracking-[0.18em] text-ink-inverse/60">
+            <p className="text-2xs font-semibold uppercase tracking-[0.18em] text-ink-muted">
               Platform console
             </p>
-            <h1 className="font-display text-[clamp(1.9rem,6vw,2.6rem)] font-medium leading-[1.05] tracking-[-0.03em] text-ink-inverse">
+            <h1 className="font-display text-[clamp(1.9rem,6vw,2.6rem)] font-medium leading-[1.05] tracking-[-0.03em] text-ink">
               Not configured yet
             </h1>
-            <p className="text-sm text-ink-inverse/70">
+            <p className="text-sm leading-relaxed text-ink-secondary">
               The console reads everything from the database, and this deployment has no Supabase
               credentials. Nothing is broken — these values have simply not been set.
             </p>
           </div>
 
-          <div className="rounded-lg border border-ink-inverse/10 bg-canvas p-5 text-ink md:p-6">
+          <div className="console-card p-5 md:p-6">
             <p className="t-label-caps">Missing from .env.local</p>
             <ul className="mt-2 space-y-1">
               {missing.map((key) => (
@@ -58,7 +58,7 @@ export function ConsoleNotConfigured({ missing }: { missing: string[] }) {
             </ol>
           </div>
 
-          <p className="text-2xs text-ink-inverse/50">
+          <p className="text-2xs text-ink-muted">
             Until then every signed-in page needs the same values — this is not specific to the console.
           </p>
         </div>

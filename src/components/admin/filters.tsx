@@ -4,7 +4,7 @@ import * as React from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Select, controlClass } from '@/components/ui/input';
+import { controlClass } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 
 /**
@@ -56,20 +56,20 @@ export function FilterBar({ searchName = 'q', searchLabel, selects = [], childre
   const current = params.get(searchName) ?? '';
   React.useEffect(() => setTerm(current), [current]);
 
-  const active = [...params.keys()].some((key) => key !== 'page');
+  const active = [...params.keys()].filter((key) => key !== 'page');
 
   return (
-    <div className="flex flex-col gap-3 border-b pb-4 md:flex-row md:items-end">
+    <div className="console-card flex flex-wrap items-center gap-2 p-2">
       {searchLabel && (
         <form
-          className="min-w-0 flex-1 space-y-1.5"
+          className="min-w-[14rem] flex-1"
           role="search"
           onSubmit={(e) => {
             e.preventDefault();
             navigate({ [searchName]: term.trim() || null });
           }}
         >
-          <label htmlFor={searchId} className="t-label-caps">{searchLabel}</label>
+          <label htmlFor={searchId} className="sr-only">{searchLabel}</label>
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-muted" aria-hidden />
             <input
@@ -78,33 +78,58 @@ export function FilterBar({ searchName = 'q', searchLabel, selects = [], childre
               value={term}
               onChange={(e) => setTerm(e.target.value)}
               placeholder={searchLabel}
-              className={cn(controlClass, 'h-10 pl-9 pr-3')}
+              className={cn(controlClass, 'h-9 border-transparent bg-surface-subtle pl-9 pr-3 shadow-none')}
             />
           </div>
         </form>
       )}
 
-      {selects.map((select) => (
-        <div key={select.name} className="space-y-1.5">
-          <label htmlFor={`filter-${select.name}`} className="t-label-caps">{select.label}</label>
-          <Select
-            id={`filter-${select.name}`}
-            value={params.get(select.name) ?? select.options[0]?.value ?? ''}
-            onChange={(e) => navigate({ [select.name]: e.target.value })}
-            className="md:w-44"
-          >
-            {select.options.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </Select>
-        </div>
-      ))}
+      {/*
+        Each control labels itself with its current value ("Status: Open"), so the row needs no
+        separate label column — which is what made the old bar collide with itself — and a glance
+        tells you what is filtered without reading a legend.
+      */}
+      {selects.map((select) => {
+        const value = params.get(select.name) ?? select.options[0]?.value ?? '';
+        const chosen = select.options.find((o) => o.value === value) ?? select.options[0];
+        const narrowed = Boolean(params.get(select.name));
+        return (
+          <div key={select.name} className="relative">
+            <label htmlFor={`filter-${select.name}`} className="sr-only">{select.label}</label>
+            <select
+              id={`filter-${select.name}`}
+              value={value}
+              onChange={(e) => navigate({ [select.name]: e.target.value })}
+              className={cn(
+                controlClass,
+                'h-9 appearance-none bg-[length:16px] bg-[right_0.55rem_center] bg-no-repeat pl-3 pr-8 text-sm shadow-none',
+                "bg-[url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%238a9499' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E\")]",
+                narrowed
+                  ? 'border-brand/40 bg-brand-soft text-brand-strong'
+                  : 'border-transparent bg-surface-subtle text-ink-secondary',
+              )}
+            >
+              {select.options.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {select.label}: {option.label}
+                </option>
+              ))}
+            </select>
+            <span className="sr-only">{chosen?.label}</span>
+          </div>
+        );
+      })}
 
       {children}
 
-      {active && (
-        <Button variant="ghost" size="sm" onClick={() => navigate(Object.fromEntries([...params.keys()].map((k) => [k, null])))}>
-          <X /> Clear
+      {active.length > 0 && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-9"
+          onClick={() => navigate(Object.fromEntries(active.map((k) => [k, null])))}
+        >
+          <X /> Clear {active.length > 1 ? `${active.length} filters` : 'filter'}
         </Button>
       )}
     </div>

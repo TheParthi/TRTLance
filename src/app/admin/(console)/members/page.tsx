@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { ConsoleEmpty, ConsoleHeader } from '@/components/admin/console-shell';
 import { FilterBar } from '@/components/admin/filters';
 import { Pagination, pageFrom } from '@/components/admin/pagination';
-import { Cell, DataTable, Mono, type Column } from '@/components/admin/table';
+import { Cell, DataTable, Initials, Mono, type Column } from '@/components/admin/table';
 import { getMembers, type MemberFilter, type MemberRow, type MemberSort } from '@/lib/data/admin';
 import { formatDate } from '@/lib/format';
 import { formatAmount } from '@/lib/money';
@@ -50,6 +50,7 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
       header: 'Member',
       cell: (m) => (
         <Cell
+          lead={<Initials name={m.display_name} id={m.id} />}
           title={
             <span className="flex items-center gap-1.5">
               <span className="truncate">{m.display_name}</span>
@@ -94,14 +95,22 @@ export default async function MembersPage({ searchParams }: { searchParams: Prom
     { header: 'Joined', numeric: true, hideBelow: 'sm', cell: (m) => <Mono>{formatDate(m.created_at)}</Mono> },
   ];
 
+  const suspended = rows.filter((m) => m.suspended_at).length;
+
   return (
     <>
       <ConsoleHeader
         title="Members"
         description="Find an account, read its history, and suspend or reinstate it. A suspended member can still sign in and read their account, but cannot post, propose, sign, fund or withdraw."
+        meta={
+          <>
+            <span><span className="font-medium text-ink tabular-nums">{total.toLocaleString('en-IN')}</span> matching</span>
+            {suspended > 0 && <span className="text-danger-strong"><span className="font-medium tabular-nums">{suspended}</span> suspended on this page</span>}
+          </>
+        }
       />
 
-      <div className="space-y-6">
+      <div className="space-y-4">
         <FilterBar
           searchLabel="Search by name, username or account id"
           selects={[

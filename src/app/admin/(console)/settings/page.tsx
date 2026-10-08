@@ -46,14 +46,25 @@ const GROUPS: { title: string; description: string; keys: string[] }[] = [
   },
 ];
 
-/** Which shape each setting reads as. The rendering itself lives in the client component. */
-function shapeFor(key: string): SettingShape {
-  if (key === 'fee_bps') return 'basisPoints';
-  if (key === 'hold_working_days') return 'workingDays';
-  if (key === 'auto_release_days') return 'days';
-  if (key === 'paise_per_coin') return 'paise';
-  return 'coins';
-}
+/**
+ * What each setting is called, and which shape its number reads as.
+ *
+ * The database key is the wrong thing to lead with: `fee_bps` tells you nothing unless you already
+ * know, and someone changing the platform fee should be reading words. The key is still shown, as a
+ * quiet aside, because it is what appears in the audit trail.
+ */
+const LABELS: Record<string, { label: string; shape: SettingShape }> = {
+  fee_bps: { label: 'Platform fee', shape: 'basisPoints' },
+  hold_working_days: { label: 'Payment hold', shape: 'workingDays' },
+  auto_release_days: { label: 'Automatic release', shape: 'days' },
+  min_milestone_coins: { label: 'Smallest milestone', shape: 'coins' },
+  min_purchase_coins: { label: 'Smallest coin purchase', shape: 'coins' },
+  max_purchase_coins: { label: 'Largest coin purchase', shape: 'coins' },
+  min_withdrawal_coins: { label: 'Smallest withdrawal', shape: 'coins' },
+  paise_per_coin: { label: 'Price of one coin', shape: 'paise' },
+};
+
+const describe = (key: string) => LABELS[key] ?? { label: key.replace(/_/g, ' '), shape: 'coins' as SettingShape };
 
 export default async function SettingsPage() {
   const [{ viewer }, config] = await Promise.all([requireConsole('/admin/settings'), getConfiguration()]);
@@ -67,17 +78,19 @@ export default async function SettingsPage() {
         description="The platform fee, holds and limits, the working-day calendar, and who is an admin. Every change here is written to the audit trail with the value it replaced."
       />
 
-      <div className="space-y-12">
+      {/* Capped: a number and the label it belongs to should be close enough to read as one thing.
+          Across a full-width console that pairing falls apart. */}
+      <div className="max-w-4xl space-y-10">
         {GROUPS.map((group) => {
           const settings = group.keys
             .map((key) => config.settings.find((s) => s.key === key))
             .filter((s): s is NonNullable<typeof s> => Boolean(s));
           if (!settings.length) return null;
           return (
-            <Panel key={group.title} title={group.title} description={group.description}>
-              <div className="ledger">
+            <Panel key={group.title} bare title={group.title} description={group.description}>
+              <div className="console-card-flush divide-y divide-line">
                 {settings.map((setting) => (
-                  <SettingForm key={setting.key} setting={setting} shape={shapeFor(setting.key)} />
+                  <SettingForm key={setting.key} setting={setting} {...describe(setting.key)} />
                 ))}
               </div>
             </Panel>
@@ -85,10 +98,10 @@ export default async function SettingsPage() {
         })}
 
         {other.length > 0 && (
-          <Panel title="Other settings" description="Added to the database but not yet grouped here.">
-            <div className="ledger">
+          <Panel bare title="Other settings" description="Added to the database but not yet grouped here.">
+            <div className="console-card-flush divide-y divide-line">
               {other.map((setting) => (
-                <SettingForm key={setting.key} setting={setting} shape={shapeFor(setting.key)} />
+                <SettingForm key={setting.key} setting={setting} {...describe(setting.key)} />
               ))}
             </div>
           </Panel>

@@ -250,10 +250,9 @@ test.describe('the console', () => {
   test('unsealing was recorded in the audit trail', async () => {
     await page.goto('/admin/audit?action=console.unsealed');
     await expect(page.getByRole('heading', { level: 1, name: 'Audit trail' })).toBeVisible();
-    // Scoped to the table: the same words are also an <option> in the filter above it.
-    const trail = page.getByRole('table');
-    await expect(trail.getByText('Console unsealed').first()).toBeVisible();
-    await expect(trail.getByText(env('E2E_ADMIN_EMAIL').split('@')[0]).first()).toBeVisible();
+    // Scoped to the table: the same words are also an <option> in the filter above it. Only the
+    // action is asserted — the column naming the admin is hidden on a narrow screen by design.
+    await expect(page.getByRole('table').getByText('Console unsealed').first()).toBeVisible();
   });
 
   test('the console has no horizontal overflow', async () => {

@@ -58,11 +58,11 @@ export function GateForm({ next, oauthOnly }: { next: string; oauthOnly: boolean
   };
 
   return (
-    <form onSubmit={submit} noValidate className="space-y-6">
-      <Seal state={state === 'open' ? 'opening' : 'sealed'} className="mx-auto max-w-[11rem]" />
+    <form onSubmit={submit} noValidate className="space-y-5">
+      <Seal state={state === 'open' ? 'opening' : 'sealed'} className="mx-auto max-w-[7.5rem]" />
 
       <div aria-live="polite" className="min-h-5 text-center text-sm">
-        {state === 'open' && <span className="font-medium text-signal-ink dark:text-signal">Unsealed. Opening the console…</span>}
+        {state === 'open' && <span className="font-medium text-signal">Unsealed. Opening the console…</span>}
       </div>
 
       {/*

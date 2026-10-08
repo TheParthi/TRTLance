@@ -39,13 +39,15 @@ const SHAPES: Record<SettingShape, (value: number) => string> = {
  * Existing contracts are not affected by a fee change: each contract stores the fee it was created
  * with, so a change here applies only to contracts made after it.
  */
-export function SettingForm({ setting, shape }: {
+export function SettingForm({ setting, shape, label }: {
   setting: { key: string; value: number; description: string };
   /** Which of the shapes above to read this number as. */
   shape: SettingShape;
+  /** What this number is called in words. The database key is shown as a quiet aside. */
+  label: string;
 }) {
-  const format = SHAPES[shape];
   const router = useRouter();
+  const format = SHAPES[shape];
   const [draft, setDraft] = React.useState(String(setting.value));
   const [confirming, setConfirming] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
@@ -57,23 +59,9 @@ export function SettingForm({ setting, shape }: {
   const next = Number(draft);
   const changed = draft.trim() !== '' && Number.isFinite(next) && next !== setting.value;
 
-  const save = async () => {
-    setBusy(true);
-    const result = await updateSetting(setting.key, next);
-    setBusy(false);
-    if (!result.ok) {
-      setError(result.error.message);
-      setConfirming(false);
-      return;
-    }
-    toast.success(`${setting.key} is now ${format(next)}.`);
-    setConfirming(false);
-    router.refresh();
-  };
-
   return (
     <form
-      className="grid gap-3 py-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start md:gap-6"
+      className="grid items-start gap-x-6 gap-y-3 px-4 py-4 md:grid-cols-[minmax(0,1fr)_auto] md:px-5"
       onSubmit={(event) => {
         event.preventDefault();
         setError(null);
@@ -85,36 +73,44 @@ export function SettingForm({ setting, shape }: {
       }}
     >
       <div className="min-w-0 space-y-1">
-        <p className="flex flex-wrap items-baseline gap-x-2">
-          <span className="font-mono text-sm font-medium">{setting.key}</span>
-          <span className="t-money text-sm">{format(setting.value)}</span>
+        <p className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+          <span className="text-sm font-medium text-ink">{label}</span>
+          <span className="rounded bg-surface-subtle px-1.5 py-0.5 font-mono text-2xs text-ink-muted">{setting.key}</span>
         </p>
-        <p className="max-w-reading text-sm text-ink-secondary">{setting.description}</p>
+        <p className="max-w-[58ch] text-xs leading-relaxed text-ink-secondary">{setting.description}</p>
       </div>
 
-      <div className="flex items-end gap-2">
-        <Field label="Value" hideLabel error={error} className="w-32">
-          <Input
-            type="number"
-            step={1}
-            inputMode="numeric"
-            value={draft}
-            onChange={(event) => {
-              setDraft(event.target.value);
-              setError(null);
-            }}
-            className="tabular-nums"
-          />
-        </Field>
-        <Button type="submit" size="sm" variant="secondary" disabled={!changed}>
-          <Check /> Save
-        </Button>
+      <div className="flex items-start gap-2">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <Field label={label} hideLabel error={error} className="w-28">
+              <Input
+                type="number"
+                step={1}
+                inputMode="numeric"
+                value={draft}
+                onChange={(event) => {
+                  setDraft(event.target.value);
+                  setError(null);
+                }}
+                className="h-9 text-right tabular-nums"
+              />
+            </Field>
+            <Button type="submit" size="sm" variant={changed ? 'primary' : 'secondary'} className="h-9" disabled={!changed}>
+              <Check /> Save
+            </Button>
+          </div>
+          {/* What the number means, under the field it is typed into. */}
+          <p className="text-right text-2xs tabular-nums text-ink-muted">
+            {changed ? <>now {format(setting.value)} → <span className="font-medium text-ink">{format(next)}</span></> : format(setting.value)}
+          </p>
+        </div>
       </div>
 
       <ConfirmDialog
         open={confirming}
         onOpenChange={(open) => !open && setConfirming(false)}
-        title={`Change ${setting.key}?`}
+        title={`Change ${label.toLowerCase()}?`}
         description={
           <>
             From <span className="font-medium">{format(setting.value)}</span> to{' '}
@@ -125,7 +121,19 @@ export function SettingForm({ setting, shape }: {
         confirmLabel="Change it"
         tone="danger"
         busy={busy}
-        onConfirm={save}
+        onConfirm={async () => {
+          setBusy(true);
+          const result = await updateSetting(setting.key, next);
+          setBusy(false);
+          if (!result.ok) {
+            setError(result.error.message);
+            setConfirming(false);
+            return;
+          }
+          toast.success(`${label} is now ${format(next)}.`);
+          setConfirming(false);
+          router.refresh();
+        }}
       />
     </form>
   );

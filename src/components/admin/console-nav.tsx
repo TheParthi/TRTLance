@@ -25,31 +25,24 @@ export function ConsoleSidebar({ counts }: { counts: QueueCounts }) {
 
   return (
     <nav aria-label="Console" className="hidden lg:block">
-      <ul className="space-y-6">
+      <ul className="space-y-5">
         {sectionsByGroup().map(({ group, sections }) => (
           <li key={group}>
-            <p className="px-3 pb-1.5 t-label-caps">{group}</p>
-            <ul>
+            <p className="px-2.5 pb-1.5 text-2xs font-semibold uppercase tracking-[0.14em] text-ink-muted">{group}</p>
+            <ul className="space-y-0.5 pl-2.5">
               {sections.map((section) => {
                 const on = section.id === active?.id;
                 const badge = badgeFor(section, counts);
                 return (
                   <li key={section.id}>
-                    <Link
-                      href={section.href}
-                      aria-current={on ? 'page' : undefined}
-                      className={cn(
-                        'group relative flex items-center gap-2.5 rounded px-3 py-1.5 text-sm transition-colors duration-base ease-ledger',
-                        'before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full',
-                        on
-                          ? 'font-medium text-ink before:bg-ink'
-                          : 'text-ink-secondary before:bg-transparent hover:bg-surface-subtle hover:text-ink',
-                      )}
-                    >
-                      <ConsoleIcon name={section.icon} className="size-4 shrink-0" />
+                    <Link href={section.href} aria-current={on ? 'page' : undefined} className="console-nav-item">
+                      <ConsoleIcon
+                        name={section.icon}
+                        className={cn('size-4 shrink-0 transition-colors', on ? 'text-brand' : 'text-ink-muted')}
+                      />
                       <span className="min-w-0 flex-1 truncate">{section.label}</span>
                       {badge !== null && (
-                        <span className="shrink-0 rounded-full bg-warning-soft px-1.5 py-0.5 text-2xs font-semibold tabular-nums text-warning-strong ring-1 ring-inset ring-warning/30">
+                        <span className="shrink-0 rounded-full bg-warning-soft px-1.5 py-px text-2xs font-semibold tabular-nums text-warning-strong ring-1 ring-inset ring-warning/30">
                           {badge}
                           <span className="sr-only"> waiting</span>
                         </span>
@@ -71,8 +64,8 @@ export function ConsoleRail({ counts }: { counts: QueueCounts }) {
   const active = sectionFor(pathname);
 
   return (
-    <nav aria-label="Console" className="scrollbar-none -mx-4 overflow-x-auto border-b px-4 lg:hidden">
-      <ul className="flex gap-1 py-2">
+    <nav aria-label="Console" className="scrollbar-none -mx-4 overflow-x-auto px-4 lg:hidden">
+      <ul className="flex gap-1 border-t border-line py-2">
         {sectionsByGroup().flatMap(({ sections }) => sections).map((section) => {
           const on = section.id === active?.id;
           const badge = badgeFor(section, counts);
@@ -82,14 +75,16 @@ export function ConsoleRail({ counts }: { counts: QueueCounts }) {
                 href={section.href}
                 aria-current={on ? 'page' : undefined}
                 className={cn(
-                  'flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-sm transition-colors duration-base ease-ledger',
-                  on ? 'bg-ink font-medium text-canvas' : 'text-ink-secondary hover:bg-surface-subtle hover:text-ink',
+                  'flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-xs transition-colors duration-base ease-ledger',
+                  on
+                    ? 'bg-surface-subtle font-medium text-ink shadow-xs ring-1 ring-inset ring-line'
+                    : 'text-ink-secondary hover:bg-surface-subtle hover:text-ink',
                 )}
               >
-                <ConsoleIcon name={section.icon} className="size-4" />
+                <ConsoleIcon name={section.icon} className={cn('size-3.5', on ? 'text-brand' : 'text-ink-muted')} />
                 {section.label}
                 {badge !== null && (
-                  <span className={cn('rounded-full px-1.5 text-2xs font-semibold tabular-nums', on ? 'bg-canvas/20 text-canvas' : 'bg-warning-soft text-warning-strong')}>
+                  <span className="rounded-full bg-warning-soft px-1.5 text-2xs font-semibold tabular-nums text-warning-strong">
                     {badge}
                     <span className="sr-only"> waiting</span>
                   </span>

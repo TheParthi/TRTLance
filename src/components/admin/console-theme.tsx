@@ -1,51 +1,56 @@
 'use client';
 
 import * as React from 'react';
-import { Monitor, Moon, Sun } from 'lucide-react';
+import { Moon, Sun } from 'lucide-react';
 import { Tooltip } from '@/components/ui/tooltip';
-import { applyTheme } from '@/components/shell/theme-toggle';
 import { Button } from '@/components/ui/button';
 
-type Theme = 'light' | 'dark' | 'system';
-
-const order: Theme[] = ['system', 'light', 'dark'];
-const icons = { system: Monitor, light: Sun, dark: Moon };
-const labels = { system: 'Match the system', light: 'Light', dark: 'Dark' };
+const KEY = 'tl-console-theme';
 
 /**
- * One button that cycles the theme, rather than the member app's three-way menu: the console's top
- * bar has no room for a dropdown, and a console is often read for hours in one lighting condition.
- * Shares the same storage key and apply function as the rest of the app, so a choice made here
- * follows you back to TrustLance.
+ * The console keeps its own appearance, separate from the member app's.
+ *
+ * It is dark by default because that is what it was designed in; an operator who prefers light gets
+ * a light console without changing the marketplace, and vice versa. Storing the choice under its
+ * own key is what keeps the two from fighting each other.
  */
+export const consoleThemeScript = `(function(){try{if(localStorage.getItem('${KEY}')==='light'){var e=document.querySelector('[data-console]');if(e)e.setAttribute('data-console-theme','light')}}catch(e){}})()`;
+
+function apply(theme: 'dark' | 'light') {
+  const root = document.querySelector('[data-console]');
+  if (!root) return;
+  if (theme === 'light') root.setAttribute('data-console-theme', 'light');
+  else root.removeAttribute('data-console-theme');
+}
+
 export function ConsoleTheme() {
-  const [theme, setTheme] = React.useState<Theme>('system');
+  const [theme, setTheme] = React.useState<'dark' | 'light'>('dark');
 
   React.useEffect(() => {
     try {
-      setTheme((localStorage.getItem('tl-theme') as Theme) || 'system');
+      setTheme(localStorage.getItem(KEY) === 'light' ? 'light' : 'dark');
     } catch {
       /* storage unavailable */
     }
   }, []);
 
-  const next = order[(order.indexOf(theme) + 1) % order.length];
-  const Icon = icons[theme];
+  const next = theme === 'dark' ? 'light' : 'dark';
+  const Icon = theme === 'dark' ? Moon : Sun;
 
   return (
-    <Tooltip content={`Theme: ${labels[theme]}. Switch to ${labels[next].toLowerCase()}.`}>
+    <Tooltip content={`Console appearance: ${theme}. Switch to ${next}.`}>
       <Button
         variant="ghost"
         size="icon-sm"
-        aria-label={`Theme: ${labels[theme]}. Switch to ${labels[next]}.`}
+        aria-label={`Console appearance: ${theme}. Switch to ${next}.`}
         onClick={() => {
           setTheme(next);
           try {
-            localStorage.setItem('tl-theme', next);
+            localStorage.setItem(KEY, next);
           } catch {
             /* storage unavailable */
           }
-          applyTheme(next);
+          apply(next);
         }}
       >
         <Icon />

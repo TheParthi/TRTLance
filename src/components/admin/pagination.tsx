@@ -32,12 +32,12 @@ export function Pagination({ total, page, perPage, params, className }: {
 
   const first = (page - 1) * perPage + 1;
   const last = Math.min(page * perPage, total);
-  const link = 'inline-flex h-9 items-center gap-1 rounded-full border border-ink/20 px-3.5 text-sm font-medium transition-colors duration-base ease-ledger hover:border-ink/40 hover:bg-surface-subtle';
+  const link = 'inline-flex h-9 items-center gap-1 rounded-lg border border-line bg-surface px-3 text-sm font-medium text-ink-secondary transition-colors duration-base ease-ledger hover:border-line-strong hover:bg-surface-subtle hover:text-ink';
   const off = 'pointer-events-none opacity-40';
 
   return (
-    <nav aria-label="Pages" className={cn('flex flex-wrap items-center justify-between gap-3 border-t pt-4', className)}>
-      <p className="t-meta">
+    <nav aria-label="Pages" className={cn('flex flex-wrap items-center justify-between gap-3', className)}>
+      <p className="text-xs text-ink-muted">
         <span className="tabular-nums">{first}–{last}</span> of <span className="tabular-nums font-medium text-ink-secondary">{total.toLocaleString('en-IN')}</span>
         {pages > 1 && <> · page <span className="tabular-nums">{page}</span> of <span className="tabular-nums">{pages}</span></>}
       </p>

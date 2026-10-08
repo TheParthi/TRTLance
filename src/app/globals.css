@@ -433,3 +433,191 @@ html.has-cursor * {
   [data-seal='opening'] .seal-boundary { stroke-dashoffset: 0; }
   [data-seal='opening'] .seal-cross { transform: scaleY(1); opacity: 1; }
 }
+
+/* ---------------------------------------------------------------------------
+ * The console's own skin
+ *
+ * The platform console is a different kind of place from the marketplace: a room you work in for
+ * hours, reading numbers, not a page you browse. So it gets its own palette — deep petrol surfaces,
+ * luminous data, restrained accents — rather than the warm paper of the member app. Seeing it is
+ * itself useful information: you can tell at a glance whether you are acting as yourself or as the
+ * platform.
+ *
+ * It works by redefining the same token names inside [data-console]. Every primitive in the product
+ * — badges, buttons, callouts, status marks — is already built on those tokens, so each one adapts
+ * here without a single component knowing the console exists.
+ *
+ * Dark is the default and needs no JavaScript: light is opt-in, and its steps are chosen against a
+ * pale surface rather than being an inversion of the dark ones.
+ * --------------------------------------------------------------------------- */
+[data-console] {
+  color-scheme: dark;
+
+  --canvas: 200 26% 6%;
+  --surface: 200 22% 9%;
+  --surface-subtle: 200 19% 13%;
+  --surface-sunken: 203 30% 4%;
+  --surface-inverse: 40 20% 95%;
+
+  --line: 200 14% 17%;
+  --line-strong: 200 13% 29%;
+
+  --ink: 180 14% 96%;
+  --ink-secondary: 198 11% 74%;
+  --ink-muted: 200 9% 56%;
+  --ink-inverse: 200 30% 8%;
+
+  /* Petrol, lifted off the dark surface until it reads as light rather than paint. */
+  --brand: 186 64% 56%;
+  --brand-strong: 186 72% 72%;
+  --brand-soft: 190 44% 15%;
+  --brand-foreground: 200 30% 7%;
+
+  --brass: 40 76% 62%;
+  --brass-strong: 42 86% 76%;
+  --brass-soft: 38 38% 15%;
+
+  --success: 150 52% 52%;
+  --success-strong: 150 58% 70%;
+  --success-soft: 152 38% 13%;
+
+  --warning: 36 88% 58%;
+  --warning-strong: 40 92% 74%;
+  --warning-soft: 32 48% 14%;
+
+  --danger: 4 78% 64%;
+  --danger-strong: 6 88% 78%;
+  --danger-soft: 4 44% 15%;
+
+  --info: 214 72% 64%;
+  --info-strong: 214 82% 79%;
+  --info-soft: 214 44% 15%;
+
+  --refund: 262 54% 70%;
+  --refund-strong: 262 64% 83%;
+  --refund-soft: 262 30% 17%;
+
+  --focus: 186 76% 58%;
+  --signal: 156 84% 55%;
+  --signal-ink: 200 40% 8%;
+
+  /* Depth on a dark surface comes from a lit top edge, not from a drop shadow. */
+  --console-edge: 0 0% 100% / 0.06;
+  --console-edge-strong: 0 0% 100% / 0.1;
+
+  --shadow-xs: 0 1px 0 0 hsl(var(--console-edge)) inset;
+  --shadow-sm: 0 1px 0 0 hsl(var(--console-edge)) inset, 0 1px 2px 0 rgb(0 0 0 / 0.4);
+  --shadow-md: 0 1px 0 0 hsl(var(--console-edge)) inset, 0 8px 24px -8px rgb(0 0 0 / 0.6);
+  --shadow-lg: 0 1px 0 0 hsl(var(--console-edge-strong)) inset, 0 24px 60px -16px rgb(0 0 0 / 0.75);
+}
+
+[data-console][data-console-theme='light'] {
+  color-scheme: light;
+
+  --canvas: 40 24% 97%;
+  --surface: 0 0% 100%;
+  --surface-subtle: 40 18% 95%;
+  --surface-sunken: 40 14% 92%;
+  --surface-inverse: 200 30% 10%;
+
+  --line: 40 11% 86%;
+  --line-strong: 40 9% 74%;
+
+  --ink: 205 30% 10%;
+  --ink-secondary: 205 13% 32%;
+  --ink-muted: 205 9% 45%;
+  --ink-inverse: 40 22% 97%;
+
+  --brand: 190 72% 25%;
+  --brand-strong: 190 78% 18%;
+  --brand-soft: 186 40% 93%;
+  --brand-foreground: 0 0% 100%;
+
+  --brass: 38 74% 37%;
+  --brass-strong: 36 82% 25%;
+  --brass-soft: 42 72% 93%;
+
+  --success: 152 58% 29%;
+  --success-strong: 152 68% 20%;
+  --success-soft: 145 42% 93%;
+
+  --warning: 32 90% 38%;
+  --warning-strong: 28 92% 26%;
+  --warning-soft: 40 92% 92%;
+
+  --danger: 4 68% 43%;
+  --danger-strong: 4 72% 31%;
+  --danger-soft: 6 82% 95%;
+
+  --info: 214 64% 41%;
+  --info-strong: 216 68% 29%;
+  --info-soft: 214 72% 95%;
+
+  --refund: 262 36% 45%;
+  --refund-strong: 262 42% 32%;
+  --refund-soft: 262 46% 95%;
+
+  --focus: 190 90% 33%;
+
+  --console-edge: 0 0% 100% / 0.9;
+  --console-edge-strong: 0 0% 100% / 1;
+
+  --shadow-xs: 0 1px 1px 0 rgb(17 24 39 / 0.04);
+  --shadow-sm: 0 1px 2px 0 rgb(17 24 39 / 0.07), 0 1px 1px 0 rgb(17 24 39 / 0.04);
+  --shadow-md: 0 6px 18px -6px rgb(17 24 39 / 0.12), 0 2px 5px -2px rgb(17 24 39 / 0.07);
+  --shadow-lg: 0 20px 48px -16px rgb(17 24 39 / 0.22), 0 6px 14px -6px rgb(17 24 39 / 0.1);
+}
+
+@layer components {
+  /* A console surface: the one boxed element. A lit top edge does the work a drop shadow does on
+     paper, which is why these read as raised on a dark background without any glow. */
+  .console-card {
+    @apply rounded-xl border border-line bg-surface shadow-sm;
+  }
+  /* For a card that holds a table or a list: the children draw their own padding. */
+  .console-card-flush {
+    @apply overflow-hidden rounded-xl border border-line bg-surface shadow-sm;
+  }
+
+  /* The quiet grid behind the shell, so a large empty area still reads as a surface. */
+  .console-grid-bg {
+    background-image:
+      linear-gradient(to right, hsl(var(--line) / 0.5) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--line) / 0.5) 1px, transparent 1px);
+    background-size: 64px 64px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black, transparent 75%);
+  }
+
+  /* Sidebar item. The active one is a filled pill with a lit edge, never colour alone: it also
+     carries aria-current and a brighter label. */
+  .console-nav-item {
+    @apply relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-ink-secondary;
+    @apply transition-colors duration-base ease-ledger;
+  }
+  .console-nav-item:hover {
+    @apply bg-surface-subtle text-ink;
+  }
+  .console-nav-item[aria-current='page'] {
+    @apply bg-surface-subtle font-medium text-ink shadow-xs;
+  }
+  .console-nav-item[aria-current='page']::before {
+    content: '';
+    @apply absolute inset-y-1.5 -left-2.5 w-[3px] rounded-full bg-brand;
+  }
+
+  /* Numbers the eye should land on first. */
+  .console-figure {
+    @apply font-sans text-[1.75rem] font-semibold leading-none tracking-[-0.02em] tabular-nums text-ink;
+  }
+  .console-figure-lg {
+    @apply font-sans text-[2.25rem] font-semibold leading-none tracking-[-0.025em] tabular-nums text-ink;
+  }
+
+  /* Table rows: a hover tint rather than stripes, so a long column of figures stays quiet. */
+  .console-row {
+    @apply transition-colors duration-fast ease-ledger;
+  }
+  .console-row:hover {
+    @apply bg-surface-subtle/60;
+  }
+}

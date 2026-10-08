@@ -30,6 +30,55 @@ export interface TrendPoint {
   value: number;
 }
 
+const STROKES: Record<TrendTone, string> = {
+  brand: 'stroke-brand',
+  brass: 'stroke-brass',
+  success: 'stroke-success',
+  info: 'stroke-info',
+  danger: 'stroke-danger',
+  refund: 'stroke-refund',
+};
+
+/**
+ * A figure's recent shape, at the size of a word.
+ *
+ * It sits beside a number to say which way it has been going, and carries no axis, no labels and no
+ * tooltip — at this size they would be unreadable. It is a hint, never the evidence: the chart the
+ * number can actually be read from is further down the page, and this one is hidden from screen
+ * readers because the figure it decorates already says everything.
+ */
+export function Sparkline({ points, tone = 'brand', className }: {
+  points: number[];
+  tone?: TrendTone;
+  className?: string;
+}) {
+  // Nothing to show is not a flat line: a dash floating beside a zero reads as a stray mark, and
+  // suggests a trend where there is no data at all.
+  if (points.length < 2) return null;
+  const max = Math.max(...points);
+  const min = Math.min(...points);
+  if (max === min) return null;
+  const span = max - min;
+  const W = 64;
+  const H = 20;
+  const step = W / (points.length - 1);
+  const d = points
+    .map((value, i) => `${i === 0 ? 'M' : 'L'}${(i * step).toFixed(2)},${(H - ((value - min) / span) * (H - 3) - 1.5).toFixed(2)}`)
+    .join(' ');
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className={cn('h-5 w-16 overflow-visible', className)} aria-hidden focusable="false">
+      <path d={d} fill="none" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={cn(STROKES[tone], 'opacity-80')} />
+      <circle
+        cx={W}
+        cy={H - ((points[points.length - 1] - min) / span) * (H - 3) - 1.5}
+        r="2"
+        className={cn(fills[tone])}
+      />
+    </svg>
+  );
+}
+
 export function Trend({ title, unit, points, tone = 'brand', className, format = (v: number) => v.toLocaleString('en-IN') }: {
   title: string;
   /** What one unit is, for the labels and the total ("contracts", "coins"). */
@@ -108,10 +157,10 @@ export function Trend({ title, unit, points, tone = 'brand', className, format =
         <summary className="cursor-pointer list-none text-2xs font-medium text-ink-muted underline-offset-4 hover:text-ink hover:underline">
           Read as a table
         </summary>
-        <div className="mt-2 max-h-48 overflow-auto rounded border">
+        <div className="mt-2 max-h-48 overflow-auto rounded-lg border border-line">
           <table className="w-full text-xs">
             <caption className="sr-only">{title} by day</caption>
-            <thead className="sticky top-0 bg-surface-subtle">
+            <thead className="sticky top-0 bg-surface-subtle text-ink-secondary">
               <tr>
                 <th scope="col" className="px-2 py-1 text-left font-medium">Day</th>
                 <th scope="col" className="px-2 py-1 text-right font-medium">{unit}</th>
@@ -119,7 +168,7 @@ export function Trend({ title, unit, points, tone = 'brand', className, format =
             </thead>
             <tbody>
               {points.map((point) => (
-                <tr key={point.day} className="border-t">
+                <tr key={point.day} className="border-t border-line">
                   <td className="px-2 py-1">{formatDate(point.day)}</td>
                   <td className="px-2 py-1 text-right tabular-nums">{format(point.value)}</td>
                 </tr>
